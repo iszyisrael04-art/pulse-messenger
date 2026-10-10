@@ -8,7 +8,11 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'repository.dart' hide Row;
 import 'profile.dart';
+import 'avatar.dart';
 import 'admin.dart';
+import 'channels.dart';
+import 'notifications.dart';
+import 'push.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, required this.toggleTheme});
@@ -137,9 +141,9 @@ class _HomeScreenState extends State<HomeScreen> {
       String? attachment;
       var body = composer.text;
       if (file) {
-        final result = await FilePicker.platform.pickFiles();
+        final result = await FilePicker.pickFile();
         if (result == null) return;
-        final selected = result.files.single;
+        final selected = result;
         if (selected.path == null) throw Exception('File unavailable');
         attachment = await repo.upload(File(selected.path!), selected.name);
         if (body.trim().isEmpty) body = selected.name;
@@ -689,8 +693,16 @@ class _HomeScreenState extends State<HomeScreen> {
               padding: const EdgeInsets.fromLTRB(14, 10, 6, 8),
               decoration: BoxDecoration(
                 color: mine
-                    ? Theme.of(context).colorScheme.primaryContainer
+                    ? null
                     : Theme.of(context).colorScheme.surfaceContainerHigh,
+                gradient: mine
+                    ? LinearGradient(
+                        colors: [
+                          Theme.of(context).colorScheme.primaryContainer,
+                          Theme.of(context).colorScheme.tertiaryContainer,
+                        ],
+                      )
+                    : null,
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Row(
@@ -916,104 +928,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     ],
   );
-  Widget channelsView() => Column(
-    children: [
-      header(
-        'Channels',
-        action: IconButton(
-          tooltip: 'Create public channel',
-          onPressed: () async {
-            final name = await prompt('Public channel name');
-            if (name == null || name.isEmpty) return;
-            final description = await prompt('Channel description');
-            if (description == null) return;
-            await perform(() async {
-              await repo.rpc('create_channel', {
-                'p_name': name,
-                'p_description': description,
-              });
-            });
-          },
-          icon: const Icon(Icons.add),
-        ),
-      ),
-      Expanded(
-        child: repo.channels.isEmpty
-            ? const Center(child: Text('Create the first Pulse channel'))
-            : ListView(
-                children: repo.channels.map((c) {
-                  final followed = repo.followers.any(
-                    (f) =>
-                        f['channel_id'] == c['id'] && f['user_id'] == repo.uid,
-                  );
-                  final count = repo.followers
-                      .where((f) => f['channel_id'] == c['id'])
-                      .length;
-                  final items = repo.posts
-                      .where((p) => p['channel_id'] == c['id'])
-                      .toList();
-                  return Card(
-                    margin: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 8,
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  '${c['name']}${c['verified'] == true ? ' ✓' : ''}',
-                                  style: Theme.of(context).textTheme.titleLarge,
-                                ),
-                              ),
-                              TextButton(
-                                onPressed: () => perform(() async {
-                                  await repo.rpc('follow_channel', {
-                                    'p_channel': c['id'],
-                                    'p_follow': !followed,
-                                  });
-                                }),
-                                child: Text(followed ? 'Unfollow' : 'Follow'),
-                              ),
-                            ],
-                          ),
-                          Text('$count followers · ${c['description']}'),
-                          if (c['owner_id'] == repo.uid)
-                            TextButton.icon(
-                              onPressed: () async {
-                                final body = await prompt(
-                                  'Channel announcement',
-                                  lines: 4,
-                                );
-                                if (body != null && body.isNotEmpty)
-                                  await perform(() async {
-                                    await repo.rpc('channel_post', {
-                                      'p_channel': c['id'],
-                                      'p_body': body,
-                                    });
-                                  });
-                              },
-                              icon: const Icon(Icons.edit),
-                              label: const Text('Post announcement'),
-                            ),
-                          for (final p in items.take(5))
-                            Padding(
-                              padding: const EdgeInsets.only(top: 12),
-                              child: Text(p['body']),
-                            ),
-                        ],
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-      ),
-    ],
-  );
+  Widget channelsView() => ChannelsScreen(repo: repo);
   Widget settingsView() => ListView(
     children: [
       header('Settings'),
@@ -1061,42 +976,26 @@ class _HomeScreenState extends State<HomeScreen> {
         title: const Text('Dark / light theme'),
         onTap: widget.toggleTheme,
       ),
-      Card(
-        margin: const EdgeInsets.all(20),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Pulse Premium · \$3 / month',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                repo.premiumUntil != null &&
-                        repo.premiumUntil!.isAfter(DateTime.now())
-                    ? 'Premium active until ${repo.premiumUntil!.toLocal().toString().substring(0, 10)}'
-                    : 'Subscription billing is not connected yet. Promo redemption is available.',
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'This beta records Premium access. Exclusive themes, animated avatars, larger uploads and other benefits are not unlocked yet.',
-              ),
-              TextButton(
-                onPressed: () async {
-                  final code = await prompt('Redeem Premium code');
-                  if (code != null && code.isNotEmpty)
-                    await perform(() async {
-                      await repo.rpc('redeem', {'p_code': code});
-                      notice('Premium redeemed successfully.');
-                    });
-                },
-                child: const Text('Redeem a code'),
-              ),
-            ],
-          ),
+      SwitchListTile(
+        secondary: const Icon(Icons.notifications_active_outlined),
+        title: const Text('Message notifications'),
+        subtitle: Text(
+          PulsePush.instance.status ?? 'Alerts while Pulse is running. Windows closed-app push is not configured.',
         ),
+        value: PulseNotifications.instance.enabled,
+        onChanged: (value) async {
+          await perform(() => PulseNotifications.instance.setEnabled(value));
+        },
+      ),
+      ListTile(
+        leading: const Icon(Icons.notification_add_outlined),
+        title: const Text('Test notification'),
+        onTap: () async {
+          final ok = await PulseNotifications.instance.test();
+          notice(
+            ok ? 'Notification requested. Check your device alerts.' : 'Notifications are disabled or unavailable. Check system permissions.',
+          );
+        },
       ),
       ListTile(
         leading: const Icon(Icons.lock_outline),
@@ -1194,53 +1093,6 @@ class FeatureNotice extends StatelessWidget {
           ],
         ),
       ),
-    ),
-  );
-}
-
-class PulseAvatar extends StatefulWidget {
-  const PulseAvatar({
-    super.key,
-    required this.repo,
-    required this.path,
-    required this.name,
-    this.radius = 24,
-  });
-  final PulseRepository repo;
-  final String? path;
-  final String name;
-  final double radius;
-  @override
-  State<PulseAvatar> createState() => _PulseAvatarState();
-}
-
-class _PulseAvatarState extends State<PulseAvatar> {
-  Future<String?>? future;
-  @override
-  void initState() {
-    super.initState();
-    future = widget.repo.avatar(widget.path);
-  }
-
-  @override
-  void didUpdateWidget(PulseAvatar old) {
-    super.didUpdateWidget(old);
-    if (old.path != widget.path) future = widget.repo.avatar(widget.path);
-  }
-
-  @override
-  Widget build(BuildContext context) => FutureBuilder<String?>(
-    future: future,
-    builder: (_, s) => CircleAvatar(
-      radius: widget.radius,
-      backgroundImage: s.data == null ? null : NetworkImage(s.data!),
-      child: s.data != null
-          ? null
-          : Text(
-              widget.name.isEmpty
-                  ? 'P'
-                  : widget.name.characters.first.toUpperCase(),
-            ),
     ),
   );
 }
