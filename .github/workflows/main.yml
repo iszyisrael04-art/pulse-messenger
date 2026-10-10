@@ -1,0 +1,58 @@
+name: Pulse native beta builds
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.7'
+          channel: stable
+          cache: true
+      - run: python3 scripts/bootstrap.py
+      - run: flutter pub get
+      - run: dart format lib test
+      - run: flutter analyze --no-fatal-infos --no-fatal-warnings
+      - run: python test/test_bootstrap.py
+      - run: flutter test
+      # Private-beta APK uses debug signing. Release signing requires a real keystore.
+      - run: flutter build apk --debug --dart-define-from-file=config.example.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Pulse-Android-Beta
+          path: |
+            build/app/outputs/flutter-apk/app-debug.apk
+            pubspec.lock
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.7'
+          channel: stable
+          cache: true
+      - run: python scripts/bootstrap.py
+      - run: flutter pub get
+      - run: flutter analyze --no-fatal-infos --no-fatal-warnings
+      - run: python test/test_bootstrap.py
+      - run: flutter test
+      - run: flutter build windows --release --dart-define-from-file=config.example.json
+      - run: choco install innosetup --yes --no-progress
+      - shell: pwsh
+        run: '& "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" scripts/windows-installer.iss'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Pulse-Windows-Beta
+          path: |
+            dist/*.exe
+            build/windows/x64/runner/Release/
+            pubspec.lock
