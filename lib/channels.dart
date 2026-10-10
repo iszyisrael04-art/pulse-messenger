@@ -7,7 +7,7 @@ import 'package:livekit_client/livekit_client.dart' as lk;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
-import 'profile.dart';
+import 'avatar.dart';
 import 'repository.dart' hide Row;
 
 class ChannelsScreen extends StatefulWidget {
