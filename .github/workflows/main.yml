@@ -80,12 +80,13 @@ jobs:
       - name: Run Flutter tests
         run: flutter test
 
-      - name: Fix Firebase Windows CMake compatibility
+      - name: Fix Windows native compatibility
         shell: pwsh
         run: |
           $path = "windows/CMakeLists.txt"
           $content = Get-Content $path -Raw
           $prefix = "set(CMAKE_POLICY_VERSION_MINIMUM 3.5)`n"
+          $prefix += "add_compile_definitions(_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS)`n"
           Set-Content -Path $path -Value ($prefix + $content) -Encoding utf8
 
       - name: Build Windows application
