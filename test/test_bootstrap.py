@@ -22,7 +22,9 @@ class NativeConfigurationTest(unittest.TestCase):
                 runpy.run_path(str(script))
                 runpy.run_path(str(script))
                 self.assertEqual(run.call_args.args[0][0], r'C:\flutter\bin\flutter.bat')
-                self.assertEqual(run.call_args.kwargs['cwd'], root)
+                self.assertTrue(
+    run.call_args.kwargs['cwd'].samefile(root)
+)
             text = manifest.read_text()
             for permission in ['INTERNET', 'CAMERA', 'RECORD_AUDIO', 'POST_NOTIFICATIONS']:
                 self.assertEqual(text.count('android.permission.' + permission), 1)
