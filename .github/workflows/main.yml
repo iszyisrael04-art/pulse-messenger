@@ -1,55 +1,105 @@
 name: Pulse native beta builds
+
 on:
   workflow_dispatch:
+
 permissions:
   contents: read
+
 jobs:
   android:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
+
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.47.7'
           channel: stable
           cache: true
-      - run: python3 scripts/bootstrap.py
-      - run: flutter pub get
-      - run: dart format lib test
-      - run: flutter analyze --no-fatal-infos --no-fatal-warnings
-      - run: python test/test_bootstrap.py
-      - run: flutter test
-      # Private-beta APK uses debug signing. Release signing requires a real keystore.
-      - run: flutter build apk --debug --dart-define-from-file=config.example.json
-      - uses: actions/upload-artifact@v4
+
+      - name: Generate native projects
+        run: python3 scripts/bootstrap.py
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Format Dart files
+        run: dart format lib test
+
+      - name: Analyze code
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+
+      - name: Test bootstrap
+        run: python3 test/test_bootstrap.py
+
+      - name: Run Flutter tests
+        run: flutter test
+
+      - name: Build Android beta APK
+        run: flutter build apk --debug --dart-define-from-file=config.example.json
+
+      - name: Upload Android build
+        uses: actions/upload-artifact@v4
         with:
           name: Pulse-Android-Beta
           path: |
             build/app/outputs/flutter-apk/app-debug.apk
             pubspec.lock
+
   windows:
     runs-on: windows-latest
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.47.7'
           channel: stable
           cache: true
-      - run: python scripts/bootstrap.py
-      - run: flutter pub get
-      - run: flutter analyze --no-fatal-infos --no-fatal-warnings
-      - run: python test/test_bootstrap.py
-      - run: flutter test
-      - run: flutter build windows --release --dart-define-from-file=config.example.json
-      - run: choco install innosetup --yes --no-progress
-      - shell: pwsh
+
+      - name: Generate native projects
+        run: python scripts/bootstrap.py
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze code
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+
+      - name: Test bootstrap
+        run: python test/test_bootstrap.py
+
+      - name: Run Flutter tests
+        run: flutter test
+
+      - name: Fix Firebase Windows CMake compatibility
+        shell: pwsh
+        run: |
+          $path = "windows/CMakeLists.txt"
+          $content = Get-Content $path -Raw
+          $prefix = "set(CMAKE_POLICY_VERSION_MINIMUM 3.5)`n"
+          Set-Content -Path $path -Value ($prefix + $content) -Encoding utf8
+
+      - name: Build Windows application
+        run: flutter build windows --release --dart-define-from-file=config.example.json
+
+      - name: Install Inno Setup
+        run: choco install innosetup --yes --no-progress
+
+      - name: Create Windows installer
+        shell: pwsh
         run: '& "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" scripts/windows-installer.iss'
-      - uses: actions/upload-artifact@v4
+
+      - name: Upload Windows build
+        uses: actions/upload-artifact@v4
         with:
           name: Pulse-Windows-Beta
           path: |
