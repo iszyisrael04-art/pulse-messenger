@@ -1,4 +1,6 @@
-For 0.2 additions and authoritative setup status, read [UPDATE_0.2.md](UPDATE_0.2.md) first.
+For the current social upgrade, follow [UPGRADE_0.4.md](UPGRADE_0.4.md); older stages below are historical implementation guidance.
+
+For 0.3 additions and authoritative setup status, read [UPDATE_0.3.md](UPDATE_0.3.md) first.
 
 # Deployment and next stages
 
@@ -24,7 +26,7 @@ For E2EE use an audited protocol implementation and obtain a security review. Pr
 
 ## 4. Calls and background delivery
 
-Implement private authenticated signaling and call state; configure TURN and test networks that block direct peer connectivity. Use WebRTC for one-to-one media and an SFU for group calls. Configure FCM for Android, APNs for future iOS and an appropriate Windows notification/channel registration. Add microphone/camera permissions only when features exist, foreground-call service behavior, incoming-call UX, media routing, reconnect and rejection tests. Calls and push are currently absent.
+Private authenticated signaling and call state are implemented; configure TURN and test networks that block direct peer connectivity. Use WebRTC for one-to-one media and an SFU for group calls. Configure FCM for Android, APNs for future iOS and an appropriate Windows notification/channel registration. Add microphone/camera permissions only when features exist, foreground-call service behavior, incoming-call UX, media routing, reconnect and rejection tests. Call source and running-process notifications now exist; see UPDATE_0.3.md for credential, background and revocation limits. Closed-app delivery remains pending.
 
 ## 5. Billing, communities and media
 

@@ -1,40 +1,35 @@
-# Pulse Messenger 0.2 — native beta
+# PULSE 0.4 — native social platform beta
 
-Native Flutter clients for Android and Windows, connected to one Supabase backend. This is a staged beta, not a complete production-ready platform. No WebView wrapper or WhatsApp assets are used.
+This continues the existing Pulse Messenger Flutter project and shared Supabase backend. Android and Windows remain native applications. Accounts, chats, groups, statuses, channels, calls, authentication and Premium/promo records are preserved.
 
-**Start here:** [Update, installation and service setup](docs/UPDATE_0.2.md).
+**Start here:** [Upgrade and build instructions](docs/UPGRADE_0.4.md).
 
-## This update
+This first social stage implements Home discovery/following feeds; text/photo/video posts; multiple photos; likes/comments/saves/reposts; sharing into existing chats; separate vertical Reels; real uploads; private follow approval; server drafts; cover/profile views and basic creator totals. SQL permission/functionality tests passed. Native Flutter compilation and device/media behavior are **not verified here**.
 
-Dedicated channel feeds, admin-only announcements, photos/descriptions, following and reactions. LiveKit broadcast/viewer integration and follower live chat. Teal/coral/violet accents and gradient bubbles. Android/Windows local notifications plus optional Android Firebase background-push code. Premium is removed from the screens; records are preserved. Gifts and coins remain deferred.
+Navigation: Home, Reels, Create, Chats, Communities, Profile. Chats keeps Calls, Updates and Channels; Settings remains accessible. Communities currently retains group chats; full social communities are a later stage. Premium badges reflect actual backend entitlements and one-time 30DAYSPULSE redemption remains available. Paid $3/month billing is planned, not enabled.
+
+No new provider credentials are required for Home/Reels. Your existing backend has the additive social schema deployed. Do not rerun existing schema scripts on that project. Calls/channel live still require LiveKit credentials/TURN; phone OTP requires SMS configuration. Background incoming calls, closed-app push delivery, E2EE, production signing and automatic updates remain incomplete.
 
 ## Build
 
-Upload the contents of `pulse-messenger` to your repository. Run `.github/workflows/main.yml` in GitHub Actions. The jobs run dependency resolution, analyzer, tests and native compilation. Android outputs a debug-signed APK; Windows outputs a native installer and complete application bundle. This update has not yet passed those native build/device gates.
+Upload the **contents of `pulse-messenger/`** to the existing repository root and run `.github/workflows/main.yml`. Android produces a debug APK; Windows produces the native installer and complete bundle. CI runs dependency resolution, analysis and Flutter tests, including new feed-race tests. Commit the successful `pubspec.lock` from CI. Preserve existing signing/config files and never upload server secrets.
 
-For a configured local build machine:
+On a trusted configured machine:
 
 ```sh
 python scripts/bootstrap.py
 flutter pub get
+dart format lib test
 flutter analyze --no-fatal-infos --no-fatal-warnings
+python test/test_bootstrap.py
 flutter test
 flutter build apk --debug --dart-define-from-file=config.example.json
-flutter build windows --release --dart-define-from-file=config.example.json
 ```
 
-`config.example.json` contains only public Supabase project values. Add Firebase public Android app values only if enabling background push; never add service-account, LiveKit signing, SMTP or service_role secrets there.
+For Windows, retain the workflow CMake compatibility step before native building and the Inno installer step. See [UPGRADE_0.4.md](docs/UPGRADE_0.4.md) for exact artifacts, signing and update limits.
 
-## Required external setup
+## Evidence and boundaries
 
-- Supabase project: migrations 001–005, Auth and Storage. Existing Pulse project has these deployed.
-- Email OTP: configured SMTP and code-based signup/recovery email templates. Phone OTP: SMS provider required.
-- Livestreams: LiveKit project/server credentials stored as server secrets, plus two-device media testing. `pulse-live` is deployed but credentials are not configured.
-- Android background push: Firebase public app options, server FCM service account, trusted scheduler and explicit authorization to deploy `pulse-push`. That deployment was blocked by automatic approval review and remains pending. Local alerts do not require Firebase.
-- Windows closed-app push, private/group calls, E2EE, full communities, media status/stickers, automated updates, purchases and production signing are not implemented.
+[Feature status](docs/FEATURE_STATUS.md), [verification](docs/VERIFICATION.md) and [device acceptance checks](docs/SOCIAL_DEVICE_CHECKS.md) distinguish deployed/tested backend behavior from native source awaiting CI and future development. No APK/EXE is supplied in this ZIP. This beta is not a finished worldwide production service. Messages remain plaintext in the backend; no E2EE claim is made.
 
-## Validation and security
-
-Backend transactional tests passed for existing messaging authorization, new channel/live permissions and push token/queue privacy. Python bootstrap checks and standalone Dart validation passed. Native builds and external media/push delivery must be tested in GitHub Actions and on devices. See [Feature status](docs/FEATURE_STATUS.md) and [update notes](docs/UPDATE_0.2.md) for exact limits.
-
-All client-side mutations use authorized RPCs. Private schemas are unexposed. Tokens and media access are scoped. No end-to-end encryption claim is made. Review third-party/native SDK licenses in [THIRD_PARTY.md](THIRD_PARTY.md) before distribution.
+Previous 0.2/0.3 update notes are retained as historical context. The 0.4 guide is authoritative for the current release. Review third-party/native codec licenses before distribution.

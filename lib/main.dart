@@ -11,6 +11,9 @@ import 'push.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Bound decoded-image caching; video pages use one 8 MB player buffer.
+  PaintingBinding.instance.imageCache.maximumSize = 60;
+  PaintingBinding.instance.imageCache.maximumSizeBytes = 48 * 1024 * 1024;
   const url = String.fromEnvironment('SUPABASE_URL');
   const key = String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY');
   if (url.isEmpty || key.isEmpty) {
@@ -62,10 +65,18 @@ class PulseApp extends StatefulWidget {
 class _PulseAppState extends State<PulseApp> {
   ThemeMode mode = ThemeMode.dark;
   late final StreamSubscription<AuthState> auth;
+  final navigator = GlobalKey<NavigatorState>();
+  String? previousUid;
   @override
   void initState() {
     super.initState();
+    previousUid = Supabase.instance.client.auth.currentUser?.id;
     auth = Supabase.instance.client.auth.onAuthStateChange.listen((_) {
+      final currentUid = Supabase.instance.client.auth.currentUser?.id;
+      if (currentUid != previousUid) {
+        navigator.currentState?.popUntil((route) => route.isFirst);
+        previousUid = currentUid;
+      }
       if (mounted) setState(() {});
     });
   }
@@ -111,7 +122,8 @@ class _PulseAppState extends State<PulseApp> {
   @override
   Widget build(BuildContext context) => MaterialApp(
     debugShowCheckedModeBanner: false,
-    title: 'Pulse Messenger',
+    navigatorKey: navigator,
+    title: 'PULSE',
     theme: theme(Brightness.light),
     darkTheme: theme(Brightness.dark),
     themeMode: mode,

@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import 'repository.dart' hide Row;
 import 'profile.dart';
@@ -13,6 +12,13 @@ import 'admin.dart';
 import 'channels.dart';
 import 'notifications.dart';
 import 'push.dart';
+import 'statuses.dart';
+import 'calls.dart';
+import 'media.dart';
+import 'voice.dart';
+import 'social.dart';
+import 'social_repository.dart';
+import 'social_create.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, required this.toggleTheme});
@@ -23,7 +29,10 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   late final PulseRepository repo;
-  int section = 0;
+  late final PulseCalls calls;
+  bool openingCall = false;
+  int section = 0, socialSection = 0;
+  late final SocialStore social;
   final composer = TextEditingController(), search = TextEditingController();
   String? reply;
   bool sending = false;
@@ -33,6 +42,9 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     repo = PulseRepository(Supabase.instance.client)..addListener(changed);
     repo.initialize();
+    social = SocialStore(repo);
+    calls = PulseCalls(repo)..addListener(changed);
+    calls.start();
   }
 
   void changed() {
@@ -41,6 +53,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    calls.removeListener(changed);
+    calls.dispose();
     repo.removeListener(changed);
     repo.dispose();
     composer.dispose();
@@ -129,7 +143,11 @@ class _HomeScreenState extends State<HomeScreen> {
       });
       await repo.refresh();
       await repo.openChat(id as String);
-      if (mounted) setState(() => section = 0);
+      if (mounted)
+        setState(() {
+          section = 0;
+          socialSection = 3;
+        });
     });
   }
 
@@ -138,17 +156,32 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!file && composer.text.trim().isEmpty) return;
     setState(() => sending = true);
     try {
-      String? attachment;
+      String? attachment, mime;
+      final chatId = repo.activeChat;
+      final replying = reply;
       var body = composer.text;
       if (file) {
         final result = await FilePicker.pickFile();
         if (result == null) return;
         final selected = result;
         if (selected.path == null) throw Exception('File unavailable');
-        attachment = await repo.upload(File(selected.path!), selected.name);
+        mime = mimeFor(selected.name);
+        attachment = await repo.upload(
+          File(selected.path!),
+          selected.name,
+          contentType: mime,
+          chatId: chatId,
+        );
         if (body.trim().isEmpty) body = selected.name;
       }
-      await repo.send(body, reply: reply, attachment: attachment);
+      await repo.send(
+        body,
+        reply: replying,
+        attachment: attachment,
+        chatId: chatId,
+        mediaKind: mime == null ? null : kindFor(mime),
+        mediaMime: mime,
+      );
       composer.clear();
       reply = null;
       if (scroll.hasClients)
@@ -164,6 +197,155 @@ class _HomeScreenState extends State<HomeScreen> {
     } finally {
       if (mounted) setState(() => sending = false);
     }
+  }
+
+  Future<void> recordVoice() async {
+    final chatId = repo.activeChat;
+    if (sending || chatId == null) return;
+    final replying = reply;
+    await PulseMedia.pauseAll();
+    if (!mounted) return;
+    final note = await showDialog<PulseVoiceNote>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const VoiceRecorderDialog(),
+    );
+    if (note == null) return;
+    try {
+      if (!mounted) return;
+      setState(() => sending = true);
+      final path = await repo.upload(
+        note.file,
+        'voice-${DateTime.now().millisecondsSinceEpoch}.m4a',
+        contentType: 'audio/mp4',
+        chatId: chatId,
+      );
+      await repo.send(
+        '',
+        reply: replying,
+        attachment: path,
+        chatId: chatId,
+        mediaKind: 'audio',
+        mediaMime: 'audio/mp4',
+        duration: note.durationMs,
+        waveform: note.waveform,
+      );
+      reply = null;
+    } catch (_) {
+      notice(
+        'Could not upload voice note. Check your connection and try again.',
+      );
+    } finally {
+      try {
+        if (await note.file.exists()) await note.file.delete();
+      } catch (_) {}
+      if (mounted) setState(() => sending = false);
+    }
+  }
+
+  Future<void> startCall(String kind) async {
+    if (openingCall || repo.activeChat == null) return;
+    await PulseMedia.pauseAll();
+    openingCall = true;
+    try {
+      final credentials = await calls.invoke(
+        'start',
+        chatId: repo.activeChat,
+        kind: kind,
+      );
+      if (!mounted) return;
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) =>
+              PulseCallScreen(calls: calls, credentials: credentials),
+        ),
+      );
+    } catch (error) {
+      notice(callError(error));
+    } finally {
+      openingCall = false;
+      await calls.refresh();
+    }
+  }
+
+  Future<void> openCall(Map<String, dynamic> call) async {
+    if (openingCall) return;
+    await PulseMedia.pauseAll();
+    openingCall = true;
+    try {
+      final action = calls.ownMember(call)?['state'] == 'ringing'
+          ? 'accept'
+          : 'join';
+      final credentials = await calls.invoke(action, callId: call['id']);
+      if (!mounted) return;
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) =>
+              PulseCallScreen(calls: calls, credentials: credentials),
+        ),
+      );
+    } catch (error) {
+      notice(callError(error));
+    } finally {
+      openingCall = false;
+      await calls.refresh();
+    }
+  }
+
+  Widget incomingCallBanner(Map<String, dynamic> call) => MaterialBanner(
+    content: Text(
+      '${repo.profiles[call['caller_id']]?['display_name'] ?? 'Someone'} is calling · ${call['kind']}',
+    ),
+    leading: const Icon(Icons.ring_volume),
+    actions: [
+      TextButton(
+        onPressed: () async {
+          try {
+            await calls.decline(call['id']);
+          } catch (e) {
+            notice(callError(e));
+          }
+        },
+        child: const Text('Decline'),
+      ),
+      FilledButton(
+        onPressed: () => openCall(call),
+        child: const Text('Accept'),
+      ),
+    ],
+  );
+
+  Future<void> deleteMessage(Map<String, dynamic> message) async {
+    if (message['pending'] == true) {
+      await messageAction(message, 'discard');
+      return;
+    }
+    final mine = message['sender_id'] == repo.uid;
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        title: const Text('Delete message?'),
+        content: const Text('Choose who this message is removed for.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialog),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialog, 'hide'),
+            child: const Text('Delete for me'),
+          ),
+          if (mine && message['deleted_at'] == null)
+            FilledButton(
+              onPressed: () => Navigator.pop(dialog, 'delete'),
+              child: const Text('Delete for everyone'),
+            ),
+        ],
+      ),
+    );
+    if (choice != null) await messageAction(message, choice);
   }
 
   Future<void> messageAction(Map<String, dynamic> m, String action) async {
@@ -240,47 +422,84 @@ class _HomeScreenState extends State<HomeScreen> {
     final wide = MediaQuery.sizeOf(context).width >= 850;
     final firstSetup = repo.me != null && repo.me!['username'] == null;
     final titles = [
+      'Home',
+      'Reels',
+      'Create',
       'Chats',
-      'Calls',
-      'Updates',
       'Communities',
-      'Channels',
-      'Settings',
+      'Profile',
     ];
     final icons = [
+      Icons.home_outlined,
+      Icons.play_circle_outline,
+      Icons.add_box_outlined,
       Icons.chat_bubble_outline,
-      Icons.call_outlined,
-      Icons.auto_awesome_outlined,
       Icons.groups_outlined,
-      Icons.campaign_outlined,
-      Icons.settings_outlined,
+      Icons.person_outline,
     ];
-    final body = firstSetup
-        ? ProfilePanel(repo: repo, onSaved: repo.refresh)
-        : section == 0
+    final messenger = section == 0
         ? chatsView(wide)
         : section == 1
-        ? const FeatureNotice(
-            icon: Icons.video_call_outlined,
-            title: 'Calls are the next stage',
-            text: 'Voice and video calls are not implemented in this beta. WebRTC signaling, TURN, incoming-call delivery and device testing are still required.',
-          )
+        ? CallsList(calls: calls, open: openCall)
         : section == 2
         ? updatesView()
-        : section == 3
+        : channelsView();
+    final body = repo.me == null
+        ? Center(
+            child: repo.error == null
+                ? const CircularProgressIndicator()
+                : TextButton(
+                    onPressed: repo.refresh,
+                    child: const Text('Reconnect to load your account'),
+                  ),
+          )
+        : firstSetup
+        ? ProfilePanel(repo: repo, onSaved: repo.refresh)
+        : socialSection == 0
+        ? SocialFeed(store: social)
+        : socialSection == 1
+        ? PulseReels(store: social)
+        : socialSection == 3
+        ? Column(
+            children: [
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    for (var i = 0; i < 4; i++)
+                      Padding(
+                        padding: const EdgeInsets.all(6),
+                        child: ChoiceChip(
+                          label: Text(
+                            ['Chats', 'Calls', 'Updates', 'Channels'][i],
+                          ),
+                          selected: section == i,
+                          onSelected: (_) => setState(() => section = i),
+                        ),
+                      ),
+                    IconButton(
+                      tooltip: 'Settings',
+                      onPressed: openSettings,
+                      icon: const Icon(Icons.settings_outlined),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(child: messenger),
+            ],
+          )
+        : socialSection == 4
         ? groupsView()
-        : section == 4
-        ? channelsView()
-        : settingsView();
+        : SocialProfile(store: social, user: repo.uid, settings: openSettings);
     return Scaffold(
       body: SafeArea(
         child: Row(
           children: [
             if (wide)
               NavigationRail(
-                selectedIndex: section,
+                selectedIndex: socialSection,
                 onDestinationSelected: (v) {
-                  setState(() => section = v);
+                  selectSocial(v);
                 },
                 extended: false,
                 leading: const Padding(
@@ -309,6 +528,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ],
                     ),
+                  if (calls.incoming != null)
+                    incomingCallBanner(calls.incoming!),
                   Expanded(child: body),
                 ],
               ),
@@ -319,9 +540,9 @@ class _HomeScreenState extends State<HomeScreen> {
       bottomNavigationBar: wide
           ? null
           : NavigationBar(
-              selectedIndex: section,
+              selectedIndex: socialSection,
               onDestinationSelected: (v) {
-                setState(() => section = v);
+                selectSocial(v);
               },
               labelBehavior:
                   NavigationDestinationLabelBehavior.onlyShowSelected,
@@ -334,6 +555,33 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
     );
+  }
+
+  void openSettings() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => Scaffold(
+          appBar: AppBar(title: const Text('PULSE settings')),
+          body: settingsView(),
+        ),
+      ),
+    );
+  }
+
+  Future<void> selectSocial(int value) async {
+    await PulseMedia.pauseAll();
+    if (!mounted) return;
+    if (repo.me == null || repo.me!['username'] == null) return;
+    if (value == 2) {
+      final saved = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(builder: (_) => SocialComposer(store: social)),
+      );
+      if (saved == true && mounted) setState(() => socialSection = 5);
+      return;
+    }
+    setState(() => socialSection = value);
   }
 
   Widget header(String title, {Widget? action}) => Padding(
@@ -505,6 +753,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               IconButton(
+                tooltip: 'Voice call',
+                onPressed: () => startCall('voice'),
+                icon: const Icon(Icons.call_outlined),
+              ),
+              IconButton(
+                tooltip: 'Video call',
+                onPressed: () => startCall('video'),
+                icon: const Icon(Icons.videocam_outlined),
+              ),
+              IconButton(
                 tooltip: 'Refresh and mark as read',
                 onPressed: () => perform(() async {
                   await repo.refresh();
@@ -637,6 +895,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ),
+              IconButton(
+                tooltip: 'Record voice note',
+                onPressed: sending ? null : recordVoice,
+                icon: const Icon(Icons.mic_none),
+              ),
               const SizedBox(width: 8),
               FilledButton(
                 onPressed: sending ? null : send,
@@ -737,20 +1000,25 @@ class _HomeScreenState extends State<HomeScreen> {
                                 : FontStyle.normal,
                           ),
                         ),
-                        if (!deleted && m['attachment_path'] != null)
+                        if (!deleted &&
+                            RegExp(r'pulse:post:([0-9a-f-]{36})')
+                                .hasMatch(m['body'] as String))
                           TextButton.icon(
-                            onPressed: () => perform(() async {
-                              final url = await repo.db.storage
-                                  .from('pulse-media')
-                                  .createSignedUrl(m['attachment_path'], 60);
-                              if (!await launchUrl(
-                                Uri.parse(url),
-                                mode: LaunchMode.externalApplication,
-                              ))
-                                throw Exception('Cannot open file');
-                            }),
-                            icon: const Icon(Icons.attach_file),
-                            label: const Text('Open attachment'),
+                            onPressed: () => openSocialPost(
+                              context,
+                              social,
+                              RegExp(r'pulse:post:([0-9a-f-]{36})')
+                                  .firstMatch(m['body'])!
+                                  .group(1)!,
+                            ),
+                            icon: const Icon(Icons.article_outlined),
+                            label: const Text('Open Pulse post'),
+                          ),
+                        if (!deleted && m['attachment_path'] != null)
+                          PulseAttachment(
+                            key: ValueKey(m['id']),
+                            repo: repo,
+                            message: m,
                           ),
                         if (emojis.isNotEmpty) Text(emojis),
                         Text(
@@ -769,6 +1037,17 @@ class _HomeScreenState extends State<HomeScreen> {
                       ],
                     ),
                   ),
+                  IconButton(
+                    tooltip: 'Delete message',
+                    iconSize: 18,
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 40,
+                    ),
+                    padding: EdgeInsets.zero,
+                    onPressed: () => deleteMessage(m),
+                    icon: const Icon(Icons.delete_outline),
+                  ),
                   PopupMenuButton<String>(
                     padding: EdgeInsets.zero,
                     iconSize: 16,
@@ -786,10 +1065,15 @@ class _HomeScreenState extends State<HomeScreen> {
                                 value: 'reply',
                                 child: Text('Reply'),
                               ),
-                              const PopupMenuItem(
-                                value: 'forward',
-                                child: Text('Forward'),
-                              ),
+                              if ((m['body'] as String? ?? '').isNotEmpty)
+                                PopupMenuItem(
+                                  value: 'forward',
+                                  child: Text(
+                                    m['attachment_path'] == null
+                                        ? 'Forward'
+                                        : 'Forward text only',
+                                  ),
+                                ),
                               const PopupMenuItem(
                                 value: 'star',
                                 child: Text('Star / unstar'),
@@ -833,63 +1117,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget updatesView() => Column(
-    children: [
-      header(
-        'Updates',
-        action: IconButton(
-          tooltip: 'Post text status',
-          onPressed: () async {
-            final body = await prompt('Share a text status', lines: 4);
-            if (body != null && body.isNotEmpty)
-              await perform(() async {
-                await repo.rpc('post_status', {'p_body': body});
-              });
-          },
-          icon: const Icon(Icons.add),
-        ),
-      ),
-      const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 24),
-        child: Text(
-          'Visible to people who share a chat with you. Expires after 24 hours.',
-        ),
-      ),
-      Expanded(
-        child: repo.statuses.isEmpty
-            ? const Center(child: Text('No active status updates'))
-            : ListView(
-                children: repo.statuses
-                    .map(
-                      (s) => Card(
-                        margin: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 8,
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(20),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                repo.profiles[s['user_id']]?['display_name'] ??
-                                    'Pulse user',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              Text(s['body']),
-                            ],
-                          ),
-                        ),
-                      ),
-                    )
-                    .toList(),
-              ),
-      ),
-    ],
-  );
+  Widget updatesView() => StatusUpdates(repo: repo);
   Widget groupsView() => Column(
     children: [
       header(
@@ -919,7 +1147,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   onTap: () {
                     repo.openChat(c['id']);
-                    setState(() => section = 0);
+                    setState(() {
+                      section = 0;
+                      socialSection = 3;
+                    });
                   },
                 ),
               )
@@ -1028,6 +1259,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             'p_user': b['blocked_id'],
                             'p_block': false,
                           });
+                          social.hiddenCreators.remove(b['blocked_id']);
                         });
                       },
                       child: Text(
@@ -1056,7 +1288,7 @@ class _HomeScreenState extends State<HomeScreen> {
       const Padding(
         padding: EdgeInsets.all(24),
         child: Text(
-          'Pulse 0.1.0 · Private beta\nMessages are protected by access policies and TLS. End-to-end encryption, individual device management and MFA UI are not implemented yet. Do not use this beta for sensitive conversations.',
+          'PULSE 0.4.0 · Private beta\nMessages are protected by access policies and TLS. End-to-end encryption, individual device management and MFA UI are not implemented yet. Do not use this beta for sensitive conversations.',
         ),
       ),
     ],

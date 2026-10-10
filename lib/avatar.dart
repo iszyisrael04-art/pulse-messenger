@@ -10,19 +10,16 @@ class PulseAvatar extends StatefulWidget {
     required this.name,
     this.radius = 24,
   });
-
   final PulseRepository repo;
   final String? path;
   final String name;
   final double radius;
-
   @override
   State<PulseAvatar> createState() => _PulseAvatarState();
 }
 
 class _PulseAvatarState extends State<PulseAvatar> {
   Future<String?>? future;
-
   @override
   void initState() {
     super.initState();
@@ -32,20 +29,16 @@ class _PulseAvatarState extends State<PulseAvatar> {
   @override
   void didUpdateWidget(PulseAvatar old) {
     super.didUpdateWidget(old);
-    if (old.path != widget.path) {
-      future = widget.repo.avatar(widget.path);
-    }
+    if (old.path != widget.path) future = widget.repo.avatar(widget.path);
   }
 
   @override
   Widget build(BuildContext context) => FutureBuilder<String?>(
     future: future,
-    builder: (_, snapshot) => CircleAvatar(
+    builder: (_, s) => CircleAvatar(
       radius: widget.radius,
-      backgroundImage: snapshot.data == null
-          ? null
-          : NetworkImage(snapshot.data!),
-      child: snapshot.data != null
+      backgroundImage: s.data == null ? null : NetworkImage(s.data!),
+      child: s.data != null
           ? null
           : Text(
               widget.name.isEmpty

@@ -244,16 +244,30 @@ class PulseRepository extends ChangeNotifier {
 
   Future<dynamic> rpc(String name, Row params) =>
       db.rpc('pulse_$name', params: params);
-  Future<void> send(String body, {String? reply, String? attachment}) async {
-    if (activeChat == null || (body.trim().isEmpty && attachment == null))
+  Future<void> send(
+    String body, {
+    String? reply,
+    String? attachment,
+    String? chatId,
+    String? mediaKind,
+    String? mediaMime,
+    int? duration,
+    List<double>? waveform,
+  }) async {
+    if ((chatId ?? activeChat) == null ||
+        (body.trim().isEmpty && attachment == null))
       return;
     final row = <String, dynamic>{
       'id': const Uuid().v4(),
-      'chat_id': activeChat,
+      'chat_id': chatId ?? activeChat,
       'sender_id': uid,
       'body': body.trim(),
       'reply_to': reply,
       'attachment_path': attachment,
+      'media_kind': mediaKind,
+      'media_mime': mediaMime,
+      'duration_ms': duration,
+      'waveform': waveform,
       'created_at': DateTime.now().toUtc().toIso8601String(),
       'pending': true,
     };
@@ -272,13 +286,22 @@ class PulseRepository extends ChangeNotifier {
         pending.where((p) => p['failure'] == null),
       )) {
         try {
-          await rpc('send_message', {
-            'p_id': p['id'],
-            'p_chat': p['chat_id'],
-            'p_body': p['body'],
-            'p_reply': p['reply_to'],
-            'p_attachment': p['attachment_path'],
-          });
+          await rpc(
+            p['media_kind'] == null ? 'send_message' : 'send_media_message',
+            {
+              'p_id': p['id'],
+              'p_chat': p['chat_id'],
+              'p_body': p['body'],
+              'p_reply': p['reply_to'],
+              'p_attachment': p['attachment_path'],
+              if (p['media_kind'] != null) ...{
+                'p_kind': p['media_kind'],
+                'p_mime': p['media_mime'],
+                'p_duration': p['duration_ms'],
+                'p_waveform': p['waveform'],
+              },
+            },
+          );
           pending.remove(p);
           await vault.write(key: _queueKey, value: jsonEncode(pending));
         } on PostgrestException catch (e) {
@@ -332,6 +355,8 @@ class PulseRepository extends ChangeNotifier {
     File file,
     String filename, {
     bool avatar = false,
+    String? contentType,
+    String? chatId,
   }) async {
     if (await file.length() > (avatar ? 2097152 : 10485760))
       throw Exception(
@@ -339,13 +364,15 @@ class PulseRepository extends ChangeNotifier {
             ? 'Avatar must be under 2 MB'
             : 'File must be under 10 MB in this beta',
       );
+    if (!avatar && (chatId ?? activeChat) == null)
+      throw Exception('Choose a chat first');
     final safe = filename.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
     final path = avatar
         ? '$uid/${const Uuid().v4()}-$safe'
-        : '$activeChat/$uid/${const Uuid().v4()}-$safe';
+        : '${chatId ?? activeChat}/$uid/${const Uuid().v4()}-$safe';
     await db.storage
         .from(avatar ? 'pulse-avatars' : 'pulse-media')
-        .upload(path, file);
+        .upload(path, file, fileOptions: FileOptions(contentType: contentType));
     return path;
   }
 

@@ -103,6 +103,14 @@ class PulseNotifications {
     );
   }
 
+  Future<bool> incomingCall(String id, bool video) => _show(
+    id.hashCode & 0x7fffffff,
+    'Pulse Messenger',
+    video
+        ? 'Incoming video call. Open Pulse to answer.'
+        : 'Incoming voice call. Open Pulse to answer.',
+  );
+
   Future<bool> test() =>
       _show(1, 'Pulse Messenger', 'Your Pulse notifications are enabled.');
 }

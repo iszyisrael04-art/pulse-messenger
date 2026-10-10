@@ -44,3 +44,33 @@ Automatic approval review rejected a Flutter command because its startup unexpec
 ## Not tested / not implemented
 
 Email/SMS OTP delivery and recovery delivery, native UI behavior, real-time delivery between native devices, storage uploads on device, offline reconnect/background behavior, group/admin UI actions, MFA, E2EE, calls, push, paid billing, signed releases and automatic updates. See FEATURE_STATUS.md for the precise feature boundaries.
+
+
+# Pulse 0.3 verification — 10 October 2026
+
+New transactional SQL tests ran against the connected backend using temporary fixture users/data and rollback. `test/calls_security.sql` passed call/member RLS isolation, nonmember start/accept/heartbeat rejection, internal-function denial, simultaneous busy reservation, accept/leave state, unanswered expiry, removed-member reconciliation and blocked contact prevention. A runtime ambiguous-variable bug was corrected in `call_start` before the passing run.
+
+`test/message_media_security.sql` passed media retry idempotency, peer/outsider visibility, foreign storage path rejection, MIME matching, waveform ranges and duration limits. Tests validate metadata and permissions, not actual audio decoding or delivery.
+
+Dart formatting parsed all 18 Dart files, standalone username/password checks passed, and the Python bootstrap test passed. Relevant APIs were inspected in the pinned official LiveKit/record/MediaKit package source. These are not Flutter semantic analysis, dependency resolution, native builds, visual QA or real-device media tests. Flutter execution remains blocked here by the earlier automatic approval review decision; it was not bypassed.
+
+The security advisor reports no public-table RLS or privileged public-function warnings. Six private internal tables intentionally deny direct client access through RLS with no policies. Auth leaked-password protection remains disabled and should be configured before release.
+
+Schemas 007/008 and `pulse-call` are deployed. LiveKit credentials/media delivery are not configured or verified. Closed-app FCM dispatch is not deployed. No APK/EXE from 0.3 is supplied.
+
+Existing core messaging authorization regression tests also passed on this update. A rerun of the unchanged status-media suite failed at the service transport layer with an expired request state; no new status regression pass is claimed. Its prior successful result remains documented in the 0.2 update notes.
+
+
+# PULSE 0.4 verification — 10 October 2026
+
+The uploaded 0.3 source was inspected and retained. Nine auth/messaging/profile/status/channel/security modules match the upload byte-for-byte. The call screen adds sequential, best-effort disposal and avoids leave RPCs after sign-out; signaling and control behavior are retained. Native cleanup testing remains required. The upgrade adds a social schema, isolated storage and UI modules; it does not reset existing accounts or conversation/subscription data.
+
+`test/social_security.sql` passed transactional tests on the connected backend for public posts/Reels, publishing retry safety and ownership, draft isolation, stable timestamp/UUID pagination, media permissions, private follow requests/approval, private-profile repost privacy, blocking, likes/saves/reposts/comments, unique view counts, own analytics, report/operator moderation, reference-only sharing and client grants. Publishing uses per-content locking to prevent concurrent ownership conflicts. All fixtures rolled back.
+
+Current core messaging/Premium, message media, status media and channel/live authorization suites passed again. The unchanged call suite rerun encountered an expired request-state transport error, so no new call regression pass is claimed. Its prior pass is recorded above. These SQL tests do not decode/upload real video bytes or prove native SDK operation.
+
+Dart formatting parses all source/test files. Python bootstrap and standalone username/password validation pass. New Flutter tests cover delayed-page versus refresh races, pagination duplicate/cursor handling, failed filter isolation and removing unfollowed creators. They are included for CI and were **not executed here**. Relevant MediaKit/video APIs were checked against pinned publisher source.
+
+The security advisor reports no public RLS/privileged-function warning; nine private internal tables intentionally have no client policies. Leaked-password protection remains disabled. Full Flutter package resolution/semantic analysis, native compilation, visual UI testing, real uploads/player lifecycle and low-end performance are not completed. Automatic approval review's earlier local Flutter metadata-endpoint block was not bypassed. Use GitHub Actions and the device acceptance checklist to close these gates.
+
+The additive 009 social installation script is deployed, including ownership locking, private creator/repost visibility, scoped operator media review and reference-only chat sharing. Supabase CLI migration-history generation/replay on a clean staging database remains a production deployment task. No public production launch or app binary is claimed.

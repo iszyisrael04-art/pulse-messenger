@@ -16,7 +16,7 @@ for permission in ['INTERNET', 'POST_NOTIFICATIONS', 'CAMERA', 'RECORD_AUDIO', '
 for feature in ['android.hardware.camera', 'android.hardware.microphone']:
     if feature not in s:
         s = s.replace('<application', f'<uses-feature android:name="{feature}" android:required="false" />\n    <application', 1)
-s = s.replace('android:label="pulse_messenger"', 'android:label="Pulse Messenger"')
+s = s.replace('android:label="pulse_messenger"', 'android:label="PULSE"').replace('android:label="Pulse Messenger"', 'android:label="PULSE"')
 for attribute in ['allowBackup', 'usesCleartextTraffic']:
     if 'android:' + attribute not in s:
         s = s.replace('<application', f'<application android:{attribute}="false"', 1)
@@ -42,7 +42,7 @@ if 'desugar_jdk_libs' not in s:
 gradle.write_text(s, encoding='utf-8')
 runner = root / 'windows/runner/main.cpp'
 if runner.exists():
-    runner.write_text(runner.read_text(encoding='utf-8').replace('L"pulse_messenger"', 'L"Pulse Messenger"'), encoding='utf-8')
+    runner.write_text(runner.read_text(encoding='utf-8').replace('L"pulse_messenger"', 'L"PULSE"').replace('L"Pulse Messenger"', 'L"PULSE"'), encoding='utf-8')
 default = root / 'test/widget_test.dart'
 if default.exists():
     s = default.read_text(encoding='utf-8')

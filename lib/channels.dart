@@ -204,13 +204,28 @@ Future<String?> channelPrompt(
   return value;
 }
 
+String liveErrorMessage(Object error) {
+  if (error is PostgrestException) return error.message;
+  if (error is FunctionException) {
+    if (error.status == 503) {
+      return 'Live streaming is not configured. The app owner must add LIVEKIT_URL, LIVEKIT_API_KEY and LIVEKIT_API_SECRET in Supabase Edge Function secrets.';
+    }
+    if (error.status == 401) return 'Your session expired. Sign in again.';
+    final details = error.details;
+    if (details is Map && details['error'] is String)
+      return details['error'] as String;
+    return 'The live service returned error ${error.status}. Please retry.';
+  }
+  return 'Could not connect to the live server. Check your network and camera/microphone permissions.';
+}
+
 void channelError(BuildContext context, Object error) {
-  final text = error is PostgrestException
-      ? error.message
-      : error is FunctionException
-      ? 'Live service unavailable. Check LiveKit configuration and your connection.'
-      : 'Unable to complete this action. Please try again.';
-  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  final message = error is FunctionException || error is PostgrestException
+      ? liveErrorMessage(error)
+      : error is StorageException
+      ? 'Picture upload failed. Choose a JPG, PNG or WebP under 2 MB.'
+      : 'Unable to complete this action. Pictures must be under 2 MB; check your connection and retry.';
+  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
 }
 
 class ChannelDetail extends StatefulWidget {
@@ -412,6 +427,12 @@ class _ChannelDetailState extends State<ChannelDetail> {
     appBar: AppBar(
       title: Text(channel?['name'] ?? 'Channel'),
       actions: [
+        if (admin)
+          IconButton(
+            tooltip: 'Change channel picture',
+            onPressed: photo,
+            icon: const Icon(Icons.add_a_photo_outlined),
+          ),
         if (admin)
           PopupMenuButton<String>(
             onSelected: (value) {
@@ -648,7 +669,7 @@ class _LiveScreenState extends State<LiveScreen> {
       });
       timer = Timer.periodic(const Duration(seconds: 4), (_) => poll());
       await poll();
-    } catch (_) {
+    } catch (connectionError) {
       if (widget.host) {
         try {
           await widget.repo.db.functions.invoke(
@@ -660,10 +681,7 @@ class _LiveScreenState extends State<LiveScreen> {
         }
       }
       await room.disconnect();
-      if (mounted)
-        setState(
-          () => error = 'Could not connect. LiveKit must be configured. Hosts also need camera and microphone permission.',
-        );
+      if (mounted) setState(() => error = liveErrorMessage(connectionError));
     }
   }
 

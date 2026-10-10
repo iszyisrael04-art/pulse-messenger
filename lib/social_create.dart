@@ -1,0 +1,288 @@
+import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart';
+
+import 'media.dart';
+import 'social_repository.dart';
+
+class SocialComposer extends StatefulWidget {
+  const SocialComposer({
+    super.key,
+    required this.store,
+    this.draft,
+    this.reel = false,
+  });
+  final SocialStore store;
+  final SocialRow? draft;
+  final bool reel;
+  @override
+  State<SocialComposer> createState() => _SocialComposerState();
+}
+
+class _SocialComposerState extends State<SocialComposer> {
+  late final String id;
+  late final TextEditingController body;
+  late String kind, audience;
+  final media = <SocialRow>[];
+  bool busy = false, dirty = false, saved = false;
+  int completed = 0, total = 0;
+  String? error;
+  @override
+  void initState() {
+    super.initState();
+    id = widget.draft?['id'] ?? const Uuid().v4();
+    body = TextEditingController(text: widget.draft?['body'] ?? '');
+    kind = widget.draft?['kind'] ?? (widget.reel ? 'reel' : 'post');
+    audience = widget.draft?['audience'] ?? 'public';
+    media.addAll(
+      (widget.draft?['media'] as List? ?? []).map(
+        (x) => Map<String, dynamic>.from(x as Map),
+      ),
+    );
+    body.addListener(() => dirty = true);
+  }
+
+  @override
+  void dispose() {
+    body.dispose();
+    super.dispose();
+  }
+
+  Future<void> pick() async {
+    if (busy) return;
+    final selected = await FilePicker.pickFile(
+      type: FileType.custom,
+      allowedExtensions: kind == 'reel'
+          ? ['mp4', 'webm', 'mov']
+          : ['jpg', 'jpeg', 'png', 'webp', 'mp4', 'webm', 'mov'],
+    );
+    if (selected?.path == null || !mounted) return;
+    final mime = mimeFor(selected!.name), mediaKind = kindFor(mime);
+    if (media.length >= 8 ||
+        (media.isNotEmpty &&
+            (mediaKind == 'video' || media.first['kind'] == 'video'))) {
+      setState(
+        () => error = 'Choose up to 8 photos or one video. Remove current media to switch.',
+      );
+      return;
+    }
+    setState(() {
+      busy = true;
+      error = null;
+      total = media.length + 1;
+      completed = media.length;
+    });
+    try {
+      final path = await widget.store.upload(
+        File(selected.path!),
+        selected.name,
+        id,
+      );
+      if (!mounted) return;
+      setState(() {
+        media.add({
+          'path': path,
+          'kind': mediaKind,
+          'mime': mime,
+          'name': selected.name,
+        });
+        completed++;
+        dirty = true;
+      });
+    } catch (e) {
+      if (mounted) setState(() => error = socialError(e));
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
+  Future<void> submit(bool draft) async {
+    if (busy) return;
+    if (body.text.trim().isEmpty && media.isEmpty) {
+      setState(() => error = 'Add text or media first.');
+      return;
+    }
+    if (kind == 'reel' &&
+        (media.length != 1 || media.first['kind'] != 'video')) {
+      setState(() => error = 'Choose one video for your Reel.');
+      return;
+    }
+    setState(() {
+      busy = true;
+      error = null;
+    });
+    try {
+      await widget.store.rpc('write', {
+        'p_id': id,
+        'p_kind': kind,
+        'p_body': body.text,
+        'p_media': media,
+        'p_audience': audience,
+        'p_draft': draft,
+      });
+      saved = true;
+      dirty = false;
+      if (mounted) Navigator.pop(context, true);
+    } catch (e) {
+      if (mounted) setState(() => error = socialError(e));
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
+  Future<void> close() async {
+    if (busy) return;
+    if (dirty && !saved) {
+      final discard = await showDialog<bool>(
+        context: context,
+        builder: (c) => AlertDialog(
+          title: const Text('Discard unsaved changes?'),
+          content: const Text(
+            'Use Save draft to keep this content. Uploaded files may remain until storage cleanup.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(c, false),
+              child: const Text('Keep editing'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(c, true),
+              child: const Text('Discard'),
+            ),
+          ],
+        ),
+      );
+      if (discard != true) return;
+    }
+    if (mounted) Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) => PopScope(
+    canPop: saved,
+    onPopInvokedWithResult: (didPop, _) {
+      if (!didPop) close();
+    },
+    child: Scaffold(
+      appBar: AppBar(
+        title: Text(kind == 'reel' ? 'Create Reel' : 'Create post'),
+        leading: IconButton(
+          onPressed: busy ? null : close,
+          icon: const Icon(Icons.close),
+        ),
+      ),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 680),
+          child: ListView(
+            padding: const EdgeInsets.all(24),
+            children: [
+              SegmentedButton<String>(
+                segments: const [
+                  ButtonSegment(
+                    value: 'post',
+                    label: Text('Post'),
+                    icon: Icon(Icons.edit_note),
+                  ),
+                  ButtonSegment(
+                    value: 'reel',
+                    label: Text('Reel'),
+                    icon: Icon(Icons.play_circle_outline),
+                  ),
+                ],
+                selected: {kind},
+                onSelectionChanged: busy || media.isNotEmpty
+                    ? null
+                    : (value) => setState(() {
+                        kind = value.first;
+                        dirty = true;
+                      }),
+              ),
+              const SizedBox(height: 20),
+              TextField(
+                controller: body,
+                enabled: !busy,
+                minLines: 4,
+                maxLines: 10,
+                maxLength: 4000,
+                decoration: const InputDecoration(
+                  hintText: 'Share a thought… Add #hashtags to your caption.',
+                ),
+              ),
+              DropdownButtonFormField<String>(
+                initialValue: audience,
+                items: const [
+                  DropdownMenuItem(
+                    value: 'public',
+                    child: Text('Public · signed-in Pulse users'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'followers',
+                    child: Text('Approved followers'),
+                  ),
+                ],
+                onChanged: busy
+                    ? null
+                    : (value) => setState(() {
+                        audience = value!;
+                        dirty = true;
+                      }),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Private accounts always restrict posts to approved followers. Photos: 10 MB each; videos: 40 MB. Upload optimized MP4 videos for best compatibility.',
+              ),
+              for (final item in media)
+                ListTile(
+                  leading: Icon(
+                    item['kind'] == 'video'
+                        ? Icons.movie_outlined
+                        : Icons.image_outlined,
+                  ),
+                  title: Text(item['name'] ?? 'Uploaded media'),
+                  trailing: IconButton(
+                    tooltip: 'Remove from post',
+                    onPressed: busy
+                        ? null
+                        : () => setState(() {
+                            media.remove(item);
+                            dirty = true;
+                          }),
+                    icon: const Icon(Icons.close),
+                  ),
+                ),
+              OutlinedButton.icon(
+                onPressed: busy ? null : pick,
+                icon: const Icon(Icons.add_photo_alternate_outlined),
+                label: Text(
+                  kind == 'reel' ? 'Choose video' : 'Add photo or video',
+                ),
+              ),
+              if (busy) ...[
+                const LinearProgressIndicator(),
+                Text(
+                  total > completed
+                      ? 'Uploading file ${completed + 1} of $total…'
+                      : 'Saving to Pulse…',
+                ),
+              ],
+              if (error != null)
+                Padding(padding: const EdgeInsets.all(12), child: Text(error!)),
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: busy ? null : () => submit(false),
+                child: const Text('Publish'),
+              ),
+              TextButton(
+                onPressed: busy ? null : () => submit(true),
+                child: const Text('Save draft'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}
