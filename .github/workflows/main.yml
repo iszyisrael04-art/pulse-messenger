@@ -9,6 +9,7 @@ permissions:
 jobs:
   android:
     runs-on: ubuntu-latest
+    timeout-minutes: 90
 
     steps:
       - uses: actions/checkout@v4
@@ -24,16 +25,16 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Generate native projects
+      - name: Generate native runners
         run: python3 scripts/bootstrap.py
 
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Format Dart files
+      - name: Format Dart source
         run: dart format lib test
 
-      - name: Analyze code
+      - name: Analyze source
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
 
       - name: Test bootstrap
@@ -42,13 +43,33 @@ jobs:
       - name: Run Flutter tests
         run: flutter test
 
-      - name: Build Android beta APK
+      - name: Install Android NDK
+        timeout-minutes: 20
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          NDK_VERSION="28.2.13676358"
+
+          if [ ! -f "$ANDROID_HOME/ndk/$NDK_VERSION/source.properties" ]; then
+            rm -rf "$ANDROID_HOME/ndk/$NDK_VERSION"
+            "$SDKMANAGER" --install "ndk;$NDK_VERSION"
+          fi
+
+          test -f "$ANDROID_HOME/ndk/$NDK_VERSION/source.properties"
+
+      # Private-beta APK uses debug signing.
+      # Production releases require a stable signing keystore.
+      - name: Build Android APK
+        timeout-minutes: 60
         run: flutter build apk --debug --dart-define-from-file=config.example.json
 
-      - name: Upload Android build
+      - name: Upload Android APK
         uses: actions/upload-artifact@v4
         with:
           name: Pulse-Android-Beta
+          if-no-files-found: error
           path: |
             build/app/outputs/flutter-apk/app-debug.apk
             pubspec.lock
@@ -65,13 +86,13 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Generate native projects
+      - name: Generate native runners
         run: python scripts/bootstrap.py
 
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Analyze code
+      - name: Analyze source
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
 
       - name: Test bootstrap
@@ -95,14 +116,15 @@ jobs:
       - name: Install Inno Setup
         run: choco install innosetup --yes --no-progress
 
-      - name: Create Windows installer
+      - name: Build Windows installer
         shell: pwsh
         run: '& "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" scripts/windows-installer.iss'
 
-      - name: Upload Windows build
+      - name: Upload Windows application
         uses: actions/upload-artifact@v4
         with:
           name: Pulse-Windows-Beta
+          if-no-files-found: error
           path: |
             dist/*.exe
             build/windows/x64/runner/Release/
