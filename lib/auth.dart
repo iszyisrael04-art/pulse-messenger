@@ -1,3 +1,4 @@
+import 'appearance.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -88,7 +89,8 @@ class _AuthScreenState extends State<AuthScreen> {
     } catch (_) {
       if (mounted)
         setState(
-          () => notice = 'Unable to continue. Check your details and connection, then try again.',
+          () => notice =
+              'Unable to continue. Check your details and connection, then try again.',
         );
     } finally {
       if (mounted) setState(() => busy = false);
@@ -126,8 +128,9 @@ class _AuthScreenState extends State<AuthScreen> {
                   const SizedBox(height: 28),
                   Text(
                     'Your people.\nYour Pulse.',
-                    style: Theme.of(context).textTheme.displaySmall
-                        ?.copyWith(fontWeight: FontWeight.w800),
+                    style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   const Text('A new space for conversations that matter.'),
@@ -173,8 +176,9 @@ class _AuthScreenState extends State<AuthScreen> {
                         return RegExp(r'^\+[1-9]\d{7,14}$').hasMatch(v ?? '')
                             ? null
                             : 'Include your country code, e.g. +234…';
-                      return RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
-                              .hasMatch(v ?? '')
+                      return RegExp(
+                            r'^[^\s@]+@[^\s@]+\.[^\s@]+$',
+                          ).hasMatch(v ?? '')
                           ? null
                           : 'Enter a valid email address';
                     },
@@ -230,7 +234,7 @@ class _AuthScreenState extends State<AuthScreen> {
                         ? const SizedBox(
                             width: 20,
                             height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                            child: PulseLoader(size: 22),
                           )
                         : Text(
                             codeSent

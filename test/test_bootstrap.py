@@ -30,6 +30,13 @@ class NativeConfigurationTest(unittest.TestCase):
             self.assertEqual(text.count('firebase_messaging_auto_init_enabled'), 1)
             self.assertEqual(gradle.read_text().count('desugar_jdk_libs'), 1)
             self.assertIn('VERSION_17', gradle.read_text())
+            import xml.etree.ElementTree as ET
+            for variant in ['values','values-night','values-v31','values-night-v31']:
+                tree = ET.parse(root / 'android/app/src/main/res' / variant / 'styles.xml')
+                launch = next(x for x in tree.getroot().findall('style') if x.get('name')=='LaunchTheme')
+                names = [x.get('name') for x in launch.findall('item')]
+                self.assertEqual(names.count('android:windowBackground'),1)
+                if 'v31' in variant: self.assertEqual(names.count('android:windowSplashScreenAnimatedIcon'),1)
             self.assertTrue((root / 'android/app/src/main/res/drawable/ic_pulse_notification.xml').is_file())
 if __name__ == '__main__':
     unittest.main()

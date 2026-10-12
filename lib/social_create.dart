@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'dart:typed_data';
+import 'package:path_provider/path_provider.dart';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -6,6 +8,9 @@ import 'package:uuid/uuid.dart';
 
 import 'media.dart';
 import 'social_repository.dart';
+import 'social_media.dart';
+import 'social_preview.dart';
+import 'social_premium.dart';
 
 class SocialComposer extends StatefulWidget {
   const SocialComposer({
@@ -29,6 +34,7 @@ class _SocialComposerState extends State<SocialComposer> {
   bool busy = false, dirty = false, saved = false;
   int completed = 0, total = 0;
   String? error;
+  double? progress;
   @override
   void initState() {
     super.initState();
@@ -52,6 +58,15 @@ class _SocialComposerState extends State<SocialComposer> {
 
   Future<void> pick() async {
     if (busy) return;
+    setState(() => busy = true);
+    try {
+      await chooseAndUpload();
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
+  Future<void> chooseAndUpload() async {
     final selected = await FilePicker.pickFile(
       type: FileType.custom,
       allowedExtensions: kind == 'reel'
@@ -60,11 +75,45 @@ class _SocialComposerState extends State<SocialComposer> {
     );
     if (selected?.path == null || !mounted) return;
     final mime = mimeFor(selected!.name), mediaKind = kindFor(mime);
+    final file = File(selected.path!);
+    try {
+      final access = await widget.store.uploadAccess(await file.length());
+      if (!mounted) return;
+      if (access['allowed'] != true) {
+        if (access['premium'] != true) {
+          await Navigator.push<bool>(
+            context,
+            MaterialPageRoute(
+              builder: (_) => PulsePremiumPage(store: widget.store),
+            ),
+          );
+        } else {
+          setState(
+            () => error = 'This file exceeds the current hosting maximum.',
+          );
+        }
+        return;
+      }
+    } catch (e) {
+      if (mounted) setState(() => error = socialError(e));
+      return;
+    }
+    if (!mounted) return;
+    final preview = await Navigator.push<({bool accepted, Uint8List? cover})>(
+      context,
+      MaterialPageRoute(
+        builder: (_) =>
+            SocialSelectionPreview(file: file, video: mediaKind == 'video'),
+      ),
+    );
+    if (preview?.accepted != true || !mounted) return;
+
     if (media.length >= 8 ||
         (media.isNotEmpty &&
             (mediaKind == 'video' || media.first['kind'] == 'video'))) {
       setState(
-        () => error = 'Choose up to 8 photos or one video. Remove current media to switch.',
+        () => error =
+            'Choose up to 8 photos or one video. Remove current media to switch.',
       );
       return;
     }
@@ -73,13 +122,28 @@ class _SocialComposerState extends State<SocialComposer> {
       error = null;
       total = media.length + 1;
       completed = media.length;
+      progress = 0;
     });
     try {
       final path = await widget.store.upload(
         File(selected.path!),
         selected.name,
         id,
+        progress: (v) {
+          if (mounted) setState(() => progress = v);
+        },
       );
+      String? coverPath;
+      if (preview!.cover != null) {
+        final dir = await getTemporaryDirectory();
+        final cover = File('${dir.path}/pulse-cover-${const Uuid().v4()}.jpg');
+        try {
+          await cover.writeAsBytes(preview.cover!);
+          coverPath = await widget.store.upload(cover, 'video-cover.jpg', id);
+        } finally {
+          if (await cover.exists()) await cover.delete();
+        }
+      }
       if (!mounted) return;
       setState(() {
         media.add({
@@ -87,6 +151,7 @@ class _SocialComposerState extends State<SocialComposer> {
           'kind': mediaKind,
           'mime': mime,
           'name': selected.name,
+          if (coverPath != null) 'cover_path': coverPath,
         });
         completed++;
         dirty = true;
@@ -112,6 +177,7 @@ class _SocialComposerState extends State<SocialComposer> {
     setState(() {
       busy = true;
       error = null;
+      progress = null;
     });
     try {
       await widget.store.rpc('write', {
@@ -232,25 +298,50 @@ class _SocialComposerState extends State<SocialComposer> {
               ),
               const SizedBox(height: 16),
               const Text(
-                'Private accounts always restrict posts to approved followers. Photos: 10 MB each; videos: 40 MB. Upload optimized MP4 videos for best compatibility.',
+                'Private accounts restrict posts to approved followers.',
               ),
               for (final item in media)
-                ListTile(
-                  leading: Icon(
-                    item['kind'] == 'video'
-                        ? Icons.movie_outlined
-                        : Icons.image_outlined,
-                  ),
-                  title: Text(item['name'] ?? 'Uploaded media'),
-                  trailing: IconButton(
-                    tooltip: 'Remove from post',
-                    onPressed: busy
-                        ? null
-                        : () => setState(() {
-                            media.remove(item);
-                            dirty = true;
-                          }),
-                    icon: const Icon(Icons.close),
+                Card(
+                  clipBehavior: Clip.antiAlias,
+                  child: Column(
+                    children: [
+                      SizedBox(
+                        height: 220,
+                        child:
+                            item['kind'] == 'image' ||
+                                item['cover_path'] != null
+                            ? SocialImage(
+                                store: widget.store,
+                                path: item['cover_path'] ?? item['path'],
+                              )
+                            : SocialInlineVideo(
+                                store: widget.store,
+                                postId: id,
+                                path: item['path'],
+                                recordView: false,
+                              ),
+                      ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          if (item['kind'] == 'video')
+                            const Padding(
+                              padding: EdgeInsets.all(8),
+                              child: Icon(Icons.videocam_outlined),
+                            ),
+                          IconButton(
+                            tooltip: 'Remove from post',
+                            onPressed: busy
+                                ? null
+                                : () => setState(() {
+                                    media.remove(item);
+                                    dirty = true;
+                                  }),
+                            icon: const Icon(Icons.close),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
               OutlinedButton.icon(
@@ -261,10 +352,10 @@ class _SocialComposerState extends State<SocialComposer> {
                 ),
               ),
               if (busy) ...[
-                const LinearProgressIndicator(),
+                LinearProgressIndicator(value: progress),
                 Text(
                   total > completed
-                      ? 'Uploading file ${completed + 1} of $total…'
+                      ? 'Uploading… ${((progress ?? 0) * 100).round()}%'
                       : 'Saving to Pulse…',
                 ),
               ],

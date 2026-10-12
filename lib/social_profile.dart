@@ -1,3 +1,4 @@
+import 'appearance.dart';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
@@ -171,7 +172,7 @@ class _SocialProfileState extends State<SocialProfile> {
     if (p == null)
       return Center(
         child: loading
-            ? const CircularProgressIndicator()
+            ? const PulseLoader()
             : Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [

@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import 'media.dart';
+import 'social_upload.dart';
 import 'repository.dart' hide Row;
 
 typedef SocialRow = Map<String, dynamic>;
@@ -13,6 +14,7 @@ typedef SocialRow = Map<String, dynamic>;
 String socialError(Object error) {
   if (error is PostgrestException) return error.message;
   if (error is StorageException) return error.message;
+  if (error is HttpException) return error.message;
   if (error is SocialFailure) return error.message;
   return 'Connection unavailable. Please retry.';
 }
@@ -40,11 +42,13 @@ class SocialStore {
     String kind = 'all',
     String? author,
     SocialRow? cursor,
+    String? tag,
   }) async {
-    final data = await rpc('feed', {
-      'p_mode': mode,
+    final data = await rpc(tag == null ? 'feed' : 'tag_feed', {
+      if (tag == null) 'p_mode': mode,
       'p_kind': kind,
-      'p_author': author,
+      if (tag == null) 'p_author': author,
+      if (tag != null) 'p_tag': tag,
       'p_before': cursor?['created_at'],
       'p_cursor': cursor?['id'],
       'p_limit': 12,
@@ -104,20 +108,49 @@ class SocialStore {
     await repo.refresh();
   }
 
-  Future<String> upload(File file, String name, String postId) async {
+  Future<SocialRow> uploadAccess(int bytes) async => Map<String, dynamic>.from(
+    await rpc('upload_access', {'p_bytes': bytes}) as Map,
+  );
+
+  Future<String> upload(
+    File file,
+    String name,
+    String postId, {
+    void Function(double)? progress,
+  }) async {
     final mime = mimeFor(name);
     final kind = kindFor(mime);
     if (kind != 'image' && kind != 'video')
       throw SocialFailure('Choose a photo or video');
-    final length = await file.length();
-    final limit = kind == 'image' ? 10485760 : 41943040;
-    if (length <= 0 || length > limit)
-      throw SocialFailure('Photos must be under 10 MB; videos under 40 MB');
+    final access = await uploadAccess(await file.length());
+    if (access['allowed'] != true)
+      throw SocialFailure(
+        access['premium'] == true
+            ? 'File exceeds the current hosting maximum.'
+            : 'Your file is over 500MB. Please upgrade to Premium to continue.',
+      );
     final safe = name.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
     final path = '$uid/$postId/${const Uuid().v4()}-$safe';
-    await repo.db.storage
-        .from('pulse-social')
-        .upload(path, file, fileOptions: FileOptions(contentType: mime));
+    final base = Uri.parse(const String.fromEnvironment('SUPABASE_URL'));
+    final endpoint = base.replace(
+      host:
+          base.host.endsWith('.supabase.co') &&
+              !base.host.endsWith('.storage.supabase.co')
+          ? '${base.host.split('.').first}.storage.supabase.co'
+          : base.host,
+      path: '/storage/v1/upload/resumable',
+      query: null,
+      fragment: null,
+    );
+    await PulseTusUploader(
+      endpoint: endpoint,
+      token: () async {
+        final session = repo.db.auth.currentSession;
+        if (session == null) throw SocialFailure('Sign in again to upload');
+        if (session.isExpired) await repo.db.auth.refreshSession();
+        return repo.db.auth.currentSession!.accessToken;
+      },
+    ).upload(file, path, mime, progress: progress);
     return path;
   }
 }
@@ -128,10 +161,11 @@ class SocialFeedController extends ChangeNotifier {
     this.mode = 'discovery',
     this.kind = 'all',
     this.author,
+    this.tag,
   });
   final SocialStore store;
   String mode, kind;
-  String? author;
+  String? author, tag;
   List<SocialRow> rows = [];
   SocialRow? cursor;
   bool loading = false, hasMore = true, disposed = false;
@@ -155,6 +189,7 @@ class SocialFeedController extends ChangeNotifier {
         kind: kind,
         author: author,
         cursor: cursor,
+        tag: tag,
       );
       if (disposed || generation != ownGeneration) return;
       if (reset) rows = [];

@@ -1,3 +1,11 @@
+# Appearance patch 0.4.2
+
+Local account themes/wallpapers and native/Flutter startup source are added; see [UPGRADE_0.4.2.md](UPGRADE_0.4.2.md). Native compilation/device checks remain pending.
+
+# Current patch: PULSE 0.4.1
+
+See [UPGRADE_0.4.1.md](UPGRADE_0.4.1.md): native preview/cover source, 500 MiB free eligibility with infrastructure restrictions, Premium redirect, hashtags, videos/profiles search and suggestions, recent-view trending. Connected SQL tests and local transport tests passed; native build/device checks remain pending. Crop/trim/export and LiveKit setup are still incomplete.
+
 # Feature status — PULSE 0.4
 
 Source implementation and passing SQL tests do not establish native-device functionality. Build/UI/media verification remains required. Historical messaging coverage follows the current social coverage below.

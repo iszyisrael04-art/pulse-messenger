@@ -1,3 +1,6 @@
+import 'appearance.dart';
+import 'social_hashtags.dart';
+import 'social_search.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -193,6 +196,11 @@ class _PulseReelsState extends State<PulseReels> with WidgetsBindingObserver {
                 ),
               ),
               IconButton(
+                tooltip: 'Search PULSE',
+                onPressed: () => openPulseSearch(context, widget.store),
+                icon: const Icon(Icons.search, color: Colors.white),
+              ),
+              IconButton(
                 tooltip: 'Refresh Reels',
                 onPressed: refresh,
                 icon: const Icon(Icons.refresh, color: Colors.white),
@@ -216,7 +224,7 @@ class _PulseReelsState extends State<PulseReels> with WidgetsBindingObserver {
           child: feed.rows.isEmpty
               ? Center(
                   child: feed.loading
-                      ? const CircularProgressIndicator()
+                      ? const PulseLoader()
                       : Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -244,7 +252,7 @@ class _PulseReelsState extends State<PulseReels> with WidgetsBindingObserver {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             if (feed.loading)
-                              const CircularProgressIndicator()
+                              const PulseLoader()
                             else
                               Text(
                                 feed.error ??
@@ -289,7 +297,7 @@ class _PulseReelsState extends State<PulseReels> with WidgetsBindingObserver {
                                 error != null))
                           Center(
                             child: error == null
-                                ? const CircularProgressIndicator()
+                                ? const PulseLoader()
                                 : Column(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
@@ -381,6 +389,11 @@ class _PulseReelsState extends State<PulseReels> with WidgetsBindingObserver {
                                 maxLines: 5,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(color: Colors.white),
+                              ),
+                              SocialHashtags(
+                                store: widget.store,
+                                body: post['body'],
+                                light: true,
                               ),
                               Text(
                                 '${post['views']} unique views',

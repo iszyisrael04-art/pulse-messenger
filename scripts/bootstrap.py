@@ -30,6 +30,31 @@ manifest.write_text(s, encoding='utf-8')
 icon = root / 'android/app/src/main/res/drawable/ic_pulse_notification.xml'
 icon.parent.mkdir(parents=True, exist_ok=True)
 icon.write_text('<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24"><path android:fillColor="#FFFFFFFF" android:pathData="M13,2L4,14h6l-1,8L20,9h-7z"/></vector>', encoding='utf-8')
+# Branded OS launch window. Account-selected Flutter splash begins after
+# local settings load; Android's own launch frame uses a fixed Pulse mark.
+import xml.etree.ElementTree as ET
+res = root / 'android/app/src/main/res'
+(res / 'drawable/pulse_launch.xml').write_text('<layer-list xmlns:android="http://schemas.android.com/apk/res/android"><item android:drawable="@color/pulse_launch_background"/><item android:width="96dp" android:height="96dp" android:gravity="center" android:drawable="@drawable/pulse_launch_logo"/></layer-list>', encoding='utf-8')
+(res / 'drawable/pulse_launch_logo.xml').write_text('<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="96dp" android:height="96dp" android:viewportWidth="100" android:viewportHeight="100"><path android:strokeColor="#FF00BFA6" android:strokeWidth="7" android:strokeLineCap="round" android:strokeLineJoin="round" android:fillColor="#00000000" android:pathData="M10,50L30,50L40,25L58,75L70,45L90,45"/></vector>', encoding='utf-8')
+for variant in ['values', 'values-night', 'values-v31', 'values-night-v31']:
+    target = res / variant
+    target.mkdir(parents=True, exist_ok=True)
+    styles = target / 'styles.xml'
+    tree = ET.parse(styles) if styles.exists() else ET.ElementTree(ET.Element('resources'))
+    resources = tree.getroot()
+    launch = next((x for x in resources.findall('style') if x.get('name') == 'LaunchTheme'), None)
+    if launch is None:
+        launch = ET.SubElement(resources, 'style', {'name':'LaunchTheme', 'parent':'@android:style/Theme.Black.NoTitleBar'})
+    def item(name, value):
+        node = next((x for x in launch.findall('item') if x.get('name') == name), None)
+        if node is None: node = ET.SubElement(launch, 'item', {'name':name})
+        node.text = value
+    item('android:windowBackground', '@drawable/pulse_launch')
+    if 'v31' in variant:
+        item('android:windowSplashScreenBackground', '@color/pulse_launch_background')
+        item('android:windowSplashScreenAnimatedIcon', '@drawable/pulse_launch_logo')
+    tree.write(styles, encoding='utf-8', xml_declaration=True)
+    (target / 'pulse_launch_colors.xml').write_text('<resources><color name="pulse_launch_background">#102026</color></resources>', encoding='utf-8')
 # Flutter stable generates Kotlin Gradle files. Preserve its Java/Kotlin versions.
 gradle = root / 'android/app/build.gradle.kts'
 if not gradle.exists():

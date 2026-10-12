@@ -22,6 +22,7 @@ class FakeSocialStore extends SocialStore {
     String kind = 'all',
     String? author,
     SocialRow? cursor,
+    String? tag,
   }) {
     cursors.add(cursor);
     final request = Completer<List<SocialRow>>();

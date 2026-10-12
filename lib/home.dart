@@ -1,3 +1,5 @@
+import 'appearance.dart';
+import 'appearance_settings.dart';
 import 'dart:async';
 import 'dart:io';
 
@@ -447,7 +449,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final body = repo.me == null
         ? Center(
             child: repo.error == null
-                ? const CircularProgressIndicator()
+                ? const PulseLoader()
                 : TextButton(
                     onPressed: repo.refresh,
                     child: const Text('Reconnect to load your account'),
@@ -591,8 +593,9 @@ class _HomeScreenState extends State<HomeScreen> {
         Expanded(
           child: Text(
             title,
-            style: Theme.of(context).textTheme.headlineMedium
-                ?.copyWith(fontWeight: FontWeight.w800),
+            style: Theme.of(
+              context,
+            ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800),
           ),
         ),
         if (action != null) action,
@@ -665,9 +668,9 @@ class _HomeScreenState extends State<HomeScreen> {
                               borderRadius: BorderRadius.circular(20),
                             ),
                             selected: repo.activeChat == c['id'],
-                            selectedTileColor: Theme.of(context)
-                                .colorScheme
-                                .primaryContainer,
+                            selectedTileColor: Theme.of(
+                              context,
+                            ).colorScheme.primaryContainer,
                             leading: PulseAvatar(
                               repo: repo,
                               path: person?['avatar_path'],
@@ -705,7 +708,8 @@ class _HomeScreenState extends State<HomeScreen> {
               ? const FeatureNotice(
                   icon: Icons.bolt_rounded,
                   title: 'Stay in your circle',
-                  text: 'Choose a conversation or start a new one with a Pulse username.',
+                  text:
+                      'Choose a conversation or start a new one with a Pulse username.',
                 )
               : chatView(),
         ),
@@ -852,14 +856,16 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const Divider(height: 1),
         Expanded(
-          child: repo.busy && filtered.isEmpty
-              ? const Center(child: CircularProgressIndicator())
-              : ListView.builder(
-                  controller: scroll,
-                  padding: const EdgeInsets.all(16),
-                  itemCount: filtered.length,
-                  itemBuilder: (c, i) => messageBubble(filtered[i]),
-                ),
+          child: PulseWallpaper(
+            child: repo.busy && filtered.isEmpty
+                ? const Center(child: PulseLoader())
+                : ListView.builder(
+                    controller: scroll,
+                    padding: const EdgeInsets.all(16),
+                    itemCount: filtered.length,
+                    itemBuilder: (c, i) => messageBubble(filtered[i]),
+                  ),
+          ),
         ),
         if (reply != null)
           ListTile(
@@ -907,7 +913,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ? const SizedBox(
                         width: 20,
                         height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+                        child: PulseLoader(size: 22),
                       )
                     : const Icon(Icons.arrow_upward),
               ),
@@ -1001,15 +1007,16 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ),
                         if (!deleted &&
-                            RegExp(r'pulse:post:([0-9a-f-]{36})')
-                                .hasMatch(m['body'] as String))
+                            RegExp(
+                              r'pulse:post:([0-9a-f-]{36})',
+                            ).hasMatch(m['body'] as String))
                           TextButton.icon(
                             onPressed: () => openSocialPost(
                               context,
                               social,
-                              RegExp(r'pulse:post:([0-9a-f-]{36})')
-                                  .firstMatch(m['body'])!
-                                  .group(1)!,
+                              RegExp(
+                                r'pulse:post:([0-9a-f-]{36})',
+                              ).firstMatch(m['body'])!.group(1)!,
                             ),
                             icon: const Icon(Icons.article_outlined),
                             label: const Text('Open Pulse post'),
@@ -1029,9 +1036,9 @@ class _HomeScreenState extends State<HomeScreen> {
                               : 'Received'}',
                           style: TextStyle(
                             fontSize: 10,
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSurfaceVariant,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
                           ),
                         ),
                       ],
@@ -1203,6 +1210,15 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ListTile(
+        leading: const Icon(Icons.palette_outlined),
+        title: const Text('Themes & wallpapers'),
+        subtitle: const Text('Wallpapers, matching colors, splash and loading'),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const PulseAppearancePage()),
+        ),
+      ),
+      ListTile(
         leading: const Icon(Icons.dark_mode_outlined),
         title: const Text('Dark / light theme'),
         onTap: widget.toggleTheme,
@@ -1211,7 +1227,8 @@ class _HomeScreenState extends State<HomeScreen> {
         secondary: const Icon(Icons.notifications_active_outlined),
         title: const Text('Message notifications'),
         subtitle: Text(
-          PulsePush.instance.status ?? 'Alerts while Pulse is running. Windows closed-app push is not configured.',
+          PulsePush.instance.status ??
+              'Alerts while Pulse is running. Windows closed-app push is not configured.',
         ),
         value: PulseNotifications.instance.enabled,
         onChanged: (value) async {
@@ -1224,7 +1241,9 @@ class _HomeScreenState extends State<HomeScreen> {
         onTap: () async {
           final ok = await PulseNotifications.instance.test();
           notice(
-            ok ? 'Notification requested. Check your device alerts.' : 'Notifications are disabled or unavailable. Check system permissions.',
+            ok
+                ? 'Notification requested. Check your device alerts.'
+                : 'Notifications are disabled or unavailable. Check system permissions.',
           );
         },
       ),
@@ -1288,7 +1307,7 @@ class _HomeScreenState extends State<HomeScreen> {
       const Padding(
         padding: EdgeInsets.all(24),
         child: Text(
-          'PULSE 0.4.0 · Private beta\nMessages are protected by access policies and TLS. End-to-end encryption, individual device management and MFA UI are not implemented yet. Do not use this beta for sensitive conversations.',
+          'PULSE 0.4.2 · Private beta\nMessages are protected by access policies and TLS. End-to-end encryption, individual device management and MFA UI are not implemented yet. Do not use this beta for sensitive conversations.',
         ),
       ),
     ],

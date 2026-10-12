@@ -8,52 +8,84 @@ import 'home.dart';
 import 'security.dart';
 import 'notifications.dart';
 import 'push.dart';
+import 'appearance.dart';
 
-Future<void> main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  // Bound decoded-image caching; video pages use one 8 MB player buffer.
   PaintingBinding.instance.imageCache.maximumSize = 60;
   PaintingBinding.instance.imageCache.maximumSizeBytes = 48 * 1024 * 1024;
-  const url = String.fromEnvironment('SUPABASE_URL');
-  const key = String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY');
-  if (url.isEmpty || key.isEmpty) {
-    runApp(
-      const MaterialApp(
-        home: Scaffold(
-          body: Center(
-            child: Text(
-              'Pulse needs backend configuration.\nBuild with --dart-define-from-file=config.local.json.',
-            ),
-          ),
-        ),
-      ),
-    );
-    return;
+  runApp(const PulseStartup());
+}
+
+class PulseStartup extends StatefulWidget {
+  const PulseStartup({super.key});
+  @override
+  State<PulseStartup> createState() => _PulseStartupState();
+}
+
+class _PulseStartupState extends State<PulseStartup> {
+  bool ready = false;
+  String? error;
+  @override
+  void initState() {
+    super.initState();
+    initialize();
   }
-  try {
-    await Supabase.initialize(
-      url: url,
-      publishableKey: key,
-      authOptions: const FlutterAuthClientOptions(
-        localStorage: SecureSessionStorage(),
-      ),
-    );
-    await PulseNotifications.instance.initialize();
-    await PulsePush.instance.initialize();
-    runApp(const PulseApp());
-  } catch (_) {
-    runApp(
-      const MaterialApp(
-        home: Scaffold(
-          body: Center(
-            child: Text(
-              'Pulse could not initialize secure storage. Restart the app.',
-            ),
-          ),
+
+  Future<void> initialize() async {
+    const url = String.fromEnvironment('SUPABASE_URL');
+    const key = String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY');
+    try {
+      await PulseAppearance.instance.restoreBootStyle();
+      if (url.isEmpty || key.isEmpty)
+        throw const FormatException(
+          'Pulse needs backend configuration. Build with --dart-define-from-file=config.local.json.',
+        );
+      await Supabase.initialize(
+        url: url,
+        publishableKey: key,
+        authOptions: const FlutterAuthClientOptions(
+          localStorage: SecureSessionStorage(),
         ),
-      ),
-    );
+      );
+      await PulseAppearance.instance.load(
+        Supabase.instance.client.auth.currentUser?.id,
+      );
+      await PulseNotifications.instance.initialize();
+      await PulsePush.instance.initialize();
+      if (mounted) setState(() => ready = true);
+    } catch (e) {
+      if (mounted)
+        setState(
+          () => error = e is FormatException
+              ? e.message.toString()
+              : 'Pulse could not initialize. Check local storage and restart the app.',
+        );
+    }
   }
+
+  @override
+  Widget build(BuildContext context) => ready
+      ? const PulseApp()
+      : AnimatedBuilder(
+          animation: PulseAppearance.instance,
+          builder: (_, __) => MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: PulseAppearance.instance.theme(Brightness.light),
+            darkTheme: PulseAppearance.instance.theme(Brightness.dark),
+            themeMode: PulseAppearance.instance.mode,
+            home: error == null
+                ? const PulseSplash()
+                : Scaffold(
+                    body: Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Text(error!),
+                      ),
+                    ),
+                  ),
+          ),
+        );
 }
 
 class PulseApp extends StatefulWidget {
@@ -63,7 +95,7 @@ class PulseApp extends StatefulWidget {
 }
 
 class _PulseAppState extends State<PulseApp> {
-  ThemeMode mode = ThemeMode.dark;
+  final appearance = PulseAppearance.instance;
   late final StreamSubscription<AuthState> auth;
   final navigator = GlobalKey<NavigatorState>();
   String? previousUid;
@@ -76,6 +108,7 @@ class _PulseAppState extends State<PulseApp> {
       if (currentUid != previousUid) {
         navigator.currentState?.popUntil((route) => route.isFirst);
         previousUid = currentUid;
+        appearance.load(currentUid);
       }
       if (mounted) setState(() {});
     });
@@ -87,57 +120,38 @@ class _PulseAppState extends State<PulseApp> {
     super.dispose();
   }
 
-  ThemeData theme(Brightness b) => ThemeData(
-    useMaterial3: true,
-    brightness: b,
-    colorScheme: ColorScheme.fromSeed(
-      seedColor: const Color(0xff00bfa6),
-      secondary: const Color(0xffff7c68),
-      tertiary: const Color(0xffa58bff),
-      brightness: b,
-    ),
-    scaffoldBackgroundColor: b == Brightness.dark
-        ? const Color(0xff102026)
-        : const Color(0xfff3faf8),
-    navigationBarTheme: const NavigationBarThemeData(
-      indicatorColor: Color(0xff00bfa6),
-    ),
-    navigationRailTheme: const NavigationRailThemeData(
-      indicatorColor: Color(0xff00bfa6),
-    ),
-    inputDecorationTheme: InputDecorationTheme(
-      filled: true,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide.none,
-      ),
-    ),
-    filledButtonTheme: FilledButtonThemeData(
-      style: FilledButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      ),
-    ),
-  );
   @override
-  Widget build(BuildContext context) => MaterialApp(
-    debugShowCheckedModeBanner: false,
-    navigatorKey: navigator,
-    title: 'PULSE',
-    theme: theme(Brightness.light),
-    darkTheme: theme(Brightness.dark),
-    themeMode: mode,
-    home: Supabase.instance.client.auth.currentSession == null
-        ? const AuthScreen()
-        : HomeScreen(
-            key: ValueKey(Supabase.instance.client.auth.currentUser!.id),
-            toggleTheme: () {
-              setState(
-                () => mode = mode == ThemeMode.dark
-                    ? ThemeMode.light
-                    : ThemeMode.dark,
-              );
-            },
-          ),
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: appearance,
+    builder: (_, __) => MaterialApp(
+      debugShowCheckedModeBanner: false,
+      navigatorKey: navigator,
+      title: 'PULSE',
+      theme: appearance.theme(Brightness.light),
+      darkTheme: appearance.theme(Brightness.dark),
+      themeMode: appearance.mode,
+      themeAnimationDuration:
+          MediaQueryData.fromView(View.of(context)).disableAnimations
+          ? Duration.zero
+          : const Duration(milliseconds: 250),
+      home: !appearance.ready
+          ? const PulseSplash()
+          : Supabase.instance.client.auth.currentSession == null
+          ? const AuthScreen()
+          : HomeScreen(
+              key: ValueKey(Supabase.instance.client.auth.currentUser!.id),
+              toggleTheme: () {
+                appearance
+                    .set(
+                      appearance.settings.copy(
+                        mode: appearance.settings.mode == 'dark'
+                            ? 'light'
+                            : 'dark',
+                      ),
+                    )
+                    .catchError((_) {});
+              },
+            ),
+    ),
   );
 }

@@ -1,3 +1,11 @@
+# PULSE 0.4.2
+
+Themes, wallpapers and loading/splash styles: [docs/UPGRADE_0.4.2.md](docs/UPGRADE_0.4.2.md). Continue using the existing repository; no backend changes for this patch.
+
+# PULSE 0.4.1
+
+See [docs/UPGRADE_0.4.1.md](docs/UPGRADE_0.4.1.md) for previews, hashtags, free/Premium upload eligibility and the hosting limits. The sections below describe the 0.4 foundation.
+
 # PULSE 0.4 — native social platform beta
 
 This continues the existing Pulse Messenger Flutter project and shared Supabase backend. Android and Windows remain native applications. Accounts, chats, groups, statuses, channels, calls, authentication and Premium/promo records are preserved.

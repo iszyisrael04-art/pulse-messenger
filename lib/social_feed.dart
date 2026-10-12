@@ -1,3 +1,4 @@
+import 'appearance.dart';
 import 'package:flutter/material.dart';
 
 import 'avatar.dart';
@@ -6,6 +7,8 @@ import 'social_create.dart';
 import 'social_actions.dart';
 import 'social_media.dart';
 import 'social_common.dart';
+import 'social_hashtags.dart';
+import 'social_search.dart';
 
 class SocialFeed extends StatefulWidget {
   const SocialFeed({
@@ -15,10 +18,11 @@ class SocialFeed extends StatefulWidget {
     this.author,
     this.kind = 'all',
     this.header = true,
+    this.tag,
   });
   final SocialStore store;
   final String mode, kind;
-  final String? author;
+  final String? author, tag;
   final bool header;
   @override
   State<SocialFeed> createState() => _SocialFeedState();
@@ -35,6 +39,7 @@ class _SocialFeedState extends State<SocialFeed> {
       mode: widget.mode,
       author: widget.author,
       kind: widget.kind,
+      tag: widget.tag,
     )..addListener(changed);
     feed.load(reset: true);
     scroll.addListener(() {
@@ -51,10 +56,12 @@ class _SocialFeedState extends State<SocialFeed> {
     super.didUpdateWidget(old);
     if (old.mode != widget.mode ||
         old.author != widget.author ||
-        old.kind != widget.kind) {
+        old.kind != widget.kind ||
+        old.tag != widget.tag) {
       feed.mode = widget.mode;
       feed.author = widget.author;
       feed.kind = widget.kind;
+      feed.tag = widget.tag;
       feed.load(reset: true);
     }
   }
@@ -100,6 +107,11 @@ class _SocialFeedState extends State<SocialFeed> {
                     letterSpacing: 3,
                   ),
                 ),
+              ),
+              IconButton(
+                tooltip: 'Search videos, hashtags and profiles',
+                onPressed: () => openPulseSearch(context, widget.store),
+                icon: const Icon(Icons.search),
               ),
               IconButton(
                 tooltip: 'Open post ID',
@@ -164,7 +176,7 @@ class _SocialFeedState extends State<SocialFeed> {
                   child: Column(
                     children: [
                       if (feed.loading)
-                        const CircularProgressIndicator()
+                        const PulseLoader()
                       else if (feed.error != null) ...[
                         Text(feed.error!),
                         TextButton(
@@ -196,7 +208,17 @@ class _SocialFeedState extends State<SocialFeed> {
                   child: post['state'] == 'draft'
                       ? Card(
                           child: ListTile(
-                            leading: const Icon(Icons.drafts_outlined),
+                            leading: SizedBox(
+                              width: 76,
+                              height: 76,
+                              child: (post['media'] as List).isEmpty
+                                  ? const Icon(Icons.drafts_outlined)
+                                  : SocialDraftCover(
+                                      key: ValueKey(post['id']),
+                                      store: widget.store,
+                                      media: (post['media'] as List).first,
+                                    ),
+                            ),
                             title: Text(
                               post['body'].toString().isEmpty
                                   ? 'Media draft'
@@ -353,6 +375,10 @@ class _SocialPostCardState extends State<SocialPostCard> {
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
               child: SelectableText(post['body']),
             ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: SocialHashtags(store: widget.store, body: post['body']),
+          ),
           if (media.isNotEmpty && media.first['kind'] == 'image') ...[
             SizedBox(
               height: 320,
