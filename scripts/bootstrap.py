@@ -35,7 +35,7 @@ icon.write_text('<vector xmlns:android="http://schemas.android.com/apk/res/andro
 import xml.etree.ElementTree as ET
 res = root / 'android/app/src/main/res'
 (res / 'drawable/pulse_launch.xml').write_text('<layer-list xmlns:android="http://schemas.android.com/apk/res/android"><item android:drawable="@color/pulse_launch_background"/><item android:width="96dp" android:height="96dp" android:gravity="center" android:drawable="@drawable/pulse_launch_logo"/></layer-list>', encoding='utf-8')
-(res / 'drawable/pulse_launch_logo.xml').write_text('<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="96dp" android:height="96dp" android:viewportWidth="100" android:viewportHeight="100"><path android:strokeColor="#FF00BFA6" android:strokeWidth="7" android:strokeLineCap="round" android:strokeLineJoin="round" android:fillColor="#00000000" android:pathData="M10,50L30,50L40,25L58,75L70,45L90,45"/></vector>', encoding='utf-8')
+(res / 'drawable/pulse_launch_logo.xml').write_text('<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="96dp" android:height="96dp" android:viewportWidth="100" android:viewportHeight="100"><path android:strokeColor="#FF00BFA6" android:strokeWidth="7" android:strokeLineCap="round" android:strokeLineJoin="round" android:fillColor="#00000000" android:pathData="M15,52L32,52L42,26L58,75L70,46L86,46"/></vector>', encoding='utf-8')
 for variant in ['values', 'values-night', 'values-v31', 'values-night-v31']:
     target = res / variant
     target.mkdir(parents=True, exist_ok=True)
@@ -54,7 +54,7 @@ for variant in ['values', 'values-night', 'values-v31', 'values-night-v31']:
         item('android:windowSplashScreenBackground', '@color/pulse_launch_background')
         item('android:windowSplashScreenAnimatedIcon', '@drawable/pulse_launch_logo')
     tree.write(styles, encoding='utf-8', xml_declaration=True)
-    (target / 'pulse_launch_colors.xml').write_text('<resources><color name="pulse_launch_background">#102026</color></resources>', encoding='utf-8')
+    (target / 'pulse_launch_colors.xml').write_text('<resources><color name="pulse_launch_background">#080B0F</color></resources>', encoding='utf-8')
 # Flutter stable generates Kotlin Gradle files. Preserve its Java/Kotlin versions.
 gradle = root / 'android/app/build.gradle.kts'
 if not gradle.exists():

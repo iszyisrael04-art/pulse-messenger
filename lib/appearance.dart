@@ -9,6 +9,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 import 'appearance_model.dart';
+import 'brand.dart';
 
 const pulseWallpaperColors = <int>[
   0xff00bfa6,
@@ -198,7 +199,38 @@ class PulseAppearance extends ChangeNotifier {
       useMaterial3: true,
       brightness: brightness,
       colorScheme: scheme,
-      scaffoldBackgroundColor: scheme.surface,
+      scaffoldBackgroundColor: brightness == Brightness.dark
+          ? const Color(0xff0d1015)
+          : const Color(0xfff7f8fa),
+      appBarTheme: AppBarTheme(
+        backgroundColor: scheme.surface,
+        foregroundColor: scheme.onSurface,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        centerTitle: false,
+        titleTextStyle: TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.w700,
+          color: scheme.onSurface,
+        ),
+      ),
+      dividerTheme: DividerThemeData(
+        color: scheme.outlineVariant.withValues(alpha: .35),
+        thickness: .6,
+        space: 1,
+      ),
+      cardTheme: CardThemeData(
+        elevation: 0,
+        color: scheme.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: BorderSide(color: scheme.outlineVariant.withValues(alpha: .3)),
+        ),
+      ),
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
       navigationBarTheme: NavigationBarThemeData(
         indicatorColor: scheme.primaryContainer,
       ),
@@ -429,61 +461,131 @@ class _LoaderPainter extends CustomPainter {
       o.t != t || o.style != style || o.color != color;
 }
 
-class PulseSplash extends StatelessWidget {
-  const PulseSplash({super.key, this.message = 'Opening your world…'});
+class PulseSplash extends StatefulWidget {
+  const PulseSplash({super.key, this.message = 'Getting things ready'});
   final String message;
   @override
+  State<PulseSplash> createState() => _PulseSplashState();
+}
+
+class _PulseSplashState extends State<PulseSplash>
+    with SingleTickerProviderStateMixin {
+  late final reveal = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 650),
+  );
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      reveal.value = 1;
+    } else if (reveal.status == AnimationStatus.dismissed) {
+      reveal.forward();
+    }
+  }
+
+  @override
+  void dispose() {
+    reveal.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) => AnimatedBuilder(
-    animation: PulseAppearance.instance,
+    animation: Listenable.merge([reveal, PulseAppearance.instance]),
     builder: (_, __) {
+      final cs = Theme.of(context).colorScheme;
+      final dark = Theme.of(context).brightness == Brightness.dark;
       final style = PulseAppearance.instance.settings.splash;
-      final primary = Theme.of(context).colorScheme.primary;
+      final progress = Curves.easeOutCubic.transform(reveal.value);
       return Scaffold(
-        body: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 480),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+        backgroundColor: dark
+            ? const Color(0xff080b0f)
+            : const Color(0xfff8f9fc),
+        body: SafeArea(
+          child: LayoutBuilder(
+            builder: (c, box) => Stack(
               children: [
                 if (style == 'glow')
-                  Container(
-                    padding: const EdgeInsets.all(28),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: primary.withValues(alpha: .12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: primary.withValues(alpha: .12),
-                          blurRadius: 70,
-                          spreadRadius: 16,
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    height: box.maxHeight * .36,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            cs.primary.withValues(alpha: 0),
+                            cs.primary.withValues(alpha: .07),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
-                    child: Icon(Icons.bolt_rounded, color: primary, size: 76),
-                  )
-                else
-                  Icon(
-                    style == 'wave'
-                        ? Icons.graphic_eq_rounded
-                        : Icons.bolt_rounded,
-                    color: primary,
-                    size: 84,
                   ),
-                const SizedBox(height: 28),
-                const Text(
-                  'PULSE',
-                  style: TextStyle(
-                    fontSize: 38,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 6,
+                Center(
+                  child: Opacity(
+                    opacity: progress,
+                    child: Transform.translate(
+                      offset: Offset(0, 12 * (1 - progress)),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          PulseMark(
+                            size: style == 'minimal' ? 72 : 88,
+                            color: cs.primary,
+                            tile: style != 'minimal',
+                          ),
+                          const SizedBox(height: 22),
+                          PulseWordmark(size: 54, color: cs.onSurface),
+                          const SizedBox(height: 10),
+                          Text(
+                            'Your people. Your world.',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: cs.onSurfaceVariant,
+                              letterSpacing: .2,
+                            ),
+                          ),
+                          if (style == 'wave')
+                            Padding(
+                              padding: const EdgeInsets.only(top: 24),
+                              child: Container(
+                                width: 44,
+                                height: 2,
+                                decoration: BoxDecoration(
+                                  color: cs.primary,
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
-                const SizedBox(height: 12),
-                const Text('Chat. Share. Discover.'),
-                const SizedBox(height: 36),
-                PulseLoader(size: style == 'wave' ? 64 : 40),
-                const SizedBox(height: 20),
-                Text(message),
+                Positioned(
+                  left: 24,
+                  right: 24,
+                  bottom: 32,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const PulseLoader(size: 26),
+                      const SizedBox(height: 12),
+                      Text(
+                        widget.message,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),

@@ -9,13 +9,33 @@ import 'repository.dart' hide Row;
 
 class PulseMedia {
   static Player? active;
+  static final _automaticPause = Expando<bool>('pulse media pause');
+  static void markAutomaticPause(Player player) =>
+      _automaticPause[player] = true;
+  static bool consumeAutomaticPause(Player player) {
+    final value = _automaticPause[player] ?? false;
+    _automaticPause[player] = null;
+    return value;
+  }
+
+  static Future<void> _activation = Future<void>.value();
   static Future<void> pauseAll() async {
+    if (active != null) markAutomaticPause(active!);
     await active?.pause();
   }
 
-  static Future<void> activate(Player player) async {
-    if (active != player) await active?.pause();
-    active = player;
+  static Future<void> activate(Player player) {
+    final next = _activation.catchError((_) {}).then((_) async {
+      if (active != player) {
+        try {
+          if (active != null) markAutomaticPause(active!);
+          await active?.pause();
+        } catch (_) {}
+      }
+      active = player;
+    });
+    _activation = next;
+    return next;
   }
 }
 
@@ -173,7 +193,8 @@ class _PulseAttachmentState extends State<PulseAttachment>
           mediaPlayer.stream.error.listen((_) {
             if (mounted)
               setState(
-                () => error = 'Unable to play this media. Check the file format or connection.',
+                () => error =
+                    'Unable to play this media. Check the file format or connection.',
               );
           }),
         );

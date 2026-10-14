@@ -1,12 +1,12 @@
 [Setup]
 AppId={{30F995AC-7AEE-4CB1-8CC4-5F046026F024}
 AppName=PULSE
-AppVersion=0.4.2
+AppVersion=0.4.3
 DefaultDirName={localappdata}\Programs\Pulse Messenger
 DefaultGroupName=Pulse Messenger
 PrivilegesRequired=lowest
 OutputDir=..\dist
-OutputBaseFilename=PulseMessenger-0.4.2-Windows-Setup
+OutputBaseFilename=PulseMessenger-0.4.3-Windows-Setup
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern

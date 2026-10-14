@@ -1,3 +1,4 @@
+import 'brand.dart';
 import 'appearance.dart';
 import 'appearance_settings.dart';
 import 'dart:async';
@@ -503,10 +504,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 onDestinationSelected: (v) {
                   selectSocial(v);
                 },
-                extended: false,
+                extended: MediaQuery.sizeOf(context).width >= 1100,
+                labelType: NavigationRailLabelType.none,
+                groupAlignment: -.8,
                 leading: const Padding(
                   padding: EdgeInsets.symmetric(vertical: 20),
-                  child: Icon(Icons.bolt_rounded, size: 36),
+                  child: PulseMark(size: 40, tile: true),
                 ),
                 destinations: List.generate(
                   6,
@@ -541,21 +544,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       bottomNavigationBar: wide
           ? null
-          : NavigationBar(
-              selectedIndex: socialSection,
-              onDestinationSelected: (v) {
-                selectSocial(v);
-              },
-              labelBehavior:
-                  NavigationDestinationLabelBehavior.onlyShowSelected,
-              destinations: List.generate(
-                6,
-                (i) => NavigationDestination(
-                  icon: Icon(icons[i]),
-                  label: titles[i],
-                ),
-              ),
-            ),
+          : PulseBottomNav(selected: socialSection, onSelect: selectSocial),
     );
   }
 
@@ -587,15 +576,16 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget header(String title, {Widget? action}) => Padding(
-    padding: const EdgeInsets.fromLTRB(24, 24, 16, 16),
+    padding: const EdgeInsets.fromLTRB(20, 18, 16, 14),
     child: Row(
       children: [
         Expanded(
           child: Text(
             title,
-            style: Theme.of(
-              context,
-            ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800),
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+              letterSpacing: -.5,
+            ),
           ),
         ),
         if (action != null) action,
@@ -606,7 +596,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final list = Column(
       children: [
         header(
-          'Pulse',
+          'Chats',
           action: IconButton(
             tooltip: 'New conversation',
             onPressed: () => newChat(),
@@ -962,16 +952,8 @@ class _HomeScreenState extends State<HomeScreen> {
               padding: const EdgeInsets.fromLTRB(14, 10, 6, 8),
               decoration: BoxDecoration(
                 color: mine
-                    ? null
+                    ? Theme.of(context).colorScheme.primaryContainer
                     : Theme.of(context).colorScheme.surfaceContainerHigh,
-                gradient: mine
-                    ? LinearGradient(
-                        colors: [
-                          Theme.of(context).colorScheme.primaryContainer,
-                          Theme.of(context).colorScheme.tertiaryContainer,
-                        ],
-                      )
-                    : null,
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Row(
@@ -1307,7 +1289,7 @@ class _HomeScreenState extends State<HomeScreen> {
       const Padding(
         padding: EdgeInsets.all(24),
         child: Text(
-          'PULSE 0.4.2 · Private beta\nMessages are protected by access policies and TLS. End-to-end encryption, individual device management and MFA UI are not implemented yet. Do not use this beta for sensitive conversations.',
+          'PULSE 0.4.3 · Private beta\nMessages are protected by access policies and TLS. End-to-end encryption, individual device management and MFA UI are not implemented yet. Do not use this beta for sensitive conversations.',
         ),
       ),
     ],

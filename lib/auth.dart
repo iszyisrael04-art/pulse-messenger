@@ -1,3 +1,4 @@
+import 'brand.dart';
 import 'appearance.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -110,31 +111,41 @@ class _AuthScreenState extends State<AuthScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primary,
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                      child: const Icon(
-                        Icons.bolt_rounded,
-                        size: 42,
-                        color: Colors.white,
-                      ),
+                  const Row(
+                    children: [
+                      PulseMark(size: 32),
+                      SizedBox(width: 10),
+                      PulseWordmark(size: 30),
+                    ],
+                  ),
+                  const SizedBox(height: 44),
+                  Text(
+                    codeSent
+                        ? 'Check your code'
+                        : reset
+                        ? 'Recover your account'
+                        : register
+                        ? 'Create your account'
+                        : 'Welcome back',
+                    style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -.8,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    codeSent
+                        ? 'Enter the verification code to continue.'
+                        : reset
+                        ? 'We’ll help you get back into Pulse.'
+                        : 'Your conversations, videos and people — together.',
+                    style: TextStyle(
+                      fontSize: 14,
+                      height: 1.5,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                   ),
                   const SizedBox(height: 28),
-                  Text(
-                    'Your people.\nYour Pulse.',
-                    style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  const Text('A new space for conversations that matter.'),
-                  const SizedBox(height: 32),
                   if (!codeSent && !reset)
                     SegmentedButton<int>(
                       segments: const [
@@ -156,6 +167,14 @@ class _AuthScreenState extends State<AuthScreen> {
                   const SizedBox(height: 24),
                   TextFormField(
                     controller: identity,
+                    autofillHints: [
+                      method == 0
+                          ? AutofillHints.email
+                          : method == 2
+                          ? AutofillHints.telephoneNumber
+                          : AutofillHints.username,
+                    ],
+                    textInputAction: TextInputAction.next,
                     enabled: !busy && !codeSent,
                     keyboardType: method == 2
                         ? TextInputType.phone
@@ -187,6 +206,12 @@ class _AuthScreenState extends State<AuthScreen> {
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: password,
+                      enabled: !busy,
+                      autofillHints: [
+                        register || reset
+                            ? AutofillHints.newPassword
+                            : AutofillHints.password,
+                      ],
                       obscureText: obscure,
                       enableSuggestions: false,
                       autocorrect: false,
@@ -195,6 +220,7 @@ class _AuthScreenState extends State<AuthScreen> {
                             ? 'New password'
                             : 'Password',
                         suffixIcon: IconButton(
+                          tooltip: obscure ? 'Show password' : 'Hide password',
                           onPressed: () {
                             setState(() => obscure = !obscure);
                           },

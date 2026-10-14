@@ -258,10 +258,39 @@ class _SocialProfileState extends State<SocialProfile> {
               ),
               if (p['bio'].toString().isNotEmpty) Text(p['bio']),
               Padding(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                child: Text(
-                  '${p['followers']} followers · ${p['following']} following',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+                padding: const EdgeInsets.symmetric(vertical: 18),
+                child: Row(
+                  children: [
+                    for (final entry in {
+                      'Followers': p['followers'],
+                      'Following': p['following'],
+                    }.entries)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 32),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${entry.value}',
+                              style: const TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              entry.key,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
                 ),
               ),
               if (!mine)

@@ -30,7 +30,7 @@ class PulseAppearanceSettings {
     this.seed = 0xff00bfa6,
     this.customSeed = 0xff00bfa6,
     this.dim = .25,
-    this.splash = 'glow',
+    this.splash = 'minimal',
     this.loading = 'pulse',
   });
   final String mode, splash, loading;
@@ -77,7 +77,7 @@ class PulseAppearanceSettings {
       dim: j['dim'] is num && (j['dim'] as num).isFinite
           ? (j['dim'] as num).toDouble().clamp(0, .8)
           : .25,
-      splash: choice('splash', ['glow', 'minimal', 'wave'], 'glow'),
+      splash: choice('splash', ['glow', 'minimal', 'wave'], 'minimal'),
       loading: choice('loading', ['pulse', 'orbit', 'dots'], 'pulse'),
     );
   }

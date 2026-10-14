@@ -1,3 +1,4 @@
+import 'brand.dart';
 import 'appearance.dart';
 import 'package:flutter/material.dart';
 
@@ -92,22 +93,9 @@ class _SocialFeedState extends State<SocialFeed> {
           padding: const EdgeInsets.fromLTRB(20, 16, 16, 8),
           child: Row(
             children: [
-              const Icon(
-                Icons.bolt_rounded,
-                color: Color(0xff00bfa6),
-                size: 34,
-              ),
-              const SizedBox(width: 8),
-              const Expanded(
-                child: Text(
-                  'PULSE',
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 3,
-                  ),
-                ),
-              ),
+              const PulseMark(size: 30),
+              const SizedBox(width: 10),
+              const Expanded(child: PulseWordmark(size: 30)),
               IconButton(
                 tooltip: 'Search videos, hashtags and profiles',
                 onPressed: () => openPulseSearch(context, widget.store),
@@ -147,17 +135,54 @@ class _SocialFeedState extends State<SocialFeed> {
       if (widget.header)
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-          child: SegmentedButton<String>(
-            segments: const [
-              ButtonSegment(value: 'discovery', label: Text('Discover')),
-              ButtonSegment(value: 'following', label: Text('Following')),
+          child: Row(
+            children: [
+              for (final entry in {
+                'discovery': 'Discover',
+                'following': 'Following',
+              }.entries)
+                Padding(
+                  padding: const EdgeInsets.only(right: 24),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(6),
+                    onTap: () {
+                      feed.mode = entry.key;
+                      feed.load(reset: true);
+                      if (scroll.hasClients) scroll.jumpTo(0);
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            entry.value,
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: feed.mode == entry.key
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                              color: feed.mode == entry.key
+                                  ? Theme.of(context).colorScheme.onSurface
+                                  : Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            height: 2,
+                            width: 24,
+                            color: feed.mode == entry.key
+                                ? Theme.of(context).colorScheme.primary
+                                : Colors.transparent,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
             ],
-            selected: {feed.mode},
-            onSelectionChanged: (v) {
-              feed.mode = v.first;
-              feed.load(reset: true);
-              if (scroll.hasClients) scroll.jumpTo(0);
-            },
           ),
         ),
       Expanded(

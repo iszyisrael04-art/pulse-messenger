@@ -319,6 +319,7 @@ class _SocialComposerState extends State<SocialComposer> {
                                 postId: id,
                                 path: item['path'],
                                 recordView: false,
+                                autoplay: false,
                               ),
                       ),
                       Row(

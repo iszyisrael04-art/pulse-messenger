@@ -52,7 +52,9 @@ class _SocialSelectionPreviewState extends State<SocialSelectionPreview>
           );
       });
       await PulseMedia.pauseAll();
-      await p.open(Media(widget.file.path), play: false);
+      await p.setVolume(0);
+      await PulseMedia.activate(p);
+      await p.open(Media(widget.file.path));
       if (mounted) setState(() => ready = true);
     } catch (_) {
       if (mounted)
@@ -99,6 +101,7 @@ class _SocialSelectionPreviewState extends State<SocialSelectionPreview>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     errors?.cancel();
+    if (PulseMedia.active == player) PulseMedia.active = null;
     player?.dispose();
     super.dispose();
   }

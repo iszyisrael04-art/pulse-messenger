@@ -1,3 +1,7 @@
+# UI/autoplay patch 0.4.3
+
+See [UPGRADE_0.4.3.md](UPGRADE_0.4.3.md) for original branding, interface polish, visibility-aware feed autoplay and the remaining native verification.
+
 # Appearance patch 0.4.2
 
 Local account themes/wallpapers and native/Flutter startup source are added; see [UPGRADE_0.4.2.md](UPGRADE_0.4.2.md). Native compilation/device checks remain pending.

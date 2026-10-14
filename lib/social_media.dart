@@ -7,6 +7,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
 import 'media.dart';
+import 'video_visibility.dart';
 import 'social_repository.dart';
 
 class SocialImage extends StatefulWidget {
@@ -71,9 +72,10 @@ class SocialInlineVideo extends StatefulWidget {
     required this.postId,
     required this.path,
     this.recordView = true,
+    this.autoplay = true,
   });
   final SocialStore store;
-  final bool recordView;
+  final bool recordView, autoplay;
   final String postId, path;
   @override
   State<SocialInlineVideo> createState() => _SocialInlineVideoState();
@@ -84,22 +86,77 @@ class _SocialInlineVideoState extends State<SocialInlineVideo>
   Player? player;
   VideoController? controller;
   String? error;
-  bool loading = false, viewed = false;
+  bool loading = false, viewed = false, userPaused = false, foreground = true;
+  Timer? visibilityTimer;
+  int playbackGeneration = 0;
+  bool hasPlayed = false, muted = true;
   final subscriptions = <StreamSubscription<dynamic>>[];
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    if (widget.autoplay)
+      visibilityTimer = Timer.periodic(
+        const Duration(milliseconds: 350),
+        (_) => checkVisibility(),
+      );
   }
 
-  Future<void> play() async {
+  bool get visible {
+    if (!mounted || !foreground || ModalRoute.of(context)?.isCurrent == false)
+      return false;
+    final render = context.findRenderObject();
+    if (render is! RenderBox || !render.hasSize || !render.attached)
+      return false;
+    final top = render.localToGlobal(Offset.zero).dy;
+    final screen = MediaQuery.sizeOf(context).height;
+    final height = render.size.height;
+    if (height <= 0) return false;
+    return pulseVideoVisible(top, height, screen);
+  }
+
+  Future<void> releaseOffscreen() async {
+    final old = player;
+    player = null;
+    controller = null;
+    playbackGeneration++;
+    hasPlayed = false;
+    for (final subscription in subscriptions) {
+      subscription.cancel();
+    }
+    subscriptions.clear();
+    if (old != null) PulseMedia.consumeAutomaticPause(old);
+    if (PulseMedia.active == old) PulseMedia.active = null;
+    if (mounted) setState(() {});
+    await old?.dispose();
+  }
+
+  void checkVisibility() {
+    if (!mounted || loading) return;
+    if (!visible) {
+      if (player != null) releaseOffscreen();
+      return;
+    }
+    if (!userPaused && player == null && error == null)
+      play(automatic: true);
+    else if (!userPaused &&
+        player != null &&
+        !player!.state.playing &&
+        PulseMedia.active == null)
+      play(automatic: true);
+  }
+
+  Future<void> play({bool automatic = false}) async {
     if (loading) return;
+    final own = playbackGeneration;
+    if (!automatic) userPaused = false;
     setState(() {
       loading = true;
     });
     try {
       if (player != null && error == null) {
         await PulseMedia.activate(player!);
+        userPaused = player!.state.playing;
         await player!.playOrPause();
         return;
       }
@@ -115,12 +172,36 @@ class _SocialInlineVideoState extends State<SocialInlineVideo>
         await old.dispose();
       }
       final url = await widget.store.signed(widget.path, renew: true);
-      if (!mounted) return;
+      if (!mounted || own != playbackGeneration || automatic && !visible)
+        return;
       MediaKit.ensureInitialized();
       player = Player(
         configuration: const PlayerConfiguration(bufferSize: 8 * 1024 * 1024),
       );
       controller = VideoController(player!);
+      final observedPlayer = player!;
+      subscriptions.add(
+        observedPlayer.stream.playing.listen((playing) {
+          if (!mounted || player != observedPlayer) return;
+          if (playing) {
+            hasPlayed = true;
+            userPaused = false;
+            PulseMedia.activate(observedPlayer)
+                .then((_) {
+                  if (!mounted || widget.autoplay && !visible)
+                    observedPlayer.pause();
+                })
+                .catchError((_) {});
+          } else if (PulseMedia.consumeAutomaticPause(observedPlayer)) {
+            // Another visible clip or the app lifecycle paused this player.
+          } else if (hasPlayed &&
+              foreground &&
+              visible &&
+              PulseMedia.active == observedPlayer) {
+            userPaused = true;
+          }
+        }),
+      );
       subscriptions.add(
         player!.stream.error.listen((_) {
           if (mounted)
@@ -131,6 +212,7 @@ class _SocialInlineVideoState extends State<SocialInlineVideo>
       );
       subscriptions.add(
         player!.stream.position.listen((position) {
+          if (player != observedPlayer) return;
           if (widget.recordView &&
               position.inSeconds >= 3 &&
               !viewed &&
@@ -143,8 +225,13 @@ class _SocialInlineVideoState extends State<SocialInlineVideo>
         }),
       );
       error = null;
-      await PulseMedia.activate(player!);
-      await player!.open(Media(url));
+      final current = player!;
+      muted = automatic;
+      await current.setVolume(muted ? 0 : 100);
+      await PulseMedia.activate(current);
+      await current.open(Media(url));
+      if (PulseMedia.active != current) await current.pause();
+      if (!mounted || automatic && !visible) await releaseOffscreen();
     } catch (e) {
       if (mounted) setState(() => error = socialError(e));
     } finally {
@@ -154,15 +241,27 @@ class _SocialInlineVideoState extends State<SocialInlineVideo>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed) player?.pause();
+    foreground = state == AppLifecycleState.resumed;
+    if (!foreground) {
+      if (player != null) PulseMedia.markAutomaticPause(player!);
+      player?.pause();
+    } else if (player != null && !userPaused && visible) {
+      PulseMedia.activate(
+        player!,
+      ).then((_) => player?.play()).catchError((_) {});
+    } else
+      checkVisibility();
   }
 
   @override
   void dispose() {
+    visibilityTimer?.cancel();
+    playbackGeneration++;
     WidgetsBinding.instance.removeObserver(this);
     for (final s in subscriptions) {
       s.cancel();
     }
+    if (player != null) PulseMedia.consumeAutomaticPause(player);
     if (PulseMedia.active == player) PulseMedia.active = null;
     player?.dispose();
     super.dispose();
@@ -186,7 +285,35 @@ class _SocialInlineVideoState extends State<SocialInlineVideo>
         ),
       Expanded(
         child: controller != null
-            ? Video(controller: controller!)
+            ? Stack(
+                fit: StackFit.expand,
+                children: [
+                  Video(controller: controller!),
+                  Positioned(
+                    right: 10,
+                    top: 10,
+                    child: Material(
+                      color: Colors.black54,
+                      shape: const CircleBorder(),
+                      child: IconButton(
+                        tooltip: muted ? 'Enable sound' : 'Mute sound',
+                        icon: Icon(
+                          muted
+                              ? Icons.volume_off_rounded
+                              : Icons.volume_up_rounded,
+                          color: Colors.white,
+                        ),
+                        onPressed: () async {
+                          final p = player;
+                          if (p == null) return;
+                          await p.setVolume(muted ? 100 : 0);
+                          if (mounted) setState(() => muted = !muted);
+                        },
+                      ),
+                    ),
+                  ),
+                ],
+              )
             : Center(
                 child: loading
                     ? const PulseLoader()

@@ -1,3 +1,7 @@
+# PULSE 0.4.3
+
+Core UI/splash polish and autoplay: [docs/UPGRADE_0.4.3.md](docs/UPGRADE_0.4.3.md). Native build/device verification is pending.
+
 # PULSE 0.4.2
 
 Themes, wallpapers and loading/splash styles: [docs/UPGRADE_0.4.2.md](docs/UPGRADE_0.4.2.md). Continue using the existing repository; no backend changes for this patch.
