@@ -12,6 +12,14 @@ class PulseNotifications {
   final _plugin = FlutterLocalNotificationsPlugin();
   static const _vault = FlutterSecureStorage();
   final _seen = <String>{};
+  final _chatCounts = <String, int>{};
+  Future<void> clearChat(String chat) async {
+    _chatCounts.remove(chat);
+    try {
+      await _plugin.cancel(chat.hashCode & 0x7fffffff);
+    } catch (_) {}
+  }
+
   bool enabled = false, _ready = false;
   Future<void> initialize() async {
     try {
@@ -65,14 +73,14 @@ class PulseNotifications {
     await _vault.write(key: 'pulse.notifications.enabled', value: '$value');
   }
 
-  Future<bool> _show(int id, String title, String body) async {
+  Future<bool> _show(int id, String title, String body, {int? number}) async {
     if (!enabled || !_ready) return false;
     try {
       await _plugin.show(
         id,
         title,
         body,
-        const NotificationDetails(
+        NotificationDetails(
           android: AndroidNotificationDetails(
             'pulse_messages',
             'Pulse messages',
@@ -81,8 +89,10 @@ class PulseNotifications {
             priority: Priority.high,
             visibility: NotificationVisibility.private,
             icon: 'ic_pulse_notification',
+            number: number,
+            groupKey: 'pulse_messages',
           ),
-          windows: WindowsNotificationDetails(),
+          windows: const WindowsNotificationDetails(),
         ),
       );
       return true;
@@ -95,11 +105,14 @@ class PulseNotifications {
     final id = message['id']?.toString();
     if (id == null || !_seen.add(id)) return;
     if (_seen.length > 500) _seen.remove(_seen.first);
-    // Do not expose message text or attachments on the lock screen.
+    final chat = message['chat_id'].toString();
+    final count = (_chatCounts[chat] ?? 0) + 1;
+    _chatCounts[chat] = count;
     await _show(
-      id.hashCode & 0x7fffffff,
+      chat.hashCode & 0x7fffffff,
       'Pulse Messenger',
-      'You have a new message.',
+      '$count new message${count == 1 ? '' : 's'}',
+      number: count,
     );
   }
 

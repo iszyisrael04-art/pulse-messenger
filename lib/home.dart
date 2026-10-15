@@ -1,3 +1,4 @@
+import 'contact_picker.dart';
 import 'brand.dart';
 import 'appearance.dart';
 import 'appearance_settings.dart';
@@ -39,6 +40,9 @@ class _HomeScreenState extends State<HomeScreen> {
   final composer = TextEditingController(), search = TextEditingController();
   String? reply;
   bool sending = false;
+  int seenIncoming = 0;
+  OverlayEntry? messageToast;
+  Timer? toastTimer;
   final scroll = ScrollController();
   @override
   void initState() {
@@ -51,11 +55,93 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void changed() {
-    if (mounted) setState(() {});
+    if (mounted) {
+      setState(() {});
+      if (repo.incomingSerial != seenIncoming && repo.incoming != null) {
+        seenIncoming = repo.incomingSerial;
+        showIncoming(repo.incoming!);
+      }
+    }
+  }
+
+  void showIncoming(Map<String, dynamic> message) {
+    if (repo.activeChat == message['chat_id'] &&
+        socialSection == 3 &&
+        section == 0) {
+      repo.markRead();
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      messageToast?.remove();
+      toastTimer?.cancel();
+      final sender = repo.profiles[message['sender_id']];
+      messageToast = OverlayEntry(
+        builder: (c) => Positioned(
+          top: MediaQuery.paddingOf(c).top + 12,
+          left: 16,
+          right: 16,
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 520),
+              child: Material(
+                elevation: 12,
+                borderRadius: BorderRadius.circular(20),
+                color: Theme.of(c).colorScheme.surfaceContainerHigh,
+                child: ListTile(
+                  leading: PulseAvatar(
+                    repo: repo,
+                    path: sender?['avatar_path'],
+                    name: sender?['display_name'] ?? 'Pulse',
+                  ),
+                  title: Text(
+                    sender?['display_name'] ?? 'New Pulse message',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: Text(
+                    message['body']?.toString().isNotEmpty == true
+                        ? message['body']
+                        : 'Sent an attachment',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  trailing: IconButton(
+                    tooltip: 'Dismiss',
+                    icon: const Icon(Icons.close),
+                    onPressed: () {
+                      messageToast?.remove();
+                      messageToast = null;
+                    },
+                  ),
+                  onTap: () async {
+                    messageToast?.remove();
+                    messageToast = null;
+                    await repo.openChat(message['chat_id']);
+                    if (mounted)
+                      setState(() {
+                        socialSection = 3;
+                        section = 0;
+                      });
+                  },
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      Overlay.of(context).insert(messageToast!);
+      toastTimer = Timer(const Duration(seconds: 5), () {
+        messageToast?.remove();
+        messageToast = null;
+      });
+    });
   }
 
   @override
   void dispose() {
+    toastTimer?.cancel();
+    messageToast?.remove();
     calls.removeListener(changed);
     calls.dispose();
     repo.removeListener(changed);
@@ -112,11 +198,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> newChat({bool group = false}) async {
-    final usernames = await prompt(
-      group
-          ? 'Group members (usernames separated by commas)'
-          : 'Enter a Pulse username',
-    );
+    final usernames = group
+        ? await prompt('Group members (usernames separated by commas)')
+        : await pickPulseContact(context, repo);
     if (usernames == null || usernames.isEmpty) return;
     String name = 'Pulse chat';
     if (group) {
@@ -544,7 +628,11 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       bottomNavigationBar: wide
           ? null
-          : PulseBottomNav(selected: socialSection, onSelect: selectSocial),
+          : PulseBottomNav(
+              selected: socialSection,
+              onSelect: selectSocial,
+              unread: repo.unread.values.fold(0, (a, b) => a + b),
+            ),
     );
   }
 
@@ -666,6 +754,9 @@ class _HomeScreenState extends State<HomeScreen> {
                               path: person?['avatar_path'],
                               name: repo.chatName(c),
                             ),
+                            trailing: (repo.unread[c['id']] ?? 0) > 0
+                                ? Badge(label: Text('${repo.unread[c['id']]}'))
+                                : null,
                             title: Text(
                               repo.chatName(c),
                               maxLines: 1,
@@ -748,12 +839,20 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               IconButton(
                 tooltip: 'Voice call',
-                onPressed: () => startCall('voice'),
+                onPressed:
+                    repo.requestFor(repo.activeChat) == null ||
+                        repo.requestFor(repo.activeChat)?['state'] == 'accepted'
+                    ? () => startCall('voice')
+                    : null,
                 icon: const Icon(Icons.call_outlined),
               ),
               IconButton(
                 tooltip: 'Video call',
-                onPressed: () => startCall('video'),
+                onPressed:
+                    repo.requestFor(repo.activeChat) == null ||
+                        repo.requestFor(repo.activeChat)?['state'] == 'accepted'
+                    ? () => startCall('video')
+                    : null,
                 icon: const Icon(Icons.videocam_outlined),
               ),
               IconButton(
@@ -857,6 +956,56 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
           ),
         ),
+        if (repo.requestFor(repo.activeChat) != null &&
+            repo.requestFor(repo.activeChat)!['state'] != 'accepted')
+          Material(
+            color: Theme.of(context).colorScheme.surfaceContainer,
+            child: ListTile(
+              title: Text(
+                repo.requestFor(repo.activeChat)!['state'] == 'declined'
+                    ? 'Message request declined'
+                    : repo.requestFor(repo.activeChat)!['recipient_id'] ==
+                          repo.uid
+                    ? 'Message request'
+                    : 'Waiting for acceptance',
+              ),
+              subtitle: Text(
+                repo.requestFor(repo.activeChat)!['state'] == 'declined'
+                    ? 'Messaging is unavailable for this request.'
+                    : repo.requestFor(repo.activeChat)!['recipient_id'] ==
+                          repo.uid
+                    ? 'Accept before replying. You can also decline or block.'
+                    : 'You can send messages; they can reply after accepting.',
+              ),
+              trailing:
+                  repo.requestFor(repo.activeChat)!['recipient_id'] ==
+                          repo.uid &&
+                      repo.requestFor(repo.activeChat)!['state'] == 'pending'
+                  ? Wrap(
+                      children: [
+                        TextButton(
+                          onPressed: () => perform(
+                            () => repo.rpc('respond_request', {
+                              'p_chat': repo.activeChat,
+                              'p_accept': false,
+                            }),
+                          ),
+                          child: const Text('Decline'),
+                        ),
+                        FilledButton(
+                          onPressed: () => perform(
+                            () => repo.rpc('respond_request', {
+                              'p_chat': repo.activeChat,
+                              'p_accept': true,
+                            }),
+                          ),
+                          child: const Text('Accept'),
+                        ),
+                      ],
+                    )
+                  : null,
+            ),
+          ),
         if (reply != null)
           ListTile(
             dense: true,
@@ -869,45 +1018,51 @@ class _HomeScreenState extends State<HomeScreen> {
               icon: const Icon(Icons.close),
             ),
           ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              IconButton(
-                tooltip: 'Attach file, image or video (10 MB)',
-                onPressed: sending ? null : () => send(file: true),
-                icon: const Icon(Icons.add_circle_outline),
-              ),
-              Expanded(
-                child: TextField(
-                  controller: composer,
-                  minLines: 1,
-                  maxLines: 5,
-                  maxLength: 8000,
-                  decoration: const InputDecoration(
-                    hintText: 'Write a message…',
-                    counterText: '',
+        IgnorePointer(
+          ignoring: !repo.canReply(repo.activeChat),
+          child: Opacity(
+            opacity: repo.canReply(repo.activeChat) ? 1 : .4,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  IconButton(
+                    tooltip: 'Attach file, image or video (10 MB)',
+                    onPressed: sending ? null : () => send(file: true),
+                    icon: const Icon(Icons.add_circle_outline),
                   ),
-                ),
+                  Expanded(
+                    child: TextField(
+                      controller: composer,
+                      minLines: 1,
+                      maxLines: 5,
+                      maxLength: 8000,
+                      decoration: const InputDecoration(
+                        hintText: 'Write a message…',
+                        counterText: '',
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Record voice note',
+                    onPressed: sending ? null : recordVoice,
+                    icon: const Icon(Icons.mic_none),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton(
+                    onPressed: sending ? null : send,
+                    child: sending
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: PulseLoader(size: 22),
+                          )
+                        : const Icon(Icons.arrow_upward),
+                  ),
+                ],
               ),
-              IconButton(
-                tooltip: 'Record voice note',
-                onPressed: sending ? null : recordVoice,
-                icon: const Icon(Icons.mic_none),
-              ),
-              const SizedBox(width: 8),
-              FilledButton(
-                onPressed: sending ? null : send,
-                child: sending
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: PulseLoader(size: 22),
-                      )
-                    : const Icon(Icons.arrow_upward),
-              ),
-            ],
+            ),
           ),
         ),
       ],
@@ -1025,17 +1180,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ],
                     ),
-                  ),
-                  IconButton(
-                    tooltip: 'Delete message',
-                    iconSize: 18,
-                    constraints: const BoxConstraints(
-                      minWidth: 32,
-                      minHeight: 40,
-                    ),
-                    padding: EdgeInsets.zero,
-                    onPressed: () => deleteMessage(m),
-                    icon: const Icon(Icons.delete_outline),
                   ),
                   PopupMenuButton<String>(
                     padding: EdgeInsets.zero,
@@ -1289,7 +1433,7 @@ class _HomeScreenState extends State<HomeScreen> {
       const Padding(
         padding: EdgeInsets.all(24),
         child: Text(
-          'PULSE 0.4.3 · Private beta\nMessages are protected by access policies and TLS. End-to-end encryption, individual device management and MFA UI are not implemented yet. Do not use this beta for sensitive conversations.',
+          'PULSE 0.4.4 · Private beta\nMessages are protected by access policies and TLS. End-to-end encryption, individual device management and MFA UI are not implemented yet. Do not use this beta for sensitive conversations.',
         ),
       ),
     ],

@@ -20,6 +20,7 @@ class PulseTusUploader {
       ..connectionTimeout = const Duration(seconds: 30);
     final length = await file.length();
     final input = await file.open();
+    progress?.call(0);
     Uri? uploadUrl;
     var offset = 0;
     try {
@@ -40,7 +41,16 @@ class PulseTusUploader {
         headers.forEach((k, v) => r.headers.set(k, v));
         if (bytes != null) {
           r.contentLength = bytes.length;
-          r.add(bytes);
+          for (var sent = 0; sent < bytes.length;) {
+            final end = (sent + 64 * 1024).clamp(0, bytes.length).toInt();
+            r.add(Uint8List.sublistView(bytes, sent, end));
+            await r.flush().timeout(const Duration(minutes: 3));
+            sent = end;
+            if (method == 'PATCH')
+              progress?.call(
+                ((offset + sent) / length).clamp(0, .99).toDouble(),
+              );
+          }
         }
         final response = await r.close().timeout(const Duration(minutes: 3));
         if (response.statusCode == 413) {

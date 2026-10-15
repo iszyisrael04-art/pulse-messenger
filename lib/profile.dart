@@ -62,7 +62,8 @@ class _ProfilePanelState extends State<ProfilePanel> {
     } catch (_) {
       if (mounted)
         setState(
-          () => error = 'Unable to save your profile. Check the image size and your connection.',
+          () => error =
+              'Unable to save your profile. Check the image size and your connection.',
         );
     } finally {
       if (mounted) setState(() => busy = false);

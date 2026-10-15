@@ -67,7 +67,44 @@ if 'desugar_jdk_libs' not in s:
 gradle.write_text(s, encoding='utf-8')
 runner = root / 'windows/runner/main.cpp'
 if runner.exists():
-    runner.write_text(runner.read_text(encoding='utf-8').replace('L"pulse_messenger"', 'L"PULSE"').replace('L"Pulse Messenger"', 'L"PULSE"'), encoding='utf-8')
+    runner.write_text(runner.read_text(encoding='utf-8').replace('L"pulse_messenger"', 'L"Pulse"').replace('L"Pulse Messenger"', 'L"Pulse"').replace('L"PULSE"', 'L"Pulse"'), encoding='utf-8')
+# Keep the existing installer identity while branding Windows as Pulse.
+windows_cmake = root / 'windows/CMakeLists.txt'
+if windows_cmake.exists():
+    text = windows_cmake.read_text(encoding='utf-8')
+    text = text.replace('set(BINARY_NAME "pulse_messenger")', 'set(BINARY_NAME "Pulse")')
+    windows_cmake.write_text(text, encoding='utf-8')
+windows_resources = root / 'windows/runner/Runner.rc'
+if windows_resources.exists():
+    text = windows_resources.read_text(encoding='utf-8')
+    text = text.replace('pulse_messenger', 'Pulse').replace('Pulse Messenger', 'Pulse').replace('PULSE', 'Pulse')
+    windows_resources.write_text(text, encoding='utf-8')
+# Native media export: Android platform codecs and Windows MediaComposition.
+native = root / 'native/editor'
+if native.exists():
+    kotlin = root / 'android/app/src/main/kotlin/com/pulsemessenger/pulse_messenger'
+    kotlin.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(native / 'PulseNativeEditor.kt', kotlin / 'PulseNativeEditor.kt')
+    activity = kotlin / 'MainActivity.kt'
+    if activity.exists():
+        text = activity.read_text(encoding='utf-8')
+        if 'PulseNativeEditor(this,' not in text:
+            method = '\n    override fun configureFlutterEngine(flutterEngine: io.flutter.embedding.engine.FlutterEngine) {\n        super.configureFlutterEngine(flutterEngine)\n        PulseNativeEditor(this, flutterEngine.dartExecutor.binaryMessenger)\n    }\n'
+            if 'class MainActivity: FlutterActivity()' in text:
+                text = text.replace('class MainActivity: FlutterActivity()', 'class MainActivity: FlutterActivity() {' + method + '}')
+            elif 'class MainActivity : FlutterActivity()' in text:
+                text = text.replace('class MainActivity : FlutterActivity()', 'class MainActivity : FlutterActivity() {' + method + '}')
+            else:
+                raise RuntimeError('MainActivity is customized: register PulseNativeEditor in configureFlutterEngine.')
+            # Flutter's empty class may already have braces.
+            text = text.replace('} {\n}', '}').replace('} {}', '}')
+            activity.write_text(text, encoding='utf-8')
+    cmake = root / 'windows/CMakeLists.txt'
+    if cmake.exists():
+        text = cmake.read_text(encoding='utf-8')
+        if '# Pulse native editor' not in text:
+            text += '\n# Pulse native editor\nadd_library(pulse_editor SHARED "${CMAKE_CURRENT_SOURCE_DIR}/../native/editor/pulse_editor.cpp")\ntarget_compile_features(pulse_editor PRIVATE cxx_std_17)\ntarget_link_libraries(pulse_editor PRIVATE windowsapp)\nadd_dependencies(${BINARY_NAME} pulse_editor)\nadd_custom_command(TARGET pulse_editor POST_BUILD COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:${BINARY_NAME}>" COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:pulse_editor>" "$<TARGET_FILE_DIR:${BINARY_NAME}>")\ninstall(TARGETS pulse_editor RUNTIME DESTINATION "." COMPONENT Runtime)\n'
+            cmake.write_text(text, encoding='utf-8')
 default = root / 'test/widget_test.dart'
 if default.exists():
     s = default.read_text(encoding='utf-8')

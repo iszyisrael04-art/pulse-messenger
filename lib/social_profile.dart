@@ -1,3 +1,4 @@
+import 'social_premium.dart';
 import 'appearance.dart';
 import 'dart:io';
 
@@ -35,6 +36,7 @@ class _SocialProfileState extends State<SocialProfile> {
   bool loading = false, busy = false;
   int tab = 0;
   bool admin = false;
+  String profileStyle = 'classic';
   bool get mine => widget.user == widget.store.uid;
   @override
   void initState() {
@@ -47,12 +49,16 @@ class _SocialProfileState extends State<SocialProfile> {
     setState(() => loading = true);
     try {
       final result = await widget.store.profile(widget.user);
+      final style = await widget.store.rpc('profile_style', {
+        'p_user': widget.user,
+      });
       final isAdmin = mine
           ? await widget.store.repo.rpc('is_admin', {}) == true
           : false;
       if (mounted)
         setState(() {
           profile = result;
+          profileStyle = style as String;
           admin = isAdmin;
           error = null;
         });
@@ -217,44 +223,80 @@ class _SocialProfileState extends State<SocialProfile> {
                     ),
                   ),
                 ),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: PulseAvatar(
-                  repo: widget.store.repo,
-                  path: p['avatar_path'],
-                  name: p['display_name'],
-                  radius: 28,
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(18),
+                  gradient: profileStyle == 'classic'
+                      ? null
+                      : LinearGradient(
+                          colors: profileStyle == 'aurora'
+                              ? [
+                                  const Color(0xff175c66),
+                                  const Color(0xff553b86),
+                                ]
+                              : profileStyle == 'sunset'
+                              ? [
+                                  const Color(0xff9a4c43),
+                                  const Color(0xff623a75),
+                                ]
+                              : [
+                                  const Color(0xff142a4d),
+                                  const Color(0xff252238),
+                                ],
+                        ),
                 ),
-                title: Wrap(
-                  spacing: 5,
-                  children: [
-                    Text(
-                      p['display_name'],
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
-                      ),
+                child: Theme(
+                  data: profileStyle == 'classic'
+                      ? Theme.of(context)
+                      : Theme.of(context).copyWith(
+                          listTileTheme: const ListTileThemeData(
+                            textColor: Colors.white,
+                            iconColor: Colors.white,
+                          ),
+                        ),
+                  child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: PulseAvatar(
+                      repo: widget.store.repo,
+                      path: p['avatar_path'],
+                      name: p['display_name'],
+                      radius: 28,
                     ),
-                    if (p['verified'] == true)
-                      const Icon(Icons.verified, color: Colors.blue),
-                    if (p['premium'] == true)
-                      const Icon(Icons.workspace_premium, color: Colors.amber),
-                  ],
+                    title: Wrap(
+                      spacing: 5,
+                      children: [
+                        Text(
+                          p['display_name'],
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        if (p['verified'] == true)
+                          const Icon(Icons.verified, color: Colors.blue),
+                        if (p['premium'] == true)
+                          const Icon(
+                            Icons.workspace_premium,
+                            color: Colors.amber,
+                          ),
+                      ],
+                    ),
+                    subtitle: Text(
+                      '@${p['username'] ?? 'pulse_user'} · ${p['is_private'] == true ? 'Private' : 'Public'}',
+                    ),
+                    trailing: widget.settings == null
+                        ? IconButton(
+                            tooltip: 'Refresh profile',
+                            onPressed: load,
+                            icon: const Icon(Icons.refresh),
+                          )
+                        : IconButton(
+                            tooltip: 'Settings',
+                            onPressed: widget.settings,
+                            icon: const Icon(Icons.settings_outlined),
+                          ),
+                  ),
                 ),
-                subtitle: Text(
-                  '@${p['username'] ?? 'pulse_user'} · ${p['is_private'] == true ? 'Private' : 'Public'}',
-                ),
-                trailing: widget.settings == null
-                    ? IconButton(
-                        tooltip: 'Refresh profile',
-                        onPressed: load,
-                        icon: const Icon(Icons.refresh),
-                      )
-                    : IconButton(
-                        tooltip: 'Settings',
-                        onPressed: widget.settings,
-                        icon: const Icon(Icons.settings_outlined),
-                      ),
               ),
               if (p['bio'].toString().isNotEmpty) Text(p['bio']),
               Padding(
@@ -316,6 +358,48 @@ class _SocialProfileState extends State<SocialProfile> {
                   spacing: 8,
                   runSpacing: 4,
                   children: [
+                    OutlinedButton.icon(
+                      icon: const Icon(Icons.palette_outlined),
+                      label: const Text('Premium profile theme'),
+                      onPressed: () async {
+                        if (p['premium'] != true) {
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  PulsePremiumPage(store: widget.store),
+                            ),
+                          );
+                          if (mounted) load();
+                          return;
+                        }
+                        if (!mounted) return;
+                        final theme = await showDialog<String>(
+                          context: context,
+                          builder: (c) => SimpleDialog(
+                            title: const Text('Profile theme'),
+                            children: [
+                              for (final name in [
+                                'classic',
+                                'aurora',
+                                'sunset',
+                                'midnight',
+                              ])
+                                SimpleDialogOption(
+                                  onPressed: () => Navigator.pop(c, name),
+                                  child: Text(name),
+                                ),
+                            ],
+                          ),
+                        );
+                        if (theme != null)
+                          await perform(
+                            () => widget.store.rpc('set_profile_style', {
+                              'p_theme': theme,
+                            }),
+                          );
+                      },
+                    ),
                     OutlinedButton(
                       onPressed: busy
                           ? null
@@ -404,9 +488,18 @@ class _SocialProfileState extends State<SocialProfile> {
                         );
                         if (code == null || !mounted) return;
                         await perform(() async {
-                          await widget.store.repo.rpc('redeem', {
-                            'p_code': code.trim(),
-                          });
+                          final result = await widget.store.repo.rpc(
+                            'redeem_result',
+                            {'p_code': code.trim()},
+                          );
+                          if (mounted)
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Premium active until ${DateTime.parse(result['expires_at']).toLocal().toString().substring(0, 10)}',
+                                ),
+                              ),
+                            );
                         });
                       },
                       child: const Text('Redeem code'),

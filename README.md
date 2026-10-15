@@ -1,6 +1,6 @@
-# PULSE 0.4.3
+# PULSE 0.4.4
 
-Core UI/splash polish and autoplay: [docs/UPGRADE_0.4.3.md](docs/UPGRADE_0.4.3.md). Native build/device verification is pending.
+Message requests, native editors, menus and Premium: [docs/UPGRADE_0.4.4.md](docs/UPGRADE_0.4.4.md). Native build/device verification is pending.
 
 # PULSE 0.4.2
 

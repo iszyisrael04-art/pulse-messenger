@@ -697,8 +697,9 @@ class _LiveScreenState extends State<LiveScreen> {
           .eq('id', widget.sessionId)
           .single();
       if (session['status'] != 'live' ||
-          DateTime.parse(session['expires_at'])
-              .isBefore(DateTime.now().toUtc())) {
+          DateTime.parse(
+            session['expires_at'],
+          ).isBefore(DateTime.now().toUtc())) {
         timer?.cancel();
         await room.disconnect();
         if (mounted)

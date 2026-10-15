@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:path_provider/path_provider.dart';
 
 import 'package:file_picker/file_picker.dart';
@@ -84,7 +83,10 @@ class _SocialComposerState extends State<SocialComposer> {
           await Navigator.push<bool>(
             context,
             MaterialPageRoute(
-              builder: (_) => PulsePremiumPage(store: widget.store),
+              builder: (_) => PulsePremiumPage(
+                store: widget.store,
+                reason: oversizePremiumMessage,
+              ),
             ),
           );
         } else {
@@ -99,14 +101,14 @@ class _SocialComposerState extends State<SocialComposer> {
       return;
     }
     if (!mounted) return;
-    final preview = await Navigator.push<({bool accepted, Uint8List? cover})>(
+    final preview = await Navigator.push<PulseStudioResult>(
       context,
       MaterialPageRoute(
         builder: (_) =>
             SocialSelectionPreview(file: file, video: mediaKind == 'video'),
       ),
     );
-    if (preview?.accepted != true || !mounted) return;
+    if (preview == null || !mounted) return;
 
     if (media.length >= 8 ||
         (media.isNotEmpty &&
@@ -126,15 +128,15 @@ class _SocialComposerState extends State<SocialComposer> {
     });
     try {
       final path = await widget.store.upload(
-        File(selected.path!),
-        selected.name,
+        preview.file,
+        preview.file.uri.pathSegments.last,
         id,
         progress: (v) {
           if (mounted) setState(() => progress = v);
         },
       );
       String? coverPath;
-      if (preview!.cover != null) {
+      if (preview.cover != null) {
         final dir = await getTemporaryDirectory();
         final cover = File('${dir.path}/pulse-cover-${const Uuid().v4()}.jpg');
         try {
@@ -149,8 +151,8 @@ class _SocialComposerState extends State<SocialComposer> {
         media.add({
           'path': path,
           'kind': mediaKind,
-          'mime': mime,
-          'name': selected.name,
+          'mime': mimeFor(preview.file.path),
+          'name': preview.file.uri.pathSegments.last,
           if (coverPath != null) 'cover_path': coverPath,
         });
         completed++;
@@ -159,6 +161,12 @@ class _SocialComposerState extends State<SocialComposer> {
     } catch (e) {
       if (mounted) setState(() => error = socialError(e));
     } finally {
+      // Only remove files created by Studio; never delete the selected original.
+      try {
+        if (preview.file.path != file.path && await preview.file.exists()) {
+          await preview.file.delete();
+        }
+      } catch (_) {}
       if (mounted) setState(() => busy = false);
     }
   }
@@ -287,6 +295,10 @@ class _SocialComposerState extends State<SocialComposer> {
                   DropdownMenuItem(
                     value: 'followers',
                     child: Text('Approved followers'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'private',
+                    child: Text('Private · only me'),
                   ),
                 ],
                 onChanged: busy

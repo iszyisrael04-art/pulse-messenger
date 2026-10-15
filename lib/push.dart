@@ -79,7 +79,8 @@ class PulsePush {
         'pulse_push_register',
         params: {'p_device': device, 'p_token': token},
       );
-      status = 'Android background push registered. Server dispatcher must also be configured.';
+      status =
+          'Android background push registered. Server dispatcher must also be configured.';
     } catch (_) {
       status = 'Push registration failed. Local alerts remain available.';
     }

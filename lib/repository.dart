@@ -26,6 +26,19 @@ class PulseRepository extends ChangeNotifier {
       posts = [];
   List<Row> receipts = [], reactions = [], preferences = [], blocks = [];
   Row? me;
+  List<Row> chatRequests = [];
+  Map<String, int> unread = {};
+  Row? incoming;
+  int incomingSerial = 0;
+  Row? requestFor(String? chat) =>
+      chatRequests.where((r) => r['chat_id'] == chat).firstOrNull;
+  bool canReply(String? chat) {
+    final r = requestFor(chat);
+    return r == null ||
+        r['state'] == 'accepted' ||
+        r['state'] == 'pending' && r['sender_id'] == uid;
+  }
+
   String? activeChat, error;
   bool busy = false, syncing = false;
   bool _disposed = false;
@@ -67,6 +80,9 @@ class PulseRepository extends ChangeNotifier {
             if (change.eventType == PostgresChangeEvent.insert) {
               final message = change.newRecord;
               if (message['sender_id'] != uid) {
+                incoming = Map<String, dynamic>.from(message);
+                incomingSerial++;
+                notifyListeners();
                 unawaited(PulseNotifications.instance.message(message));
               }
             }
@@ -127,6 +143,8 @@ class PulseRepository extends ChangeNotifier {
           .select('*,pulse_members(user_id,role)')
           .order('created_at', ascending: false)
           .limit(200);
+      final requests = await db.from('pulse_chat_requests').select();
+      final unreadData = await rpc('unread_counts', {});
       final ids = <String>{uid};
       for (final c in cs) {
         for (final m in c['pulse_members'] as List) {
@@ -185,6 +203,10 @@ class PulseRepository extends ChangeNotifier {
         profiles[p['id']] = p;
       }
       chats = cs;
+      chatRequests = requests;
+      unread = Map<String, dynamic>.from(
+        unreadData as Map,
+      ).map((k, v) => MapEntry(k, (v as num).toInt()));
       statuses = st;
       channels = ch;
       followers = fo;
@@ -212,7 +234,8 @@ class PulseRepository extends ChangeNotifier {
       }
       await flush();
     } catch (_) {
-      error = 'Connection unavailable. Your queued messages will retry automatically.';
+      error =
+          'Connection unavailable. Your queued messages will retry automatically.';
     } finally {
       busy = false;
       if (gen == _generation) notifyListeners();
@@ -238,8 +261,14 @@ class PulseRepository extends ChangeNotifier {
   }
 
   Future<void> markRead() async {
-    if (activeChat != null && error == null)
+    if (activeChat != null && error == null) {
       await rpc('mark_read', {'p_chat': activeChat});
+      if (activeChat != null) {
+        unread[activeChat!] = 0;
+        await PulseNotifications.instance.clearChat(activeChat!);
+        notifyListeners();
+      }
+    }
   }
 
   Future<dynamic> rpc(String name, Row params) =>
@@ -257,6 +286,8 @@ class PulseRepository extends ChangeNotifier {
     if ((chatId ?? activeChat) == null ||
         (body.trim().isEmpty && attachment == null))
       return;
+    if (!canReply(chatId ?? activeChat))
+      throw StateError('Accept the message request before replying.');
     final row = <String, dynamic>{
       'id': const Uuid().v4(),
       'chat_id': chatId ?? activeChat,

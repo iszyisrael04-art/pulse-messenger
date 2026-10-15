@@ -42,6 +42,7 @@ Future<void> main() async {
   });
   try {
     double progress = 0;
+    final updates = <double>[];
     await PulseTusUploader(
       endpoint: Uri.parse('http://127.0.0.1:${server.port}/upload'),
       token: () async => 'fixture',
@@ -49,11 +50,16 @@ Future<void> main() async {
       file,
       'owner/post/video.mp4',
       'video/mp4',
-      progress: (v) => progress = v,
+      progress: (v) {
+        progress = v;
+        updates.add(v);
+      },
     );
     if (!recovered ||
         patches != 2 ||
         progress != 1 ||
+        updates.first != 0 ||
+        updates.where((v) => v > 0 && v < 1).length < 10 ||
         received.length != bytes.length)
       throw StateError('Resume failed');
     for (var i = 0; i < bytes.length; i++) {

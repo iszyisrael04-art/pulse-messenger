@@ -1,12 +1,12 @@
 [Setup]
 AppId={{30F995AC-7AEE-4CB1-8CC4-5F046026F024}
-AppName=PULSE
-AppVersion=0.4.3
-DefaultDirName={localappdata}\Programs\Pulse Messenger
-DefaultGroupName=Pulse Messenger
+AppName=Pulse
+AppVersion=0.4.4
+DefaultDirName={localappdata}\Programs\Pulse
+DefaultGroupName=Pulse
 PrivilegesRequired=lowest
 OutputDir=..\dist
-OutputBaseFilename=PulseMessenger-0.4.3-Windows-Setup
+OutputBaseFilename=Pulse-0.4.4-Windows-Setup
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -15,9 +15,9 @@ ArchitecturesInstallIn64BitMode=x64compatible
 [Files]
 Source: "..\build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 [Icons]
-Name: "{group}\Pulse Messenger"; Filename: "{app}\pulse_messenger.exe"
-Name: "{autodesktop}\Pulse Messenger"; Filename: "{app}\pulse_messenger.exe"; Tasks: desktopicon
+Name: "{group}\Pulse"; Filename: "{app}\Pulse.exe"
+Name: "{autodesktop}\Pulse"; Filename: "{app}\Pulse.exe"; Tasks: desktopicon
 [Tasks]
 Name: "desktopicon"; Description: "Create a desktop shortcut"; Flags: unchecked
 [Run]
-Filename: "{app}\pulse_messenger.exe"; Description: "Open Pulse Messenger"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\Pulse.exe"; Description: "Open Pulse"; Flags: nowait postinstall skipifsilent

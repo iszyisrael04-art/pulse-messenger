@@ -1,3 +1,4 @@
+import 'social_context.dart';
 import 'appearance.dart';
 import 'social_hashtags.dart';
 import 'social_search.dart';
@@ -282,6 +283,14 @@ class _PulseReelsState extends State<PulseReels> with WidgetsBindingObserver {
                       children: [
                         if (active && loaded == post['id'] && video != null)
                           GestureDetector(
+                            onSecondaryTapDown: (details) =>
+                                pulseContentContext(
+                                  context,
+                                  widget.store,
+                                  post,
+                                  details.globalPosition,
+                                  (updated) => feed.change(updated, post['id']),
+                                ),
                             onTap: () => player?.playOrPause(),
                             child: Video(
                               controller: video!,

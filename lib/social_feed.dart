@@ -1,3 +1,4 @@
+import 'social_context.dart';
 import 'brand.dart';
 import 'appearance.dart';
 import 'package:flutter/material.dart';
@@ -353,96 +354,110 @@ class _SocialPostCardState extends State<SocialPostCard> {
     final post = widget.post,
         author = Map<String, dynamic>.from(post['author'] as Map);
     final media = (post['media'] as List).cast<Map>();
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      margin: const EdgeInsets.only(bottom: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ListTile(
-            leading: PulseAvatar(
-              repo: widget.store.repo,
-              path: author['avatar_path'],
-              name: author['display_name'],
-            ),
-            title: Row(
-              children: [
-                Flexible(
-                  child: Text(
-                    author['display_name'],
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                ),
-                if (author['verified'] == true)
-                  const Padding(
-                    padding: EdgeInsets.only(left: 4),
-                    child: Icon(Icons.verified, color: Colors.blue, size: 17),
-                  ),
-                if (author['premium'] == true)
-                  const Padding(
-                    padding: EdgeInsets.only(left: 4),
-                    child: Icon(
-                      Icons.workspace_premium,
-                      color: Colors.amber,
-                      size: 17,
+    return GestureDetector(
+      onSecondaryTapDown: (details) => pulseContentContext(
+        context,
+        widget.store,
+        post,
+        details.globalPosition,
+        widget.onChanged,
+      ),
+      child: Card(
+        clipBehavior: Clip.antiAlias,
+        margin: const EdgeInsets.only(bottom: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ListTile(
+              leading: PulseAvatar(
+                repo: widget.store.repo,
+                path: author['avatar_path'],
+                name: author['display_name'],
+              ),
+              title: Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      author['display_name'],
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w700),
                     ),
                   ),
-              ],
-            ),
-            subtitle: Text(
-              '@${author['username'] ?? 'pulse_user'} · ${post['audience'] == 'followers' ? 'Followers' : 'Public'}\n${DateTime.parse(post['created_at']).toLocal().toString().substring(0, 16)}',
-            ),
-            onTap: () => openCreator(context, widget.store, post['author_id']),
-          ),
-          if (post['body'].toString().isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-              child: SelectableText(post['body']),
-            ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: SocialHashtags(store: widget.store, body: post['body']),
-          ),
-          if (media.isNotEmpty && media.first['kind'] == 'image') ...[
-            SizedBox(
-              height: 320,
-              child: PageView.builder(
-                itemCount: media.length,
-                onPageChanged: (v) => setState(() => image = v),
-                itemBuilder: (_, i) =>
-                    SocialImage(store: widget.store, path: media[i]['path']),
+                  if (author['verified'] == true)
+                    const Padding(
+                      padding: EdgeInsets.only(left: 4),
+                      child: Icon(Icons.verified, color: Colors.blue, size: 17),
+                    ),
+                  if (author['premium'] == true)
+                    const Padding(
+                      padding: EdgeInsets.only(left: 4),
+                      child: Icon(
+                        Icons.workspace_premium,
+                        color: Colors.amber,
+                        size: 17,
+                      ),
+                    ),
+                ],
               ),
+              subtitle: Text(
+                '@${author['username'] ?? 'pulse_user'} · ${post['audience'] == 'private'
+                    ? 'Only me'
+                    : post['audience'] == 'followers'
+                    ? 'Followers'
+                    : 'Public'}\n${DateTime.parse(post['created_at']).toLocal().toString().substring(0, 16)}',
+              ),
+              onTap: () =>
+                  openCreator(context, widget.store, post['author_id']),
             ),
-            if (media.length > 1)
+            if (post['body'].toString().isNotEmpty)
               Padding(
-                padding: const EdgeInsets.all(8),
-                child: Center(
-                  child: Text('${image + 1} / ${media.length} photos'),
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                child: SelectableText(post['body']),
+              ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: SocialHashtags(store: widget.store, body: post['body']),
+            ),
+            if (media.isNotEmpty && media.first['kind'] == 'image') ...[
+              SizedBox(
+                height: 320,
+                child: PageView.builder(
+                  itemCount: media.length,
+                  onPageChanged: (v) => setState(() => image = v),
+                  itemBuilder: (_, i) =>
+                      SocialImage(store: widget.store, path: media[i]['path']),
                 ),
               ),
-          ],
-          if (media.isNotEmpty && media.first['kind'] == 'video')
-            SizedBox(
-              height: 340,
-              child: SocialInlineVideo(
-                store: widget.store,
-                postId: post['id'],
-                path: media.first['path'],
+              if (media.length > 1)
+                Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Center(
+                    child: Text('${image + 1} / ${media.length} photos'),
+                  ),
+                ),
+            ],
+            if (media.isNotEmpty && media.first['kind'] == 'video')
+              SizedBox(
+                height: 340,
+                child: SocialInlineVideo(
+                  store: widget.store,
+                  postId: post['id'],
+                  path: media.first['path'],
+                ),
               ),
+            SocialActions(
+              store: widget.store,
+              post: post,
+              onChanged: widget.onChanged,
             ),
-          SocialActions(
-            store: widget.store,
-            post: post,
-            onChanged: widget.onChanged,
-          ),
-          if (!widget.details)
-            TextButton(
-              onPressed: () =>
-                  openSocialPost(context, widget.store, post['id']),
-              child: const Text('View details'),
-            ),
-        ],
+            if (!widget.details)
+              TextButton(
+                onPressed: () =>
+                    openSocialPost(context, widget.store, post['id']),
+                child: const Text('View details'),
+              ),
+          ],
+        ),
       ),
     );
   }

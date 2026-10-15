@@ -74,3 +74,8 @@ Dart formatting parses all source/test files. Python bootstrap and standalone us
 The security advisor reports no public RLS/privileged-function warning; nine private internal tables intentionally have no client policies. Leaked-password protection remains disabled. Full Flutter package resolution/semantic analysis, native compilation, visual UI testing, real uploads/player lifecycle and low-end performance are not completed. Automatic approval review's earlier local Flutter metadata-endpoint block was not bypassed. Use GitHub Actions and the device acceptance checklist to close these gates.
 
 The additive 009 social installation script is deployed, including ownership locking, private creator/repost visibility, scoped operator media review and reference-only chat sharing. Supabase CLI migration-history generation/replay on a clean staging database remains a production deployment task. No public production launch or app binary is claimed.
+
+
+# 0.4.4 verification — 15 October 2026
+
+See UPGRADE_0.4.4.md. Dart parsing/formatting and selected standalone analysis passed. Upload test now asserts intermediate transport progress, retry recovery and byte integrity; appearance, visibility, username/password validation and bootstrap idempotency/native-registration/Windows-name tests passed. Native compilation, full Flutter analysis/tests and actual media exports were not run. The new SQL suite's overlong fixture was fixed after its first failed run, but the rerun was blocked by automatic approval review usage limit and was not executed. No passing new request/privacy/redemption security result is claimed.

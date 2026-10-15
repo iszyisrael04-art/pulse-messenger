@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -126,7 +127,7 @@ class _PulseAppState extends State<PulseApp> {
     builder: (_, __) => MaterialApp(
       debugShowCheckedModeBanner: false,
       navigatorKey: navigator,
-      title: 'PULSE',
+      title: Platform.isWindows ? 'Pulse' : 'PULSE',
       theme: appearance.theme(Brightness.light),
       darkTheme: appearance.theme(Brightness.dark),
       themeMode: appearance.mode,

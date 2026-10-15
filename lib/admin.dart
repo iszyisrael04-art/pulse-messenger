@@ -110,9 +110,9 @@ class _AdminScreenState extends State<AdminScreen> {
                             children: [
                               Text(
                                 '${overview![k]}',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .headlineMedium,
+                                style: Theme.of(
+                                  context,
+                                ).textTheme.headlineMedium,
                               ),
                               Text(k),
                             ],

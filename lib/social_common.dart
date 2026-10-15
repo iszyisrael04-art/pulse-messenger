@@ -6,8 +6,9 @@ import 'social_feed.dart';
 import 'social_profile.dart';
 
 void socialNotice(BuildContext context, Object error) {
-  ScaffoldMessenger.of(context)
-      .showSnackBar(SnackBar(content: Text(socialError(error))));
+  ScaffoldMessenger.of(
+    context,
+  ).showSnackBar(SnackBar(content: Text(socialError(error))));
 }
 
 Future<String?> socialPrompt(

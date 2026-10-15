@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 import 'avatar.dart';
 import 'social_repository.dart';
 import 'social_common.dart';
+import 'social_download.dart';
 
 class SocialActions extends StatefulWidget {
   const SocialActions({
@@ -101,7 +102,11 @@ class _SocialActionsState extends State<SocialActions> {
   }
 
   Future<void> menu(String action) async {
-    if (action == 'edit') {
+    if (action == 'download') {
+      await perform(
+        () => downloadPulsePost(context, widget.store, widget.post['id']),
+      );
+    } else if (action == 'edit') {
       final value = await socialPrompt(
         context,
         'Edit caption',
@@ -240,6 +245,8 @@ class _SocialActionsState extends State<SocialActions> {
         tooltip: 'Post actions',
         onSelected: busy ? null : menu,
         itemBuilder: (_) => [
+          if ((post['media'] as List).isNotEmpty)
+            const PopupMenuItem(value: 'download', child: Text('Download')),
           if (mine) ...[
             const PopupMenuItem(value: 'edit', child: Text('Edit caption')),
             const PopupMenuItem(value: 'delete', child: Text('Delete')),

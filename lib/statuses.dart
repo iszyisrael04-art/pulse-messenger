@@ -331,10 +331,9 @@ class _StatusViewerState extends State<StatusViewer>
             .select('id')
             .eq('id', widget.status['id'])
             .single();
-        final remaining = DateTime.parse(widget.status['expires_at'])
-            .toUtc()
-            .difference(DateTime.now().toUtc())
-            .inSeconds;
+        final remaining = DateTime.parse(
+          widget.status['expires_at'],
+        ).toUtc().difference(DateTime.now().toUtc()).inSeconds;
         if (remaining <= 0) throw Exception('Expired');
         final signed = await widget.repo.db.storage
             .from('pulse-status-media')

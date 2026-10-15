@@ -1,3 +1,9 @@
+## 0.4.4 update — current source
+
+See [UPGRADE_0.4.4.md](UPGRADE_0.4.4.md) for the authoritative changes, verification and limitations. Backend 012 is deployed; its new security suite has **not passed** (fixed fixture, rerun blocked by automatic review usage limit). Message requests, private audience, retry-safe redemption and paid profile themes are implemented. Native Studio editors, menus/downloads and running-app notification/count UI are implemented in source but await native builds and device validation. Windows is branded Pulse with Pulse.exe. Full TikTok editing, closed-app push, E2EE and paid billing remain incomplete.
+
+The table below describes the earlier baseline; this update note takes precedence where behavior changed.
+
 # UI/autoplay patch 0.4.3
 
 See [UPGRADE_0.4.3.md](UPGRADE_0.4.3.md) for original branding, interface polish, visibility-aware feed autoplay and the remaining native verification.

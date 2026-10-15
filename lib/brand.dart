@@ -81,8 +81,9 @@ class PulseBottomNav extends StatelessWidget {
     super.key,
     required this.selected,
     required this.onSelect,
+    this.unread = 0,
   });
-  final int selected;
+  final int selected, unread;
   final ValueChanged<int> onSelect;
   static const labels = [
     'Home',
@@ -150,12 +151,16 @@ class PulseBottomNav extends StatelessWidget {
                               ),
                             )
                           else
-                            Icon(
-                              selected == i ? active[i] : icons[i],
-                              size: 24,
-                              color: selected == i
-                                  ? cs.onSurface
-                                  : cs.onSurfaceVariant,
+                            Badge(
+                              isLabelVisible: i == 3 && unread > 0,
+                              label: Text(unread > 99 ? '99+' : '$unread'),
+                              child: Icon(
+                                selected == i ? active[i] : icons[i],
+                                size: 24,
+                                color: selected == i
+                                    ? cs.onSurface
+                                    : cs.onSurfaceVariant,
+                              ),
                             ),
                           const SizedBox(height: 5),
                           Text(
