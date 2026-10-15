@@ -5,7 +5,7 @@ Pulse 0.4.5 remains a private beta. Passing a build is necessary but is not prod
 | Gate | Evidence/status | Next action |
 |---|---|---|
 | Two-device chat | User and brother report a successful chat test on 15 October | Retest new requests/accept/decline and reconnect after installing this patch; record version and devices |
-| Android/Windows 0.4.5 builds | Not run here | Run both GitHub jobs and retain artifacts, lockfile and logs |
+| Android/Windows 0.4.5 builds | User reports Android builds successfully; Windows reached CMake and hit an editor dependency cycle, corrected in source | Start a fresh Windows workflow at the corrected commit; retain artifacts, lockfile and logs |
 | Export/validation/config | Standalone logic checks passed | Verify actual database export, native save location and password/resend flows |
 | 012 request/privacy/Premium authorization | Corrected fixture; last rerun not executed after approval review usage limit | Run transactional suite in controlled staging; inspect negative cases and advisors |
 | Real media/editors/downloads | Source implemented, device tests pending | Test codecs, trim/mute/cover, crop/filters, progress, cancellation, memory and private media ACLs |

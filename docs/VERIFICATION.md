@@ -88,3 +88,8 @@ The user reports successful chatting with their brother on two devices. This is 
 Local checks passed: all 53 Dart source/test files parse/format; selected standalone analysis including export/validation; export pagination/content/Unicode, cancellation cleanup, existing-file and invalid-page safeguards; password confirmation; five Python native-bootstrap/configuration tests; public config preflight. Existing standalone upload recovery/progress/integrity, appearance and visibility tests passed again. No real user's password/session/account was modified for verification.
 
 No new database DDL or deployment was performed. New export queries use existing RLS and explicit field lists but have not been exercised against the real backend through a native app. Full Flutter analysis/tests/native builds and export/password/nonce/resend/sign-out device tests remain. The prior corrected 012 security-suite rerun remains unexecuted after automatic approval review's usage-limit block.
+
+
+## Windows build correction — 15 October 2026
+
+User reports Android successfully built. Windows failed CMake generation due to the editor/app target cycle. The bootstrap output-directory correction passed five Python tests, including a real CMake 4.1 configuration of the generated dependency graph and upgrade from the legacy cyclic command. This configures the native source target but does not compile Windows C++/WinRT code on Linux. Full Windows compilation and editor/device tests still require CI.

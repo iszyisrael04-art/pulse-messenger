@@ -10,6 +10,12 @@ The corrected archive pins `ffi: 2.2.0`, satisfying `flutter_secure_storage_wind
 
 Both supplied Android/Windows logs reached Flutter analysis and reported the same blocking error at `lib/social_media.dart:264`: a nullable Player field was passed to a non-null parameter during disposal. Cleanup now captures a local final player and checks it before calling the helper. The analyzer step stays enabled. Other supplied diagnostics were nonfatal warnings/style notices. Full CI/native builds must still be rerun; no successful build is claimed for this correction.
 
+## Windows CMake dependency correction
+
+The user reports that Android now builds successfully. The next Windows log reached CMake generation but failed on the cycle `Pulse -> pulse_editor -> Pulse`. The editor's POST_BUILD command referenced the app target directory, creating a reverse dependency under the generated project's CMake policy settings. Bootstrap now puts the editor DLL directly in `${CMAKE_BINARY_DIR}/runner/$<CONFIG>` using RUNTIME_OUTPUT_DIRECTORY, with the app depending on the editor in one direction only. It also repairs the earlier generated command on subsequent runs. The installation rule is retained.
+
+Upload the corrected bootstrap and bootstrap test (or replace matching files from this archive), then start a new Windows workflow run. No main.yml change is needed. Re-running an old workflow revision does not pick up new source commits. CMake deprecation and media-kit developer warnings in the supplied log were not the cause of this cycle failure. Full Windows compilation remains a separate CI gate.
+
 ## New source functionality
 
 - Settings → **Download your data** streams a JSON export of the signed-in user's public profile fields, currently accessible conversations/messages, own statuses/posts/Reels/comments and own message requests. It uses the ordinary authenticated client and existing RLS, explicit field lists and owner filters. No service-role key, login password or session tokens are added to the export. Each query fetches at most 250 records with a keyset cursor; pages are flushed to disk rather than retaining the full account in memory. Message/content queries use an initial creation-time cutoff. Edits/deletes during export can change results; it is not a transactional snapshot, a complete legal-access response or a restorable backup. It excludes media file bytes, other personal settings, reactions and follower lists. Locally hidden messages may still be accessible in the backend. Unsent local messages are not exported.

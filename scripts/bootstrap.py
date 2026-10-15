@@ -102,8 +102,12 @@ if native.exists():
     cmake = root / 'windows/CMakeLists.txt'
     if cmake.exists():
         text = cmake.read_text(encoding='utf-8')
+        legacy_editor_copy = 'add_custom_command(TARGET pulse_editor POST_BUILD COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:${BINARY_NAME}>" COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:pulse_editor>" "$<TARGET_FILE_DIR:${BINARY_NAME}>")'
+        if legacy_editor_copy in text:
+            text = text.replace(legacy_editor_copy, 'set_target_properties(pulse_editor PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/runner/$<CONFIG>")')
+            cmake.write_text(text, encoding='utf-8')
         if '# Pulse native editor' not in text:
-            text += '\n# Pulse native editor\nadd_library(pulse_editor SHARED "${CMAKE_CURRENT_SOURCE_DIR}/../native/editor/pulse_editor.cpp")\ntarget_compile_features(pulse_editor PRIVATE cxx_std_17)\ntarget_link_libraries(pulse_editor PRIVATE windowsapp)\nadd_dependencies(${BINARY_NAME} pulse_editor)\nadd_custom_command(TARGET pulse_editor POST_BUILD COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:${BINARY_NAME}>" COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:pulse_editor>" "$<TARGET_FILE_DIR:${BINARY_NAME}>")\ninstall(TARGETS pulse_editor RUNTIME DESTINATION "." COMPONENT Runtime)\n'
+            text += '\n# Pulse native editor\nadd_library(pulse_editor SHARED "${CMAKE_CURRENT_SOURCE_DIR}/../native/editor/pulse_editor.cpp")\ntarget_compile_features(pulse_editor PRIVATE cxx_std_17)\ntarget_link_libraries(pulse_editor PRIVATE windowsapp)\nadd_dependencies(${BINARY_NAME} pulse_editor)\nset_target_properties(pulse_editor PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/runner/$<CONFIG>")\ninstall(TARGETS pulse_editor RUNTIME DESTINATION "." COMPONENT Runtime)\n'
             cmake.write_text(text, encoding='utf-8')
 default = root / 'test/widget_test.dart'
 if default.exists():
