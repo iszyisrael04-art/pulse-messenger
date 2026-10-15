@@ -93,3 +93,8 @@ No new database DDL or deployment was performed. New export queries use existing
 ## Windows build correction — 15 October 2026
 
 User reports Android successfully built. Windows failed CMake generation due to the editor/app target cycle. The bootstrap output-directory correction passed five Python tests, including a real CMake 4.1 configuration of the generated dependency graph and upgrade from the legacy cyclic command. This configures the native source target but does not compile Windows C++/WinRT code on Linux. Full Windows compilation and editor/device tests still require CI.
+
+
+## Confirmed install-prefix failure and regression — 15 October 2026
+
+Full verbose user log identifies a literal $<TARGET_FILE_DIR:Pulse> install destination. Editor runtime installation now uses an explicit bundle destination. Nine Python tests passed, including a real CMake configure/compile/install fixture reproducing Flutter's generator-expression prefix and a path containing spaces. This builds tiny fixture code, not the real Flutter/WinRT app; fresh Windows CI remains required.

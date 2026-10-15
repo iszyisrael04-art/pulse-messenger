@@ -16,6 +16,24 @@ The user reports that Android now builds successfully. The next Windows log reac
 
 Upload the corrected bootstrap and bootstrap test (or replace matching files from this archive), then start a new Windows workflow run. No main.yml change is needed. Re-running an old workflow revision does not pick up new source commits. CMake deprecation and media-kit developer warnings in the supplied log were not the cause of this cycle failure. Full Windows compilation remains a separate CI gate.
 
+## Windows install failure: diagnosis pending
+
+The next user log reached INSTALL.vcxproj but contains only the MSB3073 wrapper failure. It does not contain the underlying CMake file/copy/install error, so a root-cause fix cannot be claimed. A local same-directory install fixture passed; the DLL install rule was not changed based on speculation.
+
+The workflow now runs `python scripts/build_windows.py`: it saves verbose Flutter output to `build-logs/windows-build.log`. On failure, if an install script exists, it also captures `cmake --install ... --config Release --verbose` in `windows-install.log`. The original build exit code remains a failure even if the diagnostic install succeeds. The workflow uploads these logs as **Pulse-Windows-Build-Logs**, including failed builds. It still packages the app only after a successful build.
+
+Replace `.github/workflows/main.yml`, add `scripts/build_windows.py` and `test/test_windows_build.py`, and retain the previous bootstrap/CMake fixes. Start a new Windows workflow on the new commit. If it fails, provide windows-install.log and windows-build.log, especially the first CMake Error with a filename/copy failure. Review logs before public sharing; they contain runner paths and public build configuration. The project does not put server credentials in build config.
+
+Eight Python tests pass, covering graph configuration, legacy runner repair, config checks and diagnostic logging/exit-code preservation. These are not a successful native Windows build. Android previously passed and its build command is unchanged.
+
+## Confirmed Windows install-prefix correction
+
+The full user log now identifies `file cannot create directory .../$<TARGET_FILE_DIR:Pulse>/..` in cmake_install.cmake. Flutter's install prefix is a generator expression; the editor's relative target-install destination left that prefix literal. This was an install-rule error, not evidence that elevated permissions were needed.
+
+Bootstrap now installs only the runtime DLL with `install(FILES "$<TARGET_FILE:pulse_editor>" DESTINATION "${CMAKE_INSTALL_PREFIX}" COMPONENT Runtime)`, matching Flutter's explicit bundle-destination pattern. It repairs the old rule in existing generated runners. The workflow's Windows compatibility step includes the same replacement, so updating that step fixes newly generated runners even when the old bootstrap is still present. There is no change to Android behavior or the one-way dependency graph.
+
+Nine Python tests pass, including a new CMake configure/build/install fixture with Flutter's exact generator-expression prefix and paths containing spaces. It verifies the runtime library lands beside the app and no literal generator-expression directory is created. The fixture uses tiny native code; it is not a full Flutter or Windows MediaComposition build. Run a fresh Windows CI build to confirm the production bundle.
+
 ## New source functionality
 
 - Settings → **Download your data** streams a JSON export of the signed-in user's public profile fields, currently accessible conversations/messages, own statuses/posts/Reels/comments and own message requests. It uses the ordinary authenticated client and existing RLS, explicit field lists and owner filters. No service-role key, login password or session tokens are added to the export. Each query fetches at most 250 records with a keyset cursor; pages are flushed to disk rather than retaining the full account in memory. Message/content queries use an initial creation-time cutoff. Edits/deletes during export can change results; it is not a transactional snapshot, a complete legal-access response or a restorable backup. It excludes media file bytes, other personal settings, reactions and follower lists. Locally hidden messages may still be accessible in the backend. Unsent local messages are not exported.
