@@ -311,11 +311,15 @@ class PulseRepository extends ChangeNotifier {
 
   Future<void> flush() async {
     if (syncing || db.auth.currentUser == null) return;
+    final owner = uid, generation = _generation;
+    final queueKey = 'pulse.outbox.$owner';
     syncing = true;
     try {
       for (final p in List<Row>.from(
         pending.where((p) => p['failure'] == null),
       )) {
+        if (generation != _generation || db.auth.currentUser?.id != owner)
+          break;
         try {
           await rpc(
             p['media_kind'] == null ? 'send_message' : 'send_media_message',
@@ -333,12 +337,16 @@ class PulseRepository extends ChangeNotifier {
               },
             },
           );
+          if (generation != _generation || db.auth.currentUser?.id != owner)
+            break;
           pending.remove(p);
-          await vault.write(key: _queueKey, value: jsonEncode(pending));
+          await vault.write(key: queueKey, value: jsonEncode(pending));
         } on PostgrestException catch (e) {
           // Authorization/validation failures need the user's attention, not endless retries.
+          if (generation != _generation || db.auth.currentUser?.id != owner)
+            break;
           p['failure'] = e.message;
-          await vault.write(key: _queueKey, value: jsonEncode(pending));
+          await vault.write(key: queueKey, value: jsonEncode(pending));
         } catch (_) {
           break;
         }
@@ -408,19 +416,21 @@ class PulseRepository extends ChangeNotifier {
   }
 
   Future<void> signOut({bool all = false}) async {
-    await PulsePush.instance.disable(all: all);
-    _generation++;
-    _timer?.cancel();
-    if (_realtime != null) await db.removeChannel(_realtime!);
+    final owner = uid;
+    // Do not discard the outbox or stop reconciliation before revocation succeeds.
     final keys = await vault.readAll();
-    for (final key in keys.keys.where(
-      (k) => k.startsWith('pulse.') && k.contains(uid),
-    )) {
-      await vault.delete(key: key);
-    }
+    await PulsePush.instance.disable(all: all);
     await db.auth.signOut(
       scope: all ? SignOutScope.global : SignOutScope.local,
     );
+    _generation++;
+    _timer?.cancel();
+    await PulseNotifications.instance.clearAll();
+    for (final key in keys.keys.where(
+      (k) => k.startsWith('pulse.') && k.contains(owner),
+    )) {
+      await vault.delete(key: key);
+    }
   }
 
   @override

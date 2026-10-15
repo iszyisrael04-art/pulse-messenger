@@ -1,3 +1,7 @@
+## User-reported result — 15 October 2026
+
+The user and their brother successfully tested chatting on two devices. Build/OS combination and detailed scenarios were not specified. Record this as a user-reported chat pass, not a blanket pass for the checklist or 0.4.5 changes. Next test Settings export/password/resend/sign-out and the 0.4.4 request/editor/privacy flows. LiveKit is deferred by the user.
+
 # PULSE 0.4 native acceptance checks
 
 Run after both CI jobs pass, with a staging project and three test accounts A/B/C. These checks have not been executed on devices here.

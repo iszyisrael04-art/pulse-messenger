@@ -1,6 +1,6 @@
-# PULSE 0.4.4
+# PULSE 0.4.5
 
-Message requests, native editors, menus and Premium: [docs/UPGRADE_0.4.4.md](docs/UPGRADE_0.4.4.md). Native build/device verification is pending.
+Release controls, data export and account safety: [docs/UPGRADE_0.4.5.md](docs/UPGRADE_0.4.5.md). [Current release readiness](docs/RELEASE_READINESS.md) records the user-reported two-device chat pass and the remaining gates.
 
 # PULSE 0.4.2
 

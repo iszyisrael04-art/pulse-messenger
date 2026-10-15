@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'brand.dart';
 import 'appearance.dart';
 import 'package:flutter/material.dart';
@@ -23,9 +24,64 @@ class _AuthScreenState extends State<AuthScreen> {
       reset = false,
       obscure = true;
   String? notice;
+  Timer? resendTimer;
+  DateTime? resendAt;
+  int get resendWait => resendAt == null
+      ? 0
+      : ((resendAt!.difference(DateTime.now()).inMilliseconds / 1000).ceil())
+            .clamp(0, 60)
+            .toInt();
+  void codeRequested() {
+    resendAt = DateTime.now().add(const Duration(seconds: 60));
+    resendTimer?.cancel();
+    resendTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (!mounted) {
+        t.cancel();
+        return;
+      }
+      setState(() {});
+      if (resendWait == 0) t.cancel();
+    });
+  }
+
+  Future<void> resend() async {
+    if (busy || resendWait > 0 || !codeSent) return;
+    setState(() {
+      busy = true;
+      notice = null;
+    });
+    try {
+      final id = identity.text.trim();
+      if (reset) {
+        await db.auth.resetPasswordForEmail(id);
+      } else if (method == 2) {
+        await db.auth.signInWithOtp(phone: id);
+      } else {
+        await db.auth.resend(type: OtpType.signup, email: id);
+      }
+      if (mounted)
+        setState(() {
+          codeRequested();
+          notice =
+              'A new code was requested. Check your inbox/SMS and spam folder. Provider limits still apply.';
+        });
+    } on AuthException catch (e) {
+      if (mounted) setState(() => notice = e.message);
+    } catch (_) {
+      if (mounted)
+        setState(
+          () =>
+              notice = 'Could not resend. Check your connection and try again.',
+        );
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
   final db = Supabase.instance.client;
   @override
   void dispose() {
+    resendTimer?.cancel();
     identity.dispose();
     password.dispose();
     code.dispose();
@@ -53,17 +109,21 @@ class _AuthScreenState extends State<AuthScreen> {
           await db.auth.updateUser(UserAttributes(password: newPassword));
       } else if (reset) {
         await db.auth.resetPasswordForEmail(id);
-        setState(() {
-          codeSent = true;
-          notice =
-              'Enter the recovery code from your email and a new password.';
-        });
+        if (mounted)
+          setState(() {
+            codeRequested();
+            codeSent = true;
+            notice =
+                'Enter the recovery code from your email and a new password.';
+          });
       } else if (method == 2) {
         await db.auth.signInWithOtp(phone: id);
-        setState(() {
-          codeSent = true;
-          notice = 'Enter the SMS code sent to $id.';
-        });
+        if (mounted)
+          setState(() {
+            codeRequested();
+            codeSent = true;
+            notice = 'Enter the SMS code sent to $id.';
+          });
       } else if (method == 1) {
         final response = await db.functions.invoke(
           'pulse-login',
@@ -77,8 +137,9 @@ class _AuthScreenState extends State<AuthScreen> {
           email: id,
           password: password.text,
         );
-        if (response.session == null)
+        if (response.session == null && mounted)
           setState(() {
+            codeRequested();
             codeSent = true;
             notice = 'Enter the confirmation code from your email.';
           });
@@ -296,6 +357,15 @@ class _AuthScreenState extends State<AuthScreen> {
                       child: const Text('Forgot password?'),
                     ),
                   ],
+                  if (codeSent)
+                    TextButton(
+                      onPressed: busy || resendWait > 0 ? null : resend,
+                      child: Text(
+                        resendWait > 0
+                            ? 'Resend code in ${resendWait}s'
+                            : 'Resend verification code',
+                      ),
+                    ),
                   if (codeSent || reset)
                     TextButton(
                       onPressed: busy

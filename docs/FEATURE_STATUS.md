@@ -1,3 +1,7 @@
+## 0.4.5 update — current source and user test
+
+User reports successful two-device chatting with their brother on 15 October 2026. Exact build/devices and additional flows were not specified. New source adds bounded JSON data export, masked password/confirmation/nonce controls, code resend cooldown, diagnostics, safer sign-out and build-config preflight. Standalone tests pass; native/backend integration of these new controls is not verified. See [UPGRADE_0.4.5.md](UPGRADE_0.4.5.md) and [RELEASE_READINESS.md](RELEASE_READINESS.md). No LiveKit, schema, billing or push-dispatcher deployment changes in this patch.
+
 ## 0.4.4 update — current source
 
 See [UPGRADE_0.4.4.md](UPGRADE_0.4.4.md) for the authoritative changes, verification and limitations. Backend 012 is deployed; its new security suite has **not passed** (fixed fixture, rerun blocked by automatic review usage limit). Message requests, private audience, retry-safe redemption and paid profile themes are implemented. Native Studio editors, menus/downloads and running-app notification/count UI are implemented in source but await native builds and device validation. Windows is branded Pulse with Pulse.exe. Full TikTok editing, closed-app push, E2EE and paid billing remain incomplete.

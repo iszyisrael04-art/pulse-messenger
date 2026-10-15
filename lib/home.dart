@@ -1,4 +1,7 @@
 import 'contact_picker.dart';
+import 'account_export.dart';
+import 'password_settings.dart';
+import 'diagnostics.dart';
 import 'brand.dart';
 import 'appearance.dart';
 import 'appearance_settings.dart';
@@ -1293,6 +1296,36 @@ class _HomeScreenState extends State<HomeScreen> {
     ],
   );
   Widget channelsView() => ChannelsScreen(repo: repo);
+  Future<void> confirmSignOut({bool all = false}) async {
+    final count = repo.pending.length;
+    final yes = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text(all ? 'Sign out all devices?' : 'Sign out this device?'),
+        content: Text(
+          [
+            if (count > 0)
+              '$count unsent message(s) on this device will be removed. Cancel to send them first.',
+            'The saved chat cache on this device will be removed.',
+            if (all)
+              'Refresh sessions on other devices will be revoked. Existing access tokens remain valid until expiry.',
+          ].join('\n\n'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(c, true),
+            child: const Text('Sign out'),
+          ),
+        ],
+      ),
+    );
+    if (yes == true && mounted) await perform(() => repo.signOut(all: all));
+  }
+
   Widget settingsView() => ListView(
     children: [
       header('Settings'),
@@ -1376,14 +1409,12 @@ class _HomeScreenState extends State<HomeScreen> {
       ListTile(
         leading: const Icon(Icons.lock_outline),
         title: const Text('Change password'),
-        onTap: () async {
-          final password = await prompt('New password (12+ characters)');
-          if (password != null && password.length >= 12)
-            await perform(() async {
-              await repo.db.auth.updateUser(UserAttributes(password: password));
-              notice('Password updated');
-            });
-        },
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => PasswordSettingsPage(client: repo.db),
+          ),
+        ),
       ),
       ListTile(
         leading: const Icon(Icons.block),
@@ -1418,9 +1449,27 @@ class _HomeScreenState extends State<HomeScreen> {
         },
       ),
       ListTile(
+        leading: const Icon(Icons.download_outlined),
+        title: const Text('Download your data'),
+        subtitle: const Text('Export accessible messages and your content'),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => AccountExportPage(repo: repo)),
+        ),
+      ),
+      ListTile(
+        leading: const Icon(Icons.health_and_safety_outlined),
+        title: const Text('Diagnostics'),
+        subtitle: const Text('Connection, pending messages and configuration'),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => PulseDiagnosticsPage(repo: repo)),
+        ),
+      ),
+      ListTile(
         leading: const Icon(Icons.logout),
         title: const Text('Sign out this device'),
-        onTap: () => perform(() => repo.signOut()),
+        onTap: () => confirmSignOut(),
       ),
       ListTile(
         leading: const Icon(Icons.devices),
@@ -1428,12 +1477,12 @@ class _HomeScreenState extends State<HomeScreen> {
         subtitle: const Text(
           'Revokes refresh sessions; existing access tokens expire normally.',
         ),
-        onTap: () => perform(() => repo.signOut(all: true)),
+        onTap: () => confirmSignOut(all: true),
       ),
       const Padding(
         padding: EdgeInsets.all(24),
         child: Text(
-          'PULSE 0.4.4 · Private beta\nMessages are protected by access policies and TLS. End-to-end encryption, individual device management and MFA UI are not implemented yet. Do not use this beta for sensitive conversations.',
+          'PULSE 0.4.5 · Private beta\nMessages are protected by access policies and TLS. End-to-end encryption, individual device management and MFA UI are not implemented yet. Do not use this beta for sensitive conversations.',
         ),
       ),
     ],

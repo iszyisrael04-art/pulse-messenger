@@ -20,6 +20,14 @@ class PulseNotifications {
     } catch (_) {}
   }
 
+  Future<void> clearAll() async {
+    _seen.clear();
+    _chatCounts.clear();
+    try {
+      await _plugin.cancelAll();
+    } catch (_) {}
+  }
+
   bool enabled = false, _ready = false;
   Future<void> initialize() async {
     try {
@@ -29,7 +37,7 @@ class PulseNotifications {
         const InitializationSettings(
           android: AndroidInitializationSettings('ic_pulse_notification'),
           windows: WindowsInitializationSettings(
-            appName: 'Pulse Messenger',
+            appName: 'Pulse',
             appUserModelId: 'com.pulsemessenger.pulse',
             guid: '30f995ac-7aee-4cb1-8cc4-5f046026f024',
           ),

@@ -17,5 +17,15 @@ void main() {
     validatePassword('a secure password') == null,
     'Valid password rejected',
   );
-  print('PASS: username boundaries and password minimum');
+  check(
+    validatePasswordConfirmation('a secure password', 'a secure password') ==
+        null,
+    'Matching password confirmation rejected',
+  );
+  check(
+    validatePasswordConfirmation('a secure password', 'different password') !=
+        null,
+    'Mismatched password confirmation accepted',
+  );
+  print('PASS: username boundaries, password minimum and confirmation');
 }

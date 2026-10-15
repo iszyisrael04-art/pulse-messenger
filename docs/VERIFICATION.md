@@ -79,3 +79,12 @@ The additive 009 social installation script is deployed, including ownership loc
 # 0.4.4 verification — 15 October 2026
 
 See UPGRADE_0.4.4.md. Dart parsing/formatting and selected standalone analysis passed. Upload test now asserts intermediate transport progress, retry recovery and byte integrity; appearance, visibility, username/password validation and bootstrap idempotency/native-registration/Windows-name tests passed. Native compilation, full Flutter analysis/tests and actual media exports were not run. The new SQL suite's overlong fixture was fixed after its first failed run, but the rerun was blocked by automatic approval review usage limit and was not executed. No passing new request/privacy/redemption security result is claimed.
+
+
+# 0.4.5 verification — 15 October 2026
+
+The user reports successful chatting with their brother on two devices. This is user-reported evidence for that tested chat flow, with no exact build or device matrix supplied. It is not a blanket device-test pass for new source.
+
+Local checks passed: all 53 Dart source/test files parse/format; selected standalone analysis including export/validation; export pagination/content/Unicode, cancellation cleanup, existing-file and invalid-page safeguards; password confirmation; five Python native-bootstrap/configuration tests; public config preflight. Existing standalone upload recovery/progress/integrity, appearance and visibility tests passed again. No real user's password/session/account was modified for verification.
+
+No new database DDL or deployment was performed. New export queries use existing RLS and explicit field lists but have not been exercised against the real backend through a native app. Full Flutter analysis/tests/native builds and export/password/nonce/resend/sign-out device tests remain. The prior corrected 012 security-suite rerun remains unexecuted after automatic approval review's usage-limit block.
