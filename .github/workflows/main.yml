@@ -9,17 +9,19 @@ permissions:
 jobs:
   android:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Download source
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-java@v4
+      - name: Set up Java
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      - uses: subosito/flutter-action@v2
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.47.7'
           channel: stable
@@ -28,20 +30,35 @@ jobs:
       - name: Generate native runners
         run: python3 scripts/bootstrap.py
 
+      - name: Check public configuration
+        run: python3 scripts/check_config.py config.example.json
+
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Format Dart source
+      - name: Format source
         run: dart format lib test
 
       - name: Analyze source
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
 
-      - name: Test bootstrap
-        run: python3 test/test_bootstrap.py
+      - name: Test video visibility
+        run: dart test/video_visibility_offline.dart
+
+      - name: Test appearance preferences
+        run: dart test/appearance_offline.dart
+
+      - name: Test Python helpers
+        run: python3 -m unittest discover -s test -p "test_*.py"
+
+      - name: Test streaming account export
+        run: dart test/data_export_offline.dart
 
       - name: Run Flutter tests
         run: flutter test
+
+      - name: Test upload transport
+        run: dart test/social_upload_offline.dart
 
       - name: Install Android NDK
         timeout-minutes: 20
@@ -59,17 +76,13 @@ jobs:
 
           test -f "$ANDROID_HOME/ndk/$NDK_VERSION/source.properties"
 
-      # Private-beta APK uses debug signing.
-      # Production releases require a stable signing keystore.
-      - name: Build Android APK
-        timeout-minutes: 60
+      - name: Build Android beta APK
         run: flutter build apk --debug --dart-define-from-file=config.example.json
 
-      - name: Upload Android APK
+      - name: Upload Android application
         uses: actions/upload-artifact@v4
         with:
           name: Pulse-Android-Beta
-          if-no-files-found: error
           path: |
             build/app/outputs/flutter-apk/app-debug.apk
             pubspec.lock
@@ -78,9 +91,11 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Download source
+        uses: actions/checkout@v4
 
-      - uses: subosito/flutter-action@v2
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.47.7'
           channel: stable
@@ -89,14 +104,26 @@ jobs:
       - name: Generate native runners
         run: python scripts/bootstrap.py
 
+      - name: Check public configuration
+        run: python scripts/check_config.py config.example.json
+
       - name: Install dependencies
         run: flutter pub get
 
       - name: Analyze source
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
 
-      - name: Test bootstrap
-        run: python test/test_bootstrap.py
+      - name: Test video visibility
+        run: dart test/video_visibility_offline.dart
+
+      - name: Test appearance preferences
+        run: dart test/appearance_offline.dart
+
+      - name: Test Python helpers
+        run: python -m unittest discover -s test -p "test_*.py"
+
+      - name: Test streaming account export
+        run: dart test/data_export_offline.dart
 
       - name: Run Flutter tests
         run: flutter test
@@ -106,25 +133,35 @@ jobs:
         run: |
           $path = "windows/CMakeLists.txt"
           $content = Get-Content $path -Raw
+
           $prefix = "set(CMAKE_POLICY_VERSION_MINIMUM 3.5)`n"
           $prefix += "add_compile_definitions(_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS)`n"
+
           Set-Content -Path $path -Value ($prefix + $content) -Encoding utf8
 
-      - name: Build Windows application
-        run: flutter build windows --release --dart-define-from-file=config.example.json
+      - name: Build Windows with detailed logs
+        run: python scripts/build_windows.py
 
-      - name: Install Inno Setup
+      - name: Save Windows build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Pulse-Windows-Build-Logs
+          path: build-logs/*.log
+          if-no-files-found: ignore
+
+      - name: Install installer tools
         run: choco install innosetup --yes --no-progress
 
-      - name: Build Windows installer
+      - name: Create Windows installer
         shell: pwsh
-        run: '& "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" scripts/windows-installer.iss'
+        run: |
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" scripts/windows-installer.iss
 
       - name: Upload Windows application
         uses: actions/upload-artifact@v4
         with:
           name: Pulse-Windows-Beta
-          if-no-files-found: error
           path: |
             dist/*.exe
             build/windows/x64/runner/Release/
