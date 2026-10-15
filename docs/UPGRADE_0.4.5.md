@@ -2,6 +2,14 @@
 
 Continues the existing native Android/Windows Flutter project. Windows remains **Pulse**, with `Pulse.exe`. LiveKit/calls/live work is deliberately deferred. No database schema change, account reset, payment activation or provider deployment is made in this patch. Backend scripts through 012 remain required; do not reinstall/reset the existing project.
 
+## Dependency correction
+
+The corrected archive pins `ffi: 2.2.0`, satisfying `flutter_secure_storage_windows ^4.2.2`. The earlier `ffi: 2.1.4` pin caused dependency resolution to fail on both platforms. Full Flutter dependency resolution/native builds must be rerun in CI; they were not executed here. No workflow change is required for this correction.
+
+## Analyzer correction
+
+Both supplied Android/Windows logs reached Flutter analysis and reported the same blocking error at `lib/social_media.dart:264`: a nullable Player field was passed to a non-null parameter during disposal. Cleanup now captures a local final player and checks it before calling the helper. The analyzer step stays enabled. Other supplied diagnostics were nonfatal warnings/style notices. Full CI/native builds must still be rerun; no successful build is claimed for this correction.
+
 ## New source functionality
 
 - Settings → **Download your data** streams a JSON export of the signed-in user's public profile fields, currently accessible conversations/messages, own statuses/posts/Reels/comments and own message requests. It uses the ordinary authenticated client and existing RLS, explicit field lists and owner filters. No service-role key, login password or session tokens are added to the export. Each query fetches at most 250 records with a keyset cursor; pages are flushed to disk rather than retaining the full account in memory. Message/content queries use an initial creation-time cutoff. Edits/deletes during export can change results; it is not a transactional snapshot, a complete legal-access response or a restorable backup. It excludes media file bytes, other personal settings, reactions and follower lists. Locally hidden messages may still be accessible in the backend. Unsent local messages are not exported.

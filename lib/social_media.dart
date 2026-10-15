@@ -261,9 +261,10 @@ class _SocialInlineVideoState extends State<SocialInlineVideo>
     for (final s in subscriptions) {
       s.cancel();
     }
-    if (player != null) PulseMedia.consumeAutomaticPause(player);
-    if (PulseMedia.active == player) PulseMedia.active = null;
-    player?.dispose();
+    final current = player;
+    if (current != null) PulseMedia.consumeAutomaticPause(current);
+    if (PulseMedia.active == current) PulseMedia.active = null;
+    current?.dispose();
     super.dispose();
   }
 
