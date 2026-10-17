@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'social_repository.dart';
+import 'premium_service.dart';
 
 const oversizePremiumMessage =
     'Your file is over 500MB. Please upgrade to Premium to continue.';
@@ -29,20 +30,14 @@ class _PulsePremiumPageState extends State<PulsePremiumPage> {
       error = null;
     });
     try {
-      final result = await widget.store.repo.rpc('redeem_result', {
-        'p_code': code.text.trim(),
-      });
+      final result = await redeemPulseCode(widget.store.repo, code.text);
       if (mounted)
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Premium active until ${DateTime.parse(result['expires_at']).toLocal().toString().substring(0, 10)}',
-            ),
-          ),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(result.message)));
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
-      if (mounted) setState(() => error = socialError(e));
+      if (mounted) setState(() => error = redeemError(e));
     } finally {
       if (mounted) setState(() => busy = false);
     }
@@ -67,7 +62,7 @@ class _PulsePremiumPageState extends State<PulsePremiumPage> {
             ),
             const SizedBox(height: 20),
             const Text(
-              'Premium includes larger uploads, exclusive profile themes and a profile badge. The planned subscription is \$3/month. Payments are not connected yet. You can redeem an eligible code below.',
+              'Premium includes larger uploads, animated GIF profile pictures, eight profile backgrounds, a Profile Signal card, per-chat bubble styles, up to 20 saved quick replies and a profile badge. The planned subscription is \$3/month. Payments are not connected yet. You can redeem an eligible code below.',
             ),
             const SizedBox(height: 20),
             TextField(

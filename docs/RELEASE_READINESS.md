@@ -1,3 +1,19 @@
+# 0.5.0 backend deployment completed
+
+See [current deployment and verification status](UPGRADE_0.5.0.md). Native builds/device tests and mail delivery setup remain pending. Earlier predeployment notes below are historical.
+
+# 0.5.0 review source — backend not deployed
+
+See [the current review notes](UPGRADE_0.5.0_REVIEW.md). Keep 0.4.9 installed until the access-rule deployment is approved and verified. Earlier release evidence follows.
+
+# Current update: 0.4.7
+
+See [UPGRADE_0.4.7.md](UPGRADE_0.4.7.md) for the registration agreement, Premium profile identity changes, test evidence and remaining build/device checks. Earlier sections below describe their respective releases.
+
+# Current 0.4.6 status
+
+The 0.4.6 source adds chat UI/branding, Pocket notes, paid quick replies/styles and unread-only notification eligibility. Backend authorization suites pass; Flutter/native builds and device UI checks remain pending. The earlier 012 test blockage is superseded by successful current runs. See UPGRADE_0.4.6.md. The table below retains the earlier release baseline and is not a native 0.4.6 pass.
+
 # Release readiness — 15 October 2026
 
 Pulse 0.4.5 remains a private beta. Passing a build is necessary but is not production approval. Do not advertise unfinished features as available.

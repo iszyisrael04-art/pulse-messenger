@@ -5,9 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'validation.dart';
+import 'privacy_policy.dart';
+import 'profile_rules.dart';
 
 class AuthScreen extends StatefulWidget {
-  const AuthScreen({super.key});
+  const AuthScreen({super.key, this.allowRegistration = true});
+  final bool allowRegistration;
   @override
   State<AuthScreen> createState() => _AuthScreenState();
 }
@@ -23,7 +26,16 @@ class _AuthScreenState extends State<AuthScreen> {
       codeSent = false,
       reset = false,
       obscure = true;
-  String? notice;
+  String? notice, privacyError;
+  bool privacyAccepted = false;
+  bool get needsAgreement => needsPrivacyAgreement(
+    register: register,
+    reset: reset,
+    codeSent: codeSent,
+  );
+  Map<String, dynamic>? get signupData => register
+      ? {'privacy_version': pulsePrivacyVersion, 'privacy_accepted': true}
+      : null;
   Timer? resendTimer;
   DateTime? resendAt;
   int get resendWait => resendAt == null
@@ -55,7 +67,11 @@ class _AuthScreenState extends State<AuthScreen> {
       if (reset) {
         await db.auth.resetPasswordForEmail(id);
       } else if (method == 2) {
-        await db.auth.signInWithOtp(phone: id);
+        await db.auth.signInWithOtp(
+          phone: id,
+          shouldCreateUser: register,
+          data: signupData,
+        );
       } else {
         await db.auth.resend(type: OtpType.signup, email: id);
       }
@@ -90,6 +106,13 @@ class _AuthScreenState extends State<AuthScreen> {
 
   Future<void> submit() async {
     if (!form.currentState!.validate()) return;
+    if (needsAgreement && !privacyAccepted) {
+      setState(
+        () => privacyError =
+            'Please read and agree to the Privacy Policy to create your account.',
+      );
+      return;
+    }
     setState(() => busy = true);
     try {
       final id = identity.text.trim();
@@ -117,7 +140,11 @@ class _AuthScreenState extends State<AuthScreen> {
                 'Enter the recovery code from your email and a new password.';
           });
       } else if (method == 2) {
-        await db.auth.signInWithOtp(phone: id);
+        await db.auth.signInWithOtp(
+          phone: id,
+          shouldCreateUser: register,
+          data: signupData,
+        );
         if (mounted)
           setState(() {
             codeRequested();
@@ -136,6 +163,7 @@ class _AuthScreenState extends State<AuthScreen> {
         final response = await db.auth.signUp(
           email: id,
           password: password.text,
+          data: signupData,
         );
         if (response.session == null && mounted)
           setState(() {
@@ -221,6 +249,8 @@ class _AuthScreenState extends State<AuthScreen> {
                               setState(() {
                                 method = s.first;
                                 register = false;
+                                privacyAccepted = false;
+                                privacyError = null;
                                 notice = null;
                               });
                             },
@@ -314,6 +344,17 @@ class _AuthScreenState extends State<AuthScreen> {
                           : 'Enter the code you received',
                     ),
                   ],
+                  if (needsAgreement)
+                    PulsePrivacyAgreement(
+                      accepted: privacyAccepted,
+                      error: privacyError,
+                      onChanged: busy
+                          ? null
+                          : (v) => setState(() {
+                              privacyAccepted = v;
+                              privacyError = null;
+                            }),
+                    ),
                   const SizedBox(height: 24),
                   FilledButton(
                     onPressed: busy ? null : submit,
@@ -335,27 +376,34 @@ class _AuthScreenState extends State<AuthScreen> {
                                 : 'Sign in',
                           ),
                   ),
-                  if (method == 0 && !codeSent && !reset) ...[
-                    TextButton(
-                      onPressed: busy
-                          ? null
-                          : () {
-                              setState(() => register = !register);
-                            },
-                      child: Text(
-                        register
-                            ? 'Already have an account? Sign in'
-                            : 'New to Pulse? Create an account',
+                  if ((method == 0 || method == 2) && !codeSent && !reset) ...[
+                    if (widget.allowRegistration)
+                      TextButton(
+                        onPressed: busy
+                            ? null
+                            : () {
+                                setState(() {
+                                  register = !register;
+                                  privacyAccepted = false;
+                                  privacyError = null;
+                                  notice = null;
+                                });
+                              },
+                        child: Text(
+                          register
+                              ? 'Already have an account? Sign in'
+                              : 'New to Pulse? Create an account',
+                        ),
                       ),
-                    ),
-                    TextButton(
-                      onPressed: busy
-                          ? null
-                          : () {
-                              setState(() => reset = true);
-                            },
-                      child: const Text('Forgot password?'),
-                    ),
+                    if (method == 0)
+                      TextButton(
+                        onPressed: busy
+                            ? null
+                            : () {
+                                setState(() => reset = true);
+                              },
+                        child: const Text('Forgot password?'),
+                      ),
                   ],
                   if (codeSent)
                     TextButton(
@@ -374,6 +422,9 @@ class _AuthScreenState extends State<AuthScreen> {
                               setState(() {
                                 codeSent = false;
                                 reset = false;
+                                register = false;
+                                privacyAccepted = false;
+                                privacyError = null;
                                 notice = null;
                                 code.clear();
                               });

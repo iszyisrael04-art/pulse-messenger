@@ -1,3 +1,4 @@
+import 'activity.dart';
 import 'social_context.dart';
 import 'brand.dart';
 import 'appearance.dart';
@@ -96,7 +97,14 @@ class _SocialFeedState extends State<SocialFeed> {
             children: [
               const PulseMark(size: 30),
               const SizedBox(width: 10),
-              const Expanded(child: PulseWordmark(size: 30)),
+              const Expanded(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: PulseWordmark(size: 30),
+                ),
+              ),
+              PulseActivityButton(store: widget.store),
               IconButton(
                 tooltip: 'Search videos, hashtags and profiles',
                 onPressed: () => openPulseSearch(context, widget.store),

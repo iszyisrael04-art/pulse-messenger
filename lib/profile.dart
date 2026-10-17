@@ -6,6 +6,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'repository.dart';
 import 'validation.dart';
+import 'avatar.dart';
+import 'media.dart';
+import 'social_premium.dart';
+import 'social_repository.dart';
 
 class ProfilePanel extends StatefulWidget {
   const ProfilePanel({super.key, required this.repo, required this.onSaved});
@@ -38,13 +42,79 @@ class _ProfilePanelState extends State<ProfilePanel> {
     super.dispose();
   }
 
+  Future<void> choosePicture({bool motion = false}) async {
+    if (busy) return;
+    if (motion && !widget.repo.premiumActive) {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PulsePremiumPage(
+            store: SocialStore(widget.repo),
+            reason: 'Animated profile pictures are a Premium feature.',
+          ),
+        ),
+      );
+      return;
+    }
+    final result = await FilePicker.pickFile(
+      type: FileType.custom,
+      allowedExtensions: motion ? ['gif'] : ['jpg', 'jpeg', 'png', 'webp'],
+    );
+    if (result?.path == null || !mounted) return;
+    try {
+      final selected = File(result!.path!);
+      if (await selected.length() > 2097152)
+        throw const FormatException('Profile pictures must be under 2 MB.');
+      if (motion) {
+        final header = await selected.open();
+        late List<int> bytes;
+        try {
+          bytes = await header.read(10);
+        } finally {
+          await header.close();
+        }
+        if (bytes.length < 10 ||
+            ![
+              'GIF87a',
+              'GIF89a',
+            ].contains(String.fromCharCodes(bytes.take(6)))) {
+          throw const FormatException('Choose an animated GIF file.');
+        }
+        if ((bytes[6] | bytes[7] << 8) > 512 ||
+            (bytes[8] | bytes[9] << 8) > 512) {
+          throw const FormatException(
+            'Use a GIF no larger than 512 × 512 pixels.',
+          );
+        }
+      }
+      if (mounted)
+        setState(() {
+          avatar = selected;
+          filename = result.name;
+          error = null;
+        });
+    } on FormatException catch (e) {
+      if (mounted) setState(() => error = e.message);
+    } catch (_) {
+      if (mounted)
+        setState(
+          () => error = 'Could not open that picture. Try another file.',
+        );
+    }
+  }
+
   Future<void> save() async {
     if (!form.currentState!.validate()) return;
     setState(() => busy = true);
     try {
       var path = widget.repo.me?['avatar_path'] as String?;
       if (avatar != null)
-        path = await widget.repo.upload(avatar!, filename!, avatar: true);
+        path = await widget.repo.upload(
+          avatar!,
+          filename!,
+          avatar: true,
+          contentType: mimeFor(filename!),
+        );
       await widget.repo.rpc('save_profile', {
         'p_username': username.text.trim().toLowerCase(),
         'p_name': name.text.trim(),
@@ -88,33 +158,73 @@ class _ProfilePanelState extends State<ProfilePanel> {
               const SizedBox(height: 8),
               const Text('Choose a unique username so people can find you.'),
               const SizedBox(height: 24),
-              if (avatar != null)
-                Center(
-                  child: CircleAvatar(
-                    radius: 48,
-                    backgroundImage: FileImage(avatar!),
+              Center(
+                child: Tooltip(
+                  message: 'Change profile picture',
+                  child: InkWell(
+                    onTap: busy ? null : () => choosePicture(),
+                    customBorder: const CircleBorder(),
+                    child: Stack(
+                      children: [
+                        ClipOval(
+                          child: SizedBox.square(
+                            dimension: 104,
+                            child: avatar == null
+                                ? PulseAvatar(
+                                    repo: widget.repo,
+                                    path: widget.repo.me?['avatar_path'],
+                                    name: name.text,
+                                    radius: 52,
+                                  )
+                                : PulsePortrait(
+                                    provider: ResizeImage(
+                                      FileImage(avatar!),
+                                      width: 256,
+                                    ),
+                                    animate:
+                                        filename?.toLowerCase().endsWith(
+                                              '.gif',
+                                            ) ==
+                                            true &&
+                                        widget.repo.premiumActive,
+                                  ),
+                          ),
+                        ),
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
+                          child: CircleAvatar(
+                            radius: 17,
+                            backgroundColor: Theme.of(
+                              context,
+                            ).colorScheme.primary,
+                            child: Icon(
+                              Icons.photo_camera_outlined,
+                              size: 19,
+                              color: Theme.of(context).colorScheme.onPrimary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
+              ),
+              const SizedBox(height: 12),
               OutlinedButton.icon(
-                onPressed: busy
-                    ? null
-                    : () async {
-                        final result = await FilePicker.pickFile(
-                          type: FileType.custom,
-                          allowedExtensions: ['jpg', 'jpeg', 'png', 'webp'],
-                        );
-                        if (result != null && result.path != null)
-                          setState(() {
-                            avatar = File(result.path!);
-                            filename = result.name;
-                          });
-                      },
+                onPressed: busy ? null : () => choosePicture(),
                 icon: const Icon(Icons.add_a_photo_outlined),
-                label: Text(
-                  avatar == null
-                      ? 'Choose profile picture'
-                      : 'Change selected picture',
-                ),
+                label: const Text('Change photo'),
+              ),
+              OutlinedButton.icon(
+                onPressed: busy ? null : () => choosePicture(motion: true),
+                icon: const Icon(Icons.motion_photos_on_outlined),
+                label: const Text('Animated picture · Premium'),
+              ),
+              const Text(
+                'Photos: up to 2 MB. Premium GIFs: up to 512 × 512 pixels.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12),
               ),
               const SizedBox(height: 16),
               TextFormField(

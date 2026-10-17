@@ -20,6 +20,25 @@ class PulseNotifications {
     } catch (_) {}
   }
 
+  Future<void> syncUnread(Map<String, int> counts) async {
+    for (final chat in _chatCounts.keys.toList()) {
+      final next = counts[chat] ?? 0;
+      final previous = _chatCounts[chat] ?? 0;
+      if (next == 0) {
+        await clearChat(chat);
+      } else {
+        _chatCounts[chat] = next;
+        if (next < previous)
+          await _show(
+            chat.hashCode & 0x7fffffff,
+            'Pulse',
+            '$next new message${next == 1 ? '' : 's'}',
+            number: next,
+          );
+      }
+    }
+  }
+
   Future<void> clearAll() async {
     _seen.clear();
     _chatCounts.clear();
@@ -99,6 +118,7 @@ class PulseNotifications {
             icon: 'ic_pulse_notification',
             number: number,
             groupKey: 'pulse_messages',
+            onlyAlertOnce: true,
           ),
           windows: const WindowsNotificationDetails(),
         ),
@@ -113,12 +133,13 @@ class PulseNotifications {
     final id = message['id']?.toString();
     if (id == null || !_seen.add(id)) return;
     if (_seen.length > 500) _seen.remove(_seen.first);
-    final chat = message['chat_id'].toString();
-    final count = (_chatCounts[chat] ?? 0) + 1;
+    final chat = message['chat_id'] as String?;
+    final count = (message['unread_count'] as num?)?.toInt() ?? 0;
+    if (chat == null || count <= 0) return;
     _chatCounts[chat] = count;
     await _show(
       chat.hashCode & 0x7fffffff,
-      'Pulse Messenger',
+      'Pulse',
       '$count new message${count == 1 ? '' : 's'}',
       number: count,
     );
@@ -126,12 +147,12 @@ class PulseNotifications {
 
   Future<bool> incomingCall(String id, bool video) => _show(
     id.hashCode & 0x7fffffff,
-    'Pulse Messenger',
+    'Pulse',
     video
         ? 'Incoming video call. Open Pulse to answer.'
         : 'Incoming voice call. Open Pulse to answer.',
   );
 
   Future<bool> test() =>
-      _show(1, 'Pulse Messenger', 'Your Pulse notifications are enabled.');
+      _show(1, 'Pulse', 'Your Pulse notifications are enabled.');
 }

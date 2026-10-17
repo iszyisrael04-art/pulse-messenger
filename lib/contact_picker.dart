@@ -119,6 +119,14 @@ class _ContactDialogState extends State<_ContactDialog> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         ),
                       )
+                    : person != null && error == null
+                    ? const Tooltip(
+                        message: 'Account found on Pulse',
+                        child: Icon(
+                          Icons.check_circle,
+                          color: Color(0xff14ac83),
+                        ),
+                      )
                     : const Icon(Icons.search),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
@@ -138,8 +146,19 @@ class _ContactDialogState extends State<_ContactDialog> {
                     path: person!['avatar_path'],
                     name: person!['display_name'],
                   ),
-                  title: Text(person!['display_name']),
-                  subtitle: Text('@${person!['username']}'),
+                  title: Text(
+                    person!['display_name'],
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  trailing: const Tooltip(
+                    message: 'On Pulse — not an identity verification badge',
+                    child: Icon(
+                      Icons.check_circle_outline,
+                      color: Color(0xff14ac83),
+                    ),
+                  ),
+                  subtitle: Text('@${person!['username']} · On Pulse'),
                 ),
               ),
             const SizedBox(height: 12),
@@ -160,6 +179,74 @@ class _ContactDialogState extends State<_ContactDialog> {
             ),
           ],
         ),
+      ),
+    ),
+  );
+}
+
+Future<String?> pickPulseMembers(BuildContext context, PulseRepository repo) {
+  final selected = <String>{};
+  return showDialog<String>(
+    context: context,
+    builder: (dialog) => StatefulBuilder(
+      builder: (c, update) => AlertDialog(
+        title: const Text('Choose Pulse members'),
+        content: SizedBox(
+          width: 440,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Find each username and confirm the green account check before adding them.',
+                ),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    for (final username in selected)
+                      InputChip(
+                        avatar: const Icon(
+                          Icons.check_circle,
+                          size: 18,
+                          color: Color(0xff14ac83),
+                        ),
+                        label: Text('@$username'),
+                        onDeleted: () =>
+                            update(() => selected.remove(username)),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                OutlinedButton.icon(
+                  onPressed: selected.length >= 100
+                      ? null
+                      : () async {
+                          final username = await pickPulseContact(dialog, repo);
+                          if (username != null && dialog.mounted)
+                            update(() => selected.add(username));
+                        },
+                  icon: const Icon(Icons.person_add_alt),
+                  label: Text('Add member (${selected.length}/100)'),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialog),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: selected.isEmpty
+                ? null
+                : () => Navigator.pop(dialog, selected.join(',')),
+            child: const Text('Continue'),
+          ),
+        ],
       ),
     ),
   );

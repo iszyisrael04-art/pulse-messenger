@@ -282,7 +282,8 @@ class _SocialComposerState extends State<SocialComposer> {
                 maxLines: 10,
                 maxLength: 4000,
                 decoration: const InputDecoration(
-                  hintText: 'Share a thought… Add #hashtags to your caption.',
+                  hintText:
+                      'Share a thought… Add #hashtags, @username or !community_handle.',
                 ),
               ),
               DropdownButtonFormField<String>(

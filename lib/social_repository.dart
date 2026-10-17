@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 
 import 'media.dart';
 import 'social_upload.dart';
+import 'activity_controller.dart';
 import 'repository.dart' hide Row;
 
 typedef SocialRow = Map<String, dynamic>;
@@ -27,6 +28,7 @@ class SocialFailure implements Exception {
 class SocialStore {
   SocialStore(this.repo);
   final PulseRepository repo;
+  late final activity = PulseActivityController(repo);
   final hiddenCreators = <String>{};
   final urls = LinkedHashMap<String, ({String url, DateTime expires})>();
   String get uid => repo.uid;

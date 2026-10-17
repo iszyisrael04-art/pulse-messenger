@@ -1,3 +1,19 @@
+# 0.5.0 backend deployment completed
+
+See [current deployment and verification status](UPGRADE_0.5.0.md). Native builds/device tests and mail delivery setup remain pending. Earlier predeployment notes below are historical.
+
+# 0.5.0 review source — backend not deployed
+
+See [the current review notes](UPGRADE_0.5.0_REVIEW.md). Keep 0.4.9 installed until the access-rule deployment is approved and verified. Earlier release evidence follows.
+
+# Current update: 0.4.7
+
+See [UPGRADE_0.4.7.md](UPGRADE_0.4.7.md) for the registration agreement, Premium profile identity changes, test evidence and remaining build/device checks. Earlier sections below describe their respective releases.
+
+## 0.4.6 — current source and backend evidence
+
+Chat UI, unread-only preview eligibility, P favicon/splash, member-account checks, Pocket notes, Premium quick replies and per-chat bubble styles are implemented. Backend request/redemption and new note/Premium/unread authorization suites passed with rollback. Native UI, widget tests and builds remain unverified for this patch. See [UPGRADE_0.4.6.md](UPGRADE_0.4.6.md). No E2EE, paid billing, OS floating chat bubbles or reliable closed-app push claim is made. The older notes below are historical where superseded.
+
 ## 0.4.5 update — current source and user test
 
 User reports successful two-device chatting with their brother on 15 October 2026. Exact build/devices and additional flows were not specified. New source adds bounded JSON data export, masked password/confirmation/nonce controls, code resend cooldown, diagnostics, safer sign-out and build-config preflight. Standalone tests pass; native/backend integration of these new controls is not verified. See [UPGRADE_0.4.5.md](UPGRADE_0.4.5.md) and [RELEASE_READINESS.md](RELEASE_READINESS.md). No LiveKit, schema, billing or push-dispatcher deployment changes in this patch.

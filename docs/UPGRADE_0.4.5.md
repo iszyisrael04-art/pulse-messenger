@@ -34,6 +34,10 @@ Bootstrap now installs only the runtime DLL with `install(FILES "$<TARGET_FILE:p
 
 Nine Python tests pass, including a new CMake configure/build/install fixture with Flutter's exact generator-expression prefix and paths containing spaces. It verifies the runtime library lands beside the app and no literal generator-expression directory is created. The fixture uses tiny native code; it is not a full Flutter or Windows MediaComposition build. Run a fresh Windows CI build to confirm the production bundle.
 
+## Windows console Unicode correction
+
+The next supplied failure is Python UnicodeEncodeError while printing a UTF-8 build log to a cp1252 console. The build helper now escapes characters unsupported by the console while keeping the original UTF-8 log file intact. Tests simulate a strict cp1252 console with √ and emoji and verify both successful and failed native exit codes are preserved. This logging correction does not establish whether the actual app build succeeded; rerun CI and inspect its result/artifacts. No main.yml change is required for this patch.
+
 ## New source functionality
 
 - Settings → **Download your data** streams a JSON export of the signed-in user's public profile fields, currently accessible conversations/messages, own statuses/posts/Reels/comments and own message requests. It uses the ordinary authenticated client and existing RLS, explicit field lists and owner filters. No service-role key, login password or session tokens are added to the export. Each query fetches at most 250 records with a keyset cursor; pages are flushed to disk rather than retaining the full account in memory. Message/content queries use an initial creation-time cutoff. Edits/deletes during export can change results; it is not a transactional snapshot, a complete legal-access response or a restorable backup. It excludes media file bytes, other personal settings, reactions and follower lists. Locally hidden messages may still be accessible in the backend. Unsent local messages are not exported.

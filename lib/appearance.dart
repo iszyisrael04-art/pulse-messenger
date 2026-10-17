@@ -533,10 +533,8 @@ class _PulseSplashState extends State<PulseSplash>
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          PulseMark(
-                            size: style == 'minimal' ? 72 : 88,
-                            color: cs.primary,
-                            tile: style != 'minimal',
+                          AnimatedPulseFavicon(
+                            size: style == 'minimal' ? 80 : 96,
                           ),
                           const SizedBox(height: 22),
                           PulseWordmark(size: 54, color: cs.onSurface),

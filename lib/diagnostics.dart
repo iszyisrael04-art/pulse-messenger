@@ -16,7 +16,7 @@ class _PulseDiagnosticsPageState extends State<PulseDiagnosticsPage> {
   bool busy = false;
   String result = 'Not checked';
   String get report => [
-    'Pulse 0.4.5 private beta',
+    'Pulse 0.4.6 private beta',
     'Platform: ${Platform.operatingSystem}',
     'Authenticated: ${widget.repo.db.auth.currentSession != null}',
     'Backend check: $result',

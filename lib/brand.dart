@@ -11,7 +11,7 @@ class PulseMark extends StatelessWidget {
     final ink = color ?? Theme.of(context).colorScheme.primary;
     final mark = CustomPaint(
       size: Size.square(size),
-      painter: PulseMarkPainter(tile ? Colors.white : ink),
+      painter: PulseMarkPainter(tile ? const Color(0xff23e5ba) : ink),
     );
     return Semantics(
       label: 'Pulse',
@@ -22,7 +22,7 @@ class PulseMark extends StatelessWidget {
               height: size,
               padding: EdgeInsets.all(size * .18),
               decoration: BoxDecoration(
-                color: ink,
+                color: const Color(0xff101a2a),
                 borderRadius: BorderRadius.circular(size * .25),
               ),
               child: mark,
@@ -46,13 +46,18 @@ class PulseMarkPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
     final path = Path()
-      ..moveTo(15, 52)
-      ..lineTo(32, 52)
-      ..lineTo(42, 26)
-      ..lineTo(58, 75)
-      ..lineTo(70, 46)
-      ..lineTo(86, 46);
+      ..moveTo(30, 79)
+      ..lineTo(30, 24)
+      ..lineTo(53, 24)
+      ..cubicTo(70, 24, 79, 32, 79, 45)
+      ..cubicTo(79, 58, 69, 64, 53, 64)
+      ..lineTo(30, 64);
     canvas.drawPath(path, p);
+    canvas.drawCircle(
+      const Offset(77, 80),
+      5,
+      Paint()..color = const Color(0xffae94ff),
+    );
     canvas.restore();
   }
 
@@ -82,8 +87,10 @@ class PulseBottomNav extends StatelessWidget {
     required this.selected,
     required this.onSelect,
     this.unread = 0,
+    this.profileImage,
   });
   final int selected, unread;
+  final Widget? profileImage;
   final ValueChanged<int> onSelect;
   static const labels = [
     'Home',
@@ -154,13 +161,15 @@ class PulseBottomNav extends StatelessWidget {
                             Badge(
                               isLabelVisible: i == 3 && unread > 0,
                               label: Text(unread > 99 ? '99+' : '$unread'),
-                              child: Icon(
-                                selected == i ? active[i] : icons[i],
-                                size: 24,
-                                color: selected == i
-                                    ? cs.onSurface
-                                    : cs.onSurfaceVariant,
-                              ),
+                              child: i == 5 && profileImage != null
+                                  ? profileImage!
+                                  : Icon(
+                                      selected == i ? active[i] : icons[i],
+                                      size: 24,
+                                      color: selected == i
+                                          ? cs.onSurface
+                                          : cs.onSurfaceVariant,
+                                    ),
                             ),
                           const SizedBox(height: 5),
                           Text(
@@ -187,4 +196,64 @@ class PulseBottomNav extends StatelessWidget {
       ),
     );
   }
+}
+
+class AnimatedPulseFavicon extends StatefulWidget {
+  const AnimatedPulseFavicon({super.key, this.size = 88});
+  final double size;
+  @override
+  State<AnimatedPulseFavicon> createState() => _AnimatedPulseFaviconState();
+}
+
+class _AnimatedPulseFaviconState extends State<AnimatedPulseFavicon>
+    with SingleTickerProviderStateMixin {
+  late final motion = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1400),
+  );
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      motion.stop();
+      motion.value = .5;
+    } else if (!motion.isAnimating)
+      motion.repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    motion.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: motion,
+    builder: (_, __) => Transform.scale(
+      scale: .96 + .04 * Curves.easeInOut.transform(motion.value),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(widget.size * .25),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(
+                0xff23e5ba,
+              ).withValues(alpha: .10 + motion.value * .12),
+              blurRadius: 18 + motion.value * 14,
+              spreadRadius: motion.value * 3,
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(widget.size * .25),
+          child: Image.asset(
+            'assets/branding/pulse.png',
+            width: widget.size,
+            height: widget.size,
+          ),
+        ),
+      ),
+    ),
+  );
 }

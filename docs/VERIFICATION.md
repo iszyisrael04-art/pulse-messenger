@@ -1,3 +1,15 @@
+# 0.5.0 backend deployment completed
+
+See [current deployment and verification status](UPGRADE_0.5.0.md). Native builds/device tests and mail delivery setup remain pending. Earlier predeployment notes below are historical.
+
+# 0.5.0 review source — backend not deployed
+
+See [the current review notes](UPGRADE_0.5.0_REVIEW.md). Keep 0.4.9 installed until the access-rule deployment is approved and verified. Earlier release evidence follows.
+
+# Current update: 0.4.7
+
+See [UPGRADE_0.4.7.md](UPGRADE_0.4.7.md) for the registration agreement, Premium profile identity changes, test evidence and remaining build/device checks. Earlier sections below describe their respective releases.
+
 # Verification results — 9 October 2026
 
 ## Passed against the connected Pulse backend
@@ -98,3 +110,8 @@ User reports Android successfully built. Windows failed CMake generation due to 
 ## Confirmed install-prefix failure and regression — 15 October 2026
 
 Full verbose user log identifies a literal $<TARGET_FILE_DIR:Pulse> install destination. Editor runtime installation now uses an explicit bundle destination. Nine Python tests passed, including a real CMake configure/compile/install fixture reproducing Flutter's generator-expression prefix and a path containing spaces. This builds tiny fixture code, not the real Flutter/WinRT app; fresh Windows CI remains required.
+
+
+# 0.4.6 — 15 October 2026
+
+Current backend request/privacy/Premium retry suite and new chat-tools/unread suite pass. Fixtures test notes/templates ownership, free/expired Premium rejection, style expiry and unread own/read/hidden/blocked/outsider exclusions; transactions roll back. This supersedes the earlier unexecuted 012-suite status. All 59 Dart files parse/format; selected pure analysis and six standalone suites pass. Python discovery completes ten tests with one CMake-install regression skipped in the refreshed environment. Workflow YAML parses and retains previous dependency/CMake/Unicode corrections. No full Flutter analysis/widget tests/native build/device pass is claimed for 0.4.6. Details: UPGRADE_0.4.6.md.

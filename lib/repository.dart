@@ -29,6 +29,17 @@ class PulseRepository extends ChangeNotifier {
   List<Row> chatRequests = [];
   Map<String, int> unread = {};
   Row? incoming;
+  bool Function(String)? isChatVisible;
+  final _announced = <String>{};
+  DateTime? premiumUntil;
+  String chatStyle = 'classic';
+  bool get premiumActive => premiumUntil?.isAfter(DateTime.now()) == true;
+  void applyPremium(DateTime expiry) {
+    premiumUntil = expiry;
+    _avatarEntitlements.clear();
+    notifyListeners();
+  }
+
   int incomingSerial = 0;
   Row? requestFor(String? chat) =>
       chatRequests.where((r) => r['chat_id'] == chat).firstOrNull;
@@ -69,6 +80,7 @@ class PulseRepository extends ChangeNotifier {
     if (_disposed || db.auth.currentUser == null) return;
     await refresh();
     if (_disposed || db.auth.currentUser == null) return;
+    PulsePush.instance.onMessage = (id) => unawaited(fetchIncoming(id));
     _realtime = db
         .channel('pulse:$uid')
         .onPostgresChanges(
@@ -79,12 +91,7 @@ class PulseRepository extends ChangeNotifier {
             if (_disposed || db.auth.currentUser == null) return;
             if (change.eventType == PostgresChangeEvent.insert) {
               final message = change.newRecord;
-              if (message['sender_id'] != uid) {
-                incoming = Map<String, dynamic>.from(message);
-                incomingSerial++;
-                notifyListeners();
-                unawaited(PulseNotifications.instance.message(message));
-              }
+              unawaited(announceIncoming(Map<String, dynamic>.from(message)));
             }
             refresh();
           },
@@ -138,6 +145,11 @@ class PulseRepository extends ChangeNotifier {
           .select()
           .eq('id', uid)
           .single();
+      final entitlement = await db
+          .from('pulse_premium')
+          .select('expires_at')
+          .eq('user_id', uid)
+          .maybeSingle();
       final cs = await db
           .from('pulse_chats')
           .select('*,pulse_members(user_id,role)')
@@ -199,6 +211,7 @@ class PulseRepository extends ChangeNotifier {
       }
       if (gen != _generation) return;
       me = own;
+      premiumUntil = DateTime.tryParse(entitlement?['expires_at'] ?? '');
       for (final p in ps) {
         profiles[p['id']] = p;
       }
@@ -207,6 +220,7 @@ class PulseRepository extends ChangeNotifier {
       unread = Map<String, dynamic>.from(
         unreadData as Map,
       ).map((k, v) => MapEntry(k, (v as num).toInt()));
+      unawaited(PulseNotifications.instance.syncUnread(unread));
       statuses = st;
       channels = ch;
       followers = fo;
@@ -245,6 +259,8 @@ class PulseRepository extends ChangeNotifier {
   Future<void> openChat(String id) async {
     _generation++;
     activeChat = id;
+    chatStyle = 'classic';
+    unawaited(loadChatStyle(id));
     messages.clear();
     receipts = [];
     reactions = [];
@@ -260,14 +276,78 @@ class PulseRepository extends ChangeNotifier {
     await refresh();
   }
 
-  Future<void> markRead() async {
-    if (activeChat != null && error == null) {
-      await rpc('mark_read', {'p_chat': activeChat});
-      if (activeChat != null) {
-        unread[activeChat!] = 0;
-        await PulseNotifications.instance.clearChat(activeChat!);
+  Future<void> markRead([String? chat]) async {
+    final target = chat ?? activeChat;
+    final owner = db.auth.currentUser?.id;
+    if (target == null || owner == null || error != null) return;
+    await rpc('mark_read', {'p_chat': target});
+    if (db.auth.currentUser?.id != owner || _disposed) return;
+    unread[target] = 0;
+    final stamp = DateTime.now().toUtc().toIso8601String();
+    for (final m in messages.where(
+      (m) => m['chat_id'] == target && m['sender_id'] != owner,
+    )) {
+      final existing = receipts
+          .where((r) => r['message_id'] == m['id'] && r['user_id'] == owner)
+          .firstOrNull;
+      if (existing != null)
+        existing['read_at'] = stamp;
+      else
+        receipts.add({
+          'message_id': m['id'],
+          'user_id': owner,
+          'read_at': stamp,
+          'delivered_at': stamp,
+        });
+    }
+    await PulseNotifications.instance.clearChat(target);
+    notifyListeners();
+  }
+
+  Future<void> fetchIncoming(String id) => announceIncoming({'id': id});
+
+  Future<void> announceIncoming(Row hint) async {
+    final owner = db.auth.currentUser?.id;
+    final id = hint['id'] as String?;
+    if (_disposed || owner == null || id == null || !_announced.add(id)) return;
+    if (_announced.length > 500) _announced.remove(_announced.first);
+    try {
+      final preview = await rpc('unread_preview', {'p_message': id});
+      if (preview == null || _disposed || db.auth.currentUser?.id != owner)
+        return;
+      final message = Map<String, dynamic>.from(preview['message']);
+      final chat = message['chat_id'] as String;
+      final count = (preview['unread_count'] as num?)?.toInt() ?? 0;
+      if (count == 0) return;
+      if (isChatVisible?.call(chat) == true) {
+        await refresh();
+        return;
+      }
+      unread[chat] = count;
+      incoming = {...message, 'unread_count': count};
+      incomingSerial++;
+      notifyListeners();
+      await PulseNotifications.instance.message(incoming!);
+    } catch (_) {
+      /* Skip unverified/replayed notification hints; sync continues. */
+    }
+  }
+
+  Future<void> loadChatStyle(String chat) async {
+    final owner = db.auth.currentUser?.id;
+    try {
+      final result = await rpc('user_tools', {
+        'p_action': 'style_get',
+        'p_chat': chat,
+      });
+      if (!_disposed &&
+          activeChat == chat &&
+          db.auth.currentUser?.id == owner) {
+        chatStyle = result['style'] as String;
         notifyListeners();
       }
+    } catch (_) {
+      /* Classic is the safe fallback while offline. */
     }
   }
 
@@ -387,6 +467,27 @@ class PulseRepository extends ChangeNotifier {
     return profiles[members.first['user_id']]?['display_name'] ?? 'Pulse user';
   }
 
+  final _avatarEntitlements =
+      <String, ({DateTime cachedAt, DateTime? expiry})>{};
+  Future<DateTime?> avatarMotionExpiry(String? path) async {
+    if (path == null || !path.toLowerCase().endsWith('.gif')) return null;
+    final owner = path.split('/').first;
+    if (!RegExp(r'^[a-fA-F0-9-]{36}$').hasMatch(owner)) return null;
+    final cached = _avatarEntitlements[owner];
+    if (cached != null &&
+        DateTime.now().difference(cached.cachedAt) <
+            const Duration(seconds: 45))
+      return cached.expiry;
+    final value = await rpc('profile_features', {'p_user': owner});
+    final expiry = value is Map
+        ? DateTime.tryParse(value['motion_until']?.toString() ?? '')
+        : null;
+    if (_avatarEntitlements.length >= 128)
+      _avatarEntitlements.remove(_avatarEntitlements.keys.first);
+    _avatarEntitlements[owner] = (cachedAt: DateTime.now(), expiry: expiry);
+    return expiry;
+  }
+
   Future<String?> avatar(String? path) async => path == null
       ? null
       : db.storage.from('pulse-avatars').createSignedUrl(path, 3600);
@@ -436,6 +537,7 @@ class PulseRepository extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    PulsePush.instance.onMessage = null;
     _generation++;
     _timer?.cancel();
     if (_realtime != null) db.removeChannel(_realtime!);

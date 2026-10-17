@@ -4,7 +4,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class SecureSessionStorage extends LocalStorage {
   const SecureSessionStorage();
   static const _store = FlutterSecureStorage();
-  static const _key = 'pulse.auth.session.v1';
+  static const _key = bool.fromEnvironment('PULSE_STAFF')
+      ? 'pulse.staff.auth.session.v1'
+      : 'pulse.auth.session.v1';
   @override
   Future<void> initialize() async {}
   @override

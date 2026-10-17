@@ -1,3 +1,4 @@
+import 'activity.dart';
 import 'social_context.dart';
 import 'appearance.dart';
 import 'social_hashtags.dart';
@@ -196,6 +197,7 @@ class _PulseReelsState extends State<PulseReels> with WidgetsBindingObserver {
                   ),
                 ),
               ),
+              PulseActivityButton(store: widget.store, color: Colors.white),
               IconButton(
                 tooltip: 'Search PULSE',
                 onPressed: () => openPulseSearch(context, widget.store),
@@ -380,6 +382,15 @@ class _PulseReelsState extends State<PulseReels> with WidgetsBindingObserver {
                                       radius: 20,
                                     ),
                                     const SizedBox(width: 8),
+                                    if (author['verified'] == true)
+                                      const Padding(
+                                        padding: EdgeInsets.only(right: 4),
+                                        child: Icon(
+                                          Icons.verified,
+                                          color: Colors.blue,
+                                          size: 18,
+                                        ),
+                                      ),
                                     Flexible(
                                       child: Text(
                                         '@${author['username'] ?? 'pulse_user'}',

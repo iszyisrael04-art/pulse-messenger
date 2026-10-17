@@ -5,6 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'auth.dart';
+import 'back_guard.dart';
+import 'account_gate.dart';
+import 'control.dart';
 import 'home.dart';
 import 'security.dart';
 import 'notifications.dart';
@@ -52,8 +55,10 @@ class _PulseStartupState extends State<PulseStartup> {
       await PulseAppearance.instance.load(
         Supabase.instance.client.auth.currentUser?.id,
       );
-      await PulseNotifications.instance.initialize();
-      await PulsePush.instance.initialize();
+      if (!const bool.fromEnvironment('PULSE_STAFF')) {
+        await PulseNotifications.instance.initialize();
+        await PulsePush.instance.initialize();
+      }
       if (mounted) setState(() => ready = true);
     } catch (e) {
       if (mounted)
@@ -100,6 +105,9 @@ class _PulseAppState extends State<PulseApp> {
   late final StreamSubscription<AuthState> auth;
   final navigator = GlobalKey<NavigatorState>();
   String? previousUid;
+  Map<String, dynamic>? restriction;
+  bool appealMode = false;
+  static const staffApp = bool.fromEnvironment('PULSE_STAFF');
   @override
   void initState() {
     super.initState();
@@ -127,7 +135,11 @@ class _PulseAppState extends State<PulseApp> {
     builder: (_, __) => MaterialApp(
       debugShowCheckedModeBanner: false,
       navigatorKey: navigator,
-      title: Platform.isWindows ? 'Pulse' : 'PULSE',
+      title: staffApp
+          ? 'Pulse Control'
+          : Platform.isWindows
+          ? 'Pulse'
+          : 'PULSE',
       theme: appearance.theme(Brightness.light),
       darkTheme: appearance.theme(Brightness.dark),
       themeMode: appearance.mode,
@@ -135,24 +147,61 @@ class _PulseAppState extends State<PulseApp> {
           MediaQueryData.fromView(View.of(context)).disableAnimations
           ? Duration.zero
           : const Duration(milliseconds: 250),
-      home: !appearance.ready
-          ? const PulseSplash()
-          : Supabase.instance.client.auth.currentSession == null
-          ? const AuthScreen()
-          : HomeScreen(
-              key: ValueKey(Supabase.instance.client.auth.currentUser!.id),
-              toggleTheme: () {
-                appearance
-                    .set(
-                      appearance.settings.copy(
-                        mode: appearance.settings.mode == 'dark'
-                            ? 'light'
-                            : 'dark',
-                      ),
+      home: PulseBackGuard(
+        child: !appearance.ready
+            ? const PulseSplash()
+            : Supabase.instance.client.auth.currentSession == null
+            ? restriction == null
+                  ? AuthScreen(allowRegistration: !staffApp && !appealMode)
+                  : PulseRestrictionNotice(
+                      status: restriction!,
+                      onAppeal: () => setState(() {
+                        appealMode = true;
+                        restriction = null;
+                      }),
+                      onBack: () => setState(() {
+                        restriction = null;
+                        appealMode = false;
+                      }),
                     )
-                    .catchError((_) {});
-              },
-            ),
+            : PulseAccountGate(
+                key: ValueKey(
+                  'access:${Supabase.instance.client.auth.currentUser!.id}:$appealMode',
+                ),
+                appealMode: appealMode,
+                onRestricted: (s) async {
+                  if (mounted)
+                    setState(() {
+                      restriction = s;
+                      appealMode = false;
+                    });
+                  try {
+                    await PulseNotifications.instance.clearAll();
+                  } catch (_) {}
+                  await Supabase.instance.client.auth.signOut(
+                    scope: SignOutScope.local,
+                  );
+                },
+                child: staffApp
+                    ? const PulseControl()
+                    : HomeScreen(
+                        key: ValueKey(
+                          Supabase.instance.client.auth.currentUser!.id,
+                        ),
+                        toggleTheme: () {
+                          appearance
+                              .set(
+                                appearance.settings.copy(
+                                  mode: appearance.settings.mode == 'dark'
+                                      ? 'light'
+                                      : 'dark',
+                                ),
+                              )
+                              .catchError((_) {});
+                        },
+                      ),
+              ),
+      ),
     ),
   );
 }

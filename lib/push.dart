@@ -16,6 +16,7 @@ class PulsePush {
   static final instance = PulsePush._();
   static const vault = FlutterSecureStorage();
   bool configured = false;
+  void Function(String)? onMessage;
   String? status;
   StreamSubscription<String>? _refresh;
   Future<void> initialize() async {
@@ -42,8 +43,7 @@ class PulsePush {
       configured = true;
       FirebaseMessaging.onMessage.listen((message) {
         final id = message.data['message_id'];
-        if (id != null)
-          unawaited(PulseNotifications.instance.message({'id': id}));
+        if (id != null) onMessage?.call(id);
       });
       _refresh = FirebaseMessaging.instance.onTokenRefresh.listen((token) {
         if (PulseNotifications.instance.enabled) unawaited(_register(token));
