@@ -29,13 +29,13 @@ if 'firebase_messaging_auto_init_enabled' not in s:
 manifest.write_text(s, encoding='utf-8')
 icon = root / 'android/app/src/main/res/drawable/ic_pulse_notification.xml'
 icon.parent.mkdir(parents=True, exist_ok=True)
-icon.write_text('<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24"><path android:fillColor="#FFFFFFFF" android:pathData="M13,2L4,14h6l-1,8L20,9h-7z"/></vector>', encoding='utf-8')
+icon.write_text('<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24"><path android:strokeColor="#FFFFFFFF" android:strokeWidth="2.4" android:fillColor="#00000000" android:pathData="M7,21V3h7c10,0 10,12 0,12H7"/></vector>', encoding='utf-8')
 # Branded OS launch window. Account-selected Flutter splash begins after
 # local settings load; Android's own launch frame uses a fixed Pulse mark.
 import xml.etree.ElementTree as ET
 res = root / 'android/app/src/main/res'
 (res / 'drawable/pulse_launch.xml').write_text('<layer-list xmlns:android="http://schemas.android.com/apk/res/android"><item android:drawable="@color/pulse_launch_background"/><item android:width="96dp" android:height="96dp" android:gravity="center" android:drawable="@drawable/pulse_launch_logo"/></layer-list>', encoding='utf-8')
-(res / 'drawable/pulse_launch_logo.xml').write_text('<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="96dp" android:height="96dp" android:viewportWidth="100" android:viewportHeight="100"><path android:strokeColor="#FF00BFA6" android:strokeWidth="7" android:strokeLineCap="round" android:strokeLineJoin="round" android:fillColor="#00000000" android:pathData="M15,52L32,52L42,26L58,75L70,46L86,46"/></vector>', encoding='utf-8')
+(res / 'drawable/pulse_launch_logo.xml').write_text('<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="96dp" android:height="96dp" android:viewportWidth="100" android:viewportHeight="100"><path android:strokeColor="#FF23E5BA" android:strokeWidth="7" android:strokeLineCap="round" android:strokeLineJoin="round" android:fillColor="#00000000" android:pathData="M30 79 V24 H53 C70 24 79 32 79 45 C79 58 69 64 53 64 H30"/></vector>', encoding='utf-8')
 for variant in ['values', 'values-night', 'values-v31', 'values-night-v31']:
     target = res / variant
     target.mkdir(parents=True, exist_ok=True)
@@ -79,6 +79,17 @@ if windows_resources.exists():
     text = windows_resources.read_text(encoding='utf-8')
     text = text.replace('pulse_messenger', 'Pulse').replace('Pulse Messenger', 'Pulse').replace('PULSE', 'Pulse')
     windows_resources.write_text(text, encoding='utf-8')
+# Use the same original favicon for native launcher and runtime splash branding.
+branding = root / 'assets/branding'
+if (branding / 'android').exists():
+    for source in (branding / 'android').glob('mipmap-*/ic_launcher.png'):
+        destination = root / 'android/app/src/main/res' / source.parent.name / source.name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source, destination)
+if (branding / 'pulse.ico').exists():
+    destination = root / 'windows/runner/resources/app_icon.ico'
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(branding / 'pulse.ico', destination)
 # Native media export: Android platform codecs and Windows MediaComposition.
 native = root / 'native/editor'
 if native.exists():

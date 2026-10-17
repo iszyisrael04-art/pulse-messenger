@@ -1,6 +1,24 @@
-# PULSE 0.4.5
+# Pulse 0.5.0 — backend deployed
 
-Release controls, data export and account safety: [docs/UPGRADE_0.4.5.md](docs/UPGRADE_0.4.5.md). [Current release readiness](docs/RELEASE_READINESS.md) records the user-reported two-device chat pass and the remaining gates.
+Read [deployment status and build instructions](docs/UPGRADE_0.5.0.md). Database updates 016–018 are already applied. Native builds/device tests and email delivery configuration remain pending.
+
+## Earlier release history
+
+# Current update: 0.4.9
+
+See [Activity and support identity update](docs/UPGRADE_0.4.9.md).
+
+# Current update: 0.4.8
+
+See [Help & support update](docs/UPGRADE_0.4.8.md).
+
+# Current update: 0.4.7
+
+See [docs/UPGRADE_0.4.7.md](docs/UPGRADE_0.4.7.md) for the registration agreement, Premium profile identity changes, test evidence and remaining build/device checks. Earlier sections below describe their respective releases.
+
+# PULSE 0.4.6
+
+Chat polish, unread notifications, Pulse branding and private chat tools: [docs/UPGRADE_0.4.6.md](docs/UPGRADE_0.4.6.md). [Current release readiness](docs/RELEASE_READINESS.md) records the user-reported two-device chat pass and the remaining gates.
 
 # PULSE 0.4.2
 
