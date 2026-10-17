@@ -650,7 +650,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         ? CallsList(calls: calls, open: openCall)
         : section == 2
         ? updatesView()
-        : channelsView();
+        : ChannelsScreen(repo: repo);
     final body = repo.me == null
         ? Center(
             child: repo.error == null
