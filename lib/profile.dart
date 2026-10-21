@@ -63,8 +63,10 @@ class _ProfilePanelState extends State<ProfilePanel> {
     if (result?.path == null || !mounted) return;
     try {
       final selected = File(result!.path!);
-      if (await selected.length() > 2097152)
-        throw const FormatException('Profile pictures must be under 2 MB.');
+      if (await selected.length() > 15728640)
+        throw const FormatException(
+          'Profile pictures must be 15 MB or smaller.',
+        );
       if (motion) {
         final header = await selected.open();
         late List<int> bytes;
@@ -222,7 +224,7 @@ class _ProfilePanelState extends State<ProfilePanel> {
                 label: const Text('Animated picture · Premium'),
               ),
               const Text(
-                'Photos: up to 2 MB. Premium GIFs: up to 512 × 512 pixels.',
+                'Photos: up to 15 MB. Premium GIFs: up to 512 × 512 pixels.',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 12),
               ),

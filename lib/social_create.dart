@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
@@ -10,6 +9,7 @@ import 'social_repository.dart';
 import 'social_media.dart';
 import 'social_preview.dart';
 import 'social_premium.dart';
+import 'media_picker.dart';
 
 class SocialComposer extends StatefulWidget {
   const SocialComposer({
@@ -59,22 +59,42 @@ class _SocialComposerState extends State<SocialComposer> {
     if (busy) return;
     setState(() => busy = true);
     try {
-      await chooseAndUpload();
+      final selections = await Navigator.push<List<PulsePickedMedia>>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PulseMediaPicker(
+            videoOnly: kind == 'reel',
+            remaining: (8 - media.length).clamp(1, 8),
+          ),
+        ),
+      );
+      if (selections == null) return;
+      try {
+        for (final selected in selections) {
+          if (!mounted) break;
+          await chooseAndUpload(selected);
+        }
+      } finally {
+        for (final selected in selections.where((p) => p.owned)) {
+          try {
+            if (await selected.file.exists()) await selected.file.delete();
+          } catch (_) {}
+        }
+      }
+    } catch (e) {
+      if (mounted) setState(() => error = socialError(e));
     } finally {
       if (mounted) setState(() => busy = false);
     }
   }
 
-  Future<void> chooseAndUpload() async {
-    final selected = await FilePicker.pickFile(
-      type: FileType.custom,
-      allowedExtensions: kind == 'reel'
-          ? ['mp4', 'webm', 'mov']
-          : ['jpg', 'jpeg', 'png', 'webp', 'mp4', 'webm', 'mov'],
-    );
-    if (selected?.path == null || !mounted) return;
-    final mime = mimeFor(selected!.name), mediaKind = kindFor(mime);
-    final file = File(selected.path!);
+  Future<void> chooseAndUpload(PulsePickedMedia selected) async {
+    if (media.length >= 8) {
+      setState(() => error = 'Choose up to 8 photos or one video.');
+      return;
+    }
+    final mime = mimeFor(selected.name), mediaKind = kindFor(mime);
+    final file = selected.file;
     try {
       final access = await widget.store.uploadAccess(await file.length());
       if (!mounted) return;
@@ -110,12 +130,11 @@ class _SocialComposerState extends State<SocialComposer> {
     );
     if (preview == null || !mounted) return;
 
-    if (media.length >= 8 ||
-        (media.isNotEmpty &&
-            (mediaKind == 'video' || media.first['kind'] == 'video'))) {
+    if (media.isNotEmpty &&
+        (mediaKind == 'video' || media.first['kind'] == 'video')) {
       setState(
         () => error =
-            'Choose up to 8 photos or one video. Remove current media to switch.',
+            'Photos can be added together. Remove current media to switch to a video.',
       );
       return;
     }
@@ -167,7 +186,6 @@ class _SocialComposerState extends State<SocialComposer> {
           await preview.file.delete();
         }
       } catch (_) {}
-      if (mounted) setState(() => busy = false);
     }
   }
 

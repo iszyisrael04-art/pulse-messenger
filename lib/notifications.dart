@@ -145,6 +145,23 @@ class PulseNotifications {
     );
   }
 
+  Future<void> clearChannel(String channel) async {
+    try {
+      await _plugin.cancel(('channel:$channel').hashCode & 0x7fffffff);
+    } catch (_) {}
+  }
+
+  Future<void> channelUpdate(String channel, String post, int count) async {
+    if (count <= 0 || !_seen.add('channel:$post')) return;
+    if (_seen.length > 500) _seen.remove(_seen.first);
+    await _show(
+      ('channel:$channel').hashCode & 0x7fffffff,
+      'Pulse channel update',
+      '$count unread announcement${count == 1 ? '' : 's'}',
+      number: count,
+    );
+  }
+
   Future<bool> incomingCall(String id, bool video) => _show(
     id.hashCode & 0x7fffffff,
     'Pulse',

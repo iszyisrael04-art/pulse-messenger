@@ -1,5 +1,5 @@
 const pulseSupportEmail = 'pulseservicemanagement@gmail.com';
-const pulseSupportVersion = '0.5.0+15';
+const pulseSupportVersion = '0.5.5+20';
 
 String supportSubject(String category, String subject) =>
     'Pulse support · $category — ${subject.trim()}'.replaceAll(

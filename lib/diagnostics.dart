@@ -15,8 +15,9 @@ class PulseDiagnosticsPage extends StatefulWidget {
 class _PulseDiagnosticsPageState extends State<PulseDiagnosticsPage> {
   bool busy = false;
   String result = 'Not checked';
+  String liveResult = 'Not checked';
   String get report => [
-    'Pulse 0.4.6 private beta',
+    'Pulse 0.5.5 private beta',
     'Platform: ${Platform.operatingSystem}',
     'Authenticated: ${widget.repo.db.auth.currentSession != null}',
     'Backend check: $result',
@@ -24,7 +25,8 @@ class _PulseDiagnosticsPageState extends State<PulseDiagnosticsPage> {
     'Local notifications enabled: ${PulseNotifications.instance.enabled}',
     'Firebase client configured: ${PulsePush.instance.configured}',
     'Background push delivery: not verified',
-    'Calls/live: deferred; LiveKit setup required',
+    'LiveKit control check: $liveResult',
+    'Real camera/microphone and multi-device media: not verified',
     'End-to-end encryption: not implemented',
   ].join('\n');
 
@@ -59,6 +61,32 @@ class _PulseDiagnosticsPageState extends State<PulseDiagnosticsPage> {
     }
   }
 
+  Future<void> checkLiveKit() async {
+    if (busy) return;
+    setState(() => busy = true);
+    try {
+      final response = await widget.repo.db.functions.invoke(
+        'pulse-live',
+        body: {'action': 'health'},
+      );
+      final data = response.data;
+      if (mounted)
+        setState(
+          () => liveResult = data is Map && data['control_plane'] == true
+              ? 'Control API connected. Camera, microphone and real calls still need device testing.'
+              : 'Not ready. Ask the platform administrator to check LiveKit configuration.',
+        );
+    } catch (_) {
+      if (mounted)
+        setState(
+          () => liveResult =
+              'Could not confirm LiveKit access. Check connectivity, server configuration, and the deployed pulse-live function. Wait before retrying.',
+        );
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('Diagnostics')),
@@ -83,6 +111,11 @@ class _PulseDiagnosticsPageState extends State<PulseDiagnosticsPage> {
               onPressed: busy ? null : check,
               icon: const Icon(Icons.network_check),
               label: Text(busy ? 'Checking…' : 'Check backend connection'),
+            ),
+            OutlinedButton.icon(
+              onPressed: busy ? null : checkLiveKit,
+              icon: const Icon(Icons.videocam_outlined),
+              label: const Text('Check LiveKit connection'),
             ),
             OutlinedButton.icon(
               onPressed: () async {

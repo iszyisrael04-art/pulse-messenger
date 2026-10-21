@@ -1,3 +1,11 @@
+import 'text_prompt.dart';
+import 'chat_display.dart';
+import 'message_selection.dart';
+import 'channel_updates.dart';
+import 'chat_composer.dart';
+import 'chat_camera.dart';
+import 'social_preview.dart';
+import 'interest_picker.dart';
 import 'contact_picker.dart';
 import 'chat_state.dart';
 import 'chat_tools.dart';
@@ -12,6 +20,7 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'repository.dart' hide Row;
@@ -43,12 +52,16 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   late final PulseRepository repo;
+  late final PulseChannelUpdates channelUpdates;
+  int seenChannelSerial = 0;
   late final PulseCalls calls;
   bool openingCall = false;
+  bool interestPrompted = false;
   int section = 0, socialSection = 0;
   late final SocialStore social;
   final composer = TextEditingController(), search = TextEditingController();
   String? reply;
+  String? selectedMessage, selectedChat;
   bool sending = false;
   int seenIncoming = 0, toastUnreadCount = 0;
   bool foreground = true;
@@ -68,10 +81,78 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     });
     repo.isChatVisible = viewingChat;
     repo.initialize();
+    channelUpdates = PulseChannelUpdates(repo)
+      ..addListener(channelUpdatesChanged);
+    channelUpdates.start();
     social = SocialStore(repo);
     social.activity.start();
     calls = PulseCalls(repo)..addListener(changed);
     calls.start();
+  }
+
+  void channelUpdatesChanged() {
+    if (!mounted) return;
+    setState(() {});
+    final update = channelUpdates.latest;
+    if (update == null || seenChannelSerial == channelUpdates.serial) return;
+    seenChannelSerial = channelUpdates.serial;
+    if (!PulseNotifications.instance.enabled ||
+        !foreground ||
+        channelUpdates.viewing(update['channel_id'] as String))
+      return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          !foreground ||
+          (channelUpdates.counts[update['channel_id']] ?? 0) == 0)
+        return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 5),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          content: Row(
+            children: [
+              const Icon(Icons.campaign_outlined),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      update['name'],
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    Text(
+                      '${channelUpdates.counts[update['channel_id']] ?? 1} unread · ${update['body']}',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          action: SnackBarAction(
+            label: 'View',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ChannelDetail(
+                  repo: repo,
+                  channelId: update['channel_id'],
+                  updates: channelUpdates,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    });
   }
 
   bool viewingChat(String chat) =>
@@ -169,6 +250,25 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   void changed() {
     if (mounted) {
+      if (!interestPrompted &&
+          repo.me?['username'] != null &&
+          !social.interestsChosen) {
+        interestPrompted = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) async {
+          if (!mounted) return;
+          final chosen = await Navigator.push<bool>(
+            context,
+            MaterialPageRoute(
+              builder: (_) => PulseInterestPicker(store: social),
+            ),
+          );
+          if (chosen == true && mounted) setState(() => socialSection = 0);
+        });
+      }
+      if (selectedChat != repo.activeChat) {
+        selectedChat = null;
+        selectedMessage = null;
+      }
       setState(() {});
       if (toastChat != null && (repo.unread[toastChat] ?? 0) < toastUnreadCount)
         dismissToast();
@@ -196,6 +296,18 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       messageToast?.remove();
       toastTimer?.cancel();
       final sender = repo.profiles[message['sender_id']];
+      final group = repo.chats
+          .where(
+            (chat) =>
+                chat['id'] == message['chat_id'] && chat['kind'] == 'group',
+          )
+          .firstOrNull;
+      final senderName = sender == null
+          ? 'New message'
+          : sender['display_name']?.toString() ?? 'New message';
+      final notificationTitle = group == null
+          ? senderName
+          : '${group['name']} · $senderName';
       messageToast = OverlayEntry(
         builder: (c) => Positioned(
           top: MediaQuery.paddingOf(c).top + 12,
@@ -215,7 +327,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     name: sender?['display_name'] ?? 'Pulse',
                   ),
                   title: Text(
-                    sender?['display_name'] ?? 'New Pulse message',
+                    notificationTitle,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -266,6 +378,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     repo.removeListener(changed);
     social.activity.dispose();
     repo.dispose();
+    channelUpdates.removeListener(channelUpdatesChanged);
+    channelUpdates.dispose();
     composer.dispose();
     search.dispose();
     scroll.dispose();
@@ -290,32 +404,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 
-  Future<String?> prompt(
-    String title, {
-    String initial = '',
-    int lines = 1,
-  }) async {
-    final text = TextEditingController(text: initial);
-    final value = await showDialog<String>(
-      context: context,
-      builder: (c) => AlertDialog(
-        title: Text(title),
-        content: TextField(controller: text, maxLines: lines, autofocus: true),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(c),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(c, text.text.trim()),
-            child: const Text('Continue'),
-          ),
-        ],
-      ),
-    );
-    text.dispose();
-    return value;
-  }
+  Future<String?> prompt(String title, {String initial = '', int lines = 1}) =>
+      showPulseTextPrompt(
+        context,
+        title,
+        initial: initial,
+        minLines: 1,
+        maxLines: lines,
+        maxLength: 8000,
+        allowEmpty: true,
+        actionLabel: 'Continue',
+      );
 
   Future<void> newChat({bool group = false}) async {
     final usernames = group
@@ -358,8 +457,77 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     });
   }
 
+  Future<void> captureChat(bool note) async {
+    if (sending || !repo.canReply(repo.activeChat)) return;
+    final chat = repo.activeChat, owner = repo.uid, replying = reply;
+    if (chat == null) return;
+    final caption = composer.text;
+    setState(() => sending = true);
+    PulseCapture? capture;
+    PulseStudioResult? edited;
+    try {
+      await PulseMedia.pauseAll();
+      if (!mounted) return;
+      capture = await Navigator.push<PulseCapture>(
+        context,
+        MaterialPageRoute(builder: (_) => PulseCameraPage(note: note)),
+      );
+      if (capture == null || !mounted) return;
+      var file = capture.file;
+      var text = caption;
+      if (!note) {
+        edited = await Navigator.push<PulseStudioResult>(
+          context,
+          MaterialPageRoute(
+            builder: (_) => SocialSelectionPreview(
+              file: file,
+              video: capture!.video,
+              caption: caption,
+            ),
+          ),
+        );
+        if (edited == null || !mounted) return;
+        file = edited.file;
+        text = edited.caption ?? caption;
+      }
+      if (repo.uid != owner || !repo.canReply(chat))
+        throw StateError('Chat unavailable');
+      final mime = capture.video ? 'video/mp4' : mimeFor(file.path);
+      final attachment = await repo.upload(
+        file,
+        note ? 'pulse_note.mp4' : file.uri.pathSegments.last,
+        chatId: chat,
+        contentType: mime,
+      );
+      await repo.send(
+        text,
+        reply: replying,
+        attachment: attachment,
+        chatId: chat,
+        mediaKind: capture.video ? 'video' : 'image',
+        mediaMime: mime,
+        duration: capture.video ? capture.duration : null,
+      );
+      if (repo.activeChat == chat && composer.text == caption) {
+        composer.clear();
+        if (reply == replying) reply = null;
+      }
+    } catch (_) {
+      notice(
+        'Capture could not be sent. Check the connection; chat files must be under 10 MB.',
+      );
+    } finally {
+      for (final file in {capture?.file, edited?.file}.whereType<File>()) {
+        try {
+          if (await file.exists()) await file.delete();
+        } catch (_) {}
+      }
+      if (mounted) setState(() => sending = false);
+    }
+  }
+
   Future<void> send({bool file = false}) async {
-    if (sending) return;
+    if (sending || !repo.canReply(repo.activeChat)) return;
     if (!file && composer.text.trim().isEmpty) return;
     setState(() => sending = true);
     try {
@@ -373,13 +541,40 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         final selected = result;
         if (selected.path == null) throw Exception('File unavailable');
         mime = mimeFor(selected.name);
-        attachment = await repo.upload(
-          File(selected.path!),
-          selected.name,
-          contentType: mime,
-          chatId: chatId,
-        );
-        if (body.trim().isEmpty) body = selected.name;
+        var uploadFile = File(selected.path!);
+        PulseStudioResult? edited;
+        if (['image', 'video'].contains(kindFor(mime))) {
+          edited = await Navigator.push<PulseStudioResult>(
+            context,
+            MaterialPageRoute(
+              builder: (_) => SocialSelectionPreview(
+                file: uploadFile,
+                video: kindFor(mime!) == 'video',
+                caption: body,
+              ),
+            ),
+          );
+          if (edited == null) return;
+          uploadFile = edited.file;
+          body = edited.caption ?? body;
+          mime = mimeFor(uploadFile.path);
+        }
+        try {
+          attachment = await repo.upload(
+            uploadFile,
+            uploadFile.uri.pathSegments.last,
+            contentType: mime,
+            chatId: chatId,
+          );
+        } finally {
+          if (edited != null && uploadFile.path != selected.path) {
+            try {
+              await uploadFile.delete();
+            } catch (_) {}
+          }
+        }
+        if (body.trim().isEmpty && kindFor(mime!) == 'file')
+          body = selected.name;
       }
       await repo.send(
         body,
@@ -555,8 +750,26 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (choice != null) await messageAction(message, choice);
   }
 
+  void clearMessageSelection() {
+    setState(() {
+      selectedMessage = null;
+      selectedChat = null;
+    });
+  }
+
   Future<void> messageAction(Map<String, dynamic> m, String action) async {
     final mine = m['sender_id'] == repo.uid;
+    if (action == 'copy') {
+      final text = m['body'] as String? ?? '';
+      if (m['deleted_at'] != null || text.trim().isEmpty) return;
+      try {
+        await Clipboard.setData(ClipboardData(text: text));
+        notice('Copied');
+      } catch (_) {
+        notice('Could not copy this message. Please try again.');
+      }
+      return;
+    }
     if (action == 'reply') {
       setState(() => reply = m['id']);
       return;
@@ -599,28 +812,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           'p_id': m['id'],
           'p_emoji': action.substring(6),
         });
-      if (action == 'forward') {
-        final id = await showDialog<String>(
-          context: context,
-          builder: (c) => SimpleDialog(
-            title: const Text('Forward to'),
-            children: repo.chats
-                .map(
-                  (chat) => SimpleDialogOption(
-                    onPressed: () => Navigator.pop(c, chat['id']),
-                    child: Text(repo.chatName(chat)),
-                  ),
-                )
-                .toList(),
-          ),
-        );
-        if (id != null) {
-          final previous = repo.activeChat;
-          await repo.openChat(id);
-          await repo.send('Forwarded: ${m['body']}');
-          if (previous != null) await repo.openChat(previous);
-        }
-      }
     });
   }
 
@@ -650,7 +841,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         ? CallsList(calls: calls, open: openCall)
         : section == 2
         ? updatesView()
-        : ChannelsScreen(repo: repo);
+        : ChannelsScreen(repo: repo, updates: channelUpdates);
     final body = repo.me == null
         ? Center(
             child: repo.error == null
@@ -663,44 +854,82 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         : firstSetup
         ? ProfilePanel(repo: repo, onSaved: repo.refresh)
         : socialSection == 0
-        ? SocialFeed(store: social)
+        ? SocialFeed(
+            key: ValueKey('home-${social.interests.join(",")}'),
+            store: social,
+            mode: 'for_you',
+          )
         : socialSection == 1
         ? PulseReels(store: social)
         : socialSection == 3
         ? Column(
             children: [
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    for (var i = 0; i < 4; i++)
-                      Padding(
-                        padding: const EdgeInsets.all(6),
-                        child: ChoiceChip(
-                          label: Text(
-                            ['Chats', 'Calls', 'Updates', 'Channels'][i],
+              Row(
+                children: [
+                  for (var i = 0; i < 4; i++)
+                    Expanded(
+                      child: Semantics(
+                        selected: section == i,
+                        child: IconButton(
+                          tooltip: const [
+                            'Chats',
+                            'Calls',
+                            'Updates',
+                            'Channels',
+                          ][i],
+                          isSelected: section == i,
+                          onPressed: () => setState(() => section = i),
+                          icon: Badge(
+                            isLabelVisible: i == 3 && channelUpdates.total > 0,
+                            label: Text(
+                              channelUpdates.total > 99
+                                  ? '99+'
+                                  : '${channelUpdates.total}',
+                            ),
+                            child: Icon(
+                              const [
+                                Icons.chat_bubble_outline,
+                                Icons.call_outlined,
+                                Icons.donut_large_outlined,
+                                Icons.campaign_outlined,
+                              ][i],
+                            ),
                           ),
-                          selected: section == i,
-                          onSelected: (_) => setState(() => section = i),
+                          selectedIcon: Badge(
+                            isLabelVisible: i == 3 && channelUpdates.total > 0,
+                            label: Text(
+                              channelUpdates.total > 99
+                                  ? '99+'
+                                  : '${channelUpdates.total}',
+                            ),
+                            child: Icon(
+                              const [
+                                Icons.chat_bubble,
+                                Icons.call,
+                                Icons.donut_large,
+                                Icons.campaign,
+                              ][i],
+                            ),
+                          ),
                         ),
                       ),
-                    IconButton(
-                      tooltip: 'Pulse mail & requests',
-                      onPressed: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => PulseMailbox(repo: repo),
-                        ),
+                    ),
+                  IconButton(
+                    tooltip: 'Pulse mail & requests',
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => PulseMailbox(repo: repo),
                       ),
-                      icon: const Icon(Icons.mail_outline),
                     ),
-                    IconButton(
-                      tooltip: 'Settings',
-                      onPressed: openSettings,
-                      icon: const Icon(Icons.settings_outlined),
-                    ),
-                  ],
-                ),
+                    icon: const Icon(Icons.mail_outline),
+                  ),
+                  IconButton(
+                    tooltip: 'Settings',
+                    onPressed: openSettings,
+                    icon: const Icon(Icons.settings_outlined),
+                  ),
+                ],
               ),
               Expanded(child: messenger),
             ],
@@ -818,18 +1047,30 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   );
   Widget chatsView(bool wide) {
     final visibleChats = repo.chats.where((c) {
-      if (!repo.chatName(c).toLowerCase().contains(search.text.toLowerCase()))
+      if (!'${repo.chatName(c)} ${pulseChatPreview(repo.chatSummaries[c['id']], repo.uid)}'
+          .toLowerCase()
+          .contains(search.text.toLowerCase()))
         return false;
       final request = repo.requestFor(c['id']);
       return switch (chatFilter) {
         'friends' =>
           c['kind'] == 'direct' &&
               (request == null || request['state'] == 'accepted'),
+        'groups' => c['kind'] == 'group',
         'unread' => (repo.unread[c['id']] ?? 0) > 0,
         'requests' => request?['state'] == 'pending',
         _ => true,
       };
     }).toList();
+    visibleChats.sort((a, b) {
+      final at = DateTime.tryParse(
+            repo.chatSummaries[a['id']]?['created_at'] ?? a['created_at'] ?? '',
+          ),
+          bt = DateTime.tryParse(
+            repo.chatSummaries[b['id']]?['created_at'] ?? b['created_at'] ?? '',
+          );
+      return (bt ?? DateTime(1970)).compareTo(at ?? DateTime(1970));
+    });
     final list = Column(
       children: [
         header(
@@ -848,7 +1089,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               setState(() {});
             },
             decoration: const InputDecoration(
-              hintText: 'Search chats and loaded messages',
+              hintText: 'Search conversations',
               prefixIcon: Icon(Icons.search),
             ),
           ),
@@ -861,7 +1102,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               for (final e in {
                 'all': 'All',
                 'friends': 'Friends',
-                'unread': 'Catch-up',
+                'unread': 'Unread',
+                'groups': 'Groups',
                 'requests': 'Requests',
               }.entries)
                 ChoiceChip(
@@ -917,27 +1159,68 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           context,
                         ).colorScheme.primaryContainer,
                         leading: GestureDetector(
-                          onTap: person == null
+                          onTap: person == null || c['kind'] == 'group'
                               ? null
                               : () => openProfile(person['id']),
                           child: PulseAvatar(
                             repo: repo,
-                            path: person?['avatar_path'],
+                            path: c['kind'] == 'group'
+                                ? (repo.chatSummaries[c['id']]?['avatar_path'])
+                                : (person?['avatar_path']),
                             name: repo.chatName(c),
                           ),
                         ),
-                        trailing: (repo.unread[c['id']] ?? 0) > 0
-                            ? Badge(label: Text('${repo.unread[c['id']]}'))
-                            : null,
+                        trailing: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              pulseChatTime(
+                                DateTime.tryParse(
+                                  repo.chatSummaries[c['id']]?['created_at'] ??
+                                      '',
+                                ),
+                                DateTime.now(),
+                              ),
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: (repo.unread[c['id']] ?? 0) > 0
+                                    ? Theme.of(context).colorScheme.primary
+                                    : Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                            if ((repo.unread[c['id']] ?? 0) > 0)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 7),
+                                child: Badge(
+                                  label: Text(
+                                    (repo.unread[c['id']] ?? 0) > 99
+                                        ? '99+'
+                                        : '${repo.unread[c['id']]}',
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
                         title: Text(
                           repo.chatName(c),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                         subtitle: Text(
-                          c['kind'] == 'group'
-                              ? 'Group conversation'
-                              : 'Tap to open conversation',
+                          pulseChatPreview(
+                            repo.chatSummaries[c['id']],
+                            repo.uid,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontWeight: (repo.unread[c['id']] ?? 0) > 0
+                                ? FontWeight.w600
+                                : FontWeight.normal,
+                          ),
                         ),
                         onTap: () {
                           repo.openChat(c['id']);
@@ -973,6 +1256,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final matches = repo.chats.where((c) => c['id'] == repo.activeChat);
     final chat = matches.isEmpty ? null : matches.first;
     final name = chat == null ? 'Conversation' : repo.chatName(chat);
+    final selected = selectedChat == repo.activeChat
+        ? repo.visibleMessages
+              .where((m) => m['id'] == selectedMessage)
+              .firstOrNull
+        : null;
     final peer = (chat?['pulse_members'] as List? ?? [])
         .where((m) => m['user_id'] != repo.uid)
         .firstOrNull;
@@ -986,172 +1274,207 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         .toList();
     return Column(
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 16, 16, 12),
-          child: Row(
-            children: [
-              if (mobile)
-                IconButton(
-                  onPressed: () {
-                    setState(() {
-                      repo.activeChat = null;
-                      reply = null;
-                    });
-                  },
-                  icon: const Icon(Icons.arrow_back),
+        if (selected != null)
+          PulseMessageSelection(
+            canCopy:
+                selected['deleted_at'] == null &&
+                (selected['body'] as String? ?? '').trim().isNotEmpty,
+            canReact:
+                selected['pending'] != true && selected['deleted_at'] == null,
+            onClose: clearMessageSelection,
+            onAction: (action) {
+              clearMessageSelection();
+              unawaited(messageAction(selected, action));
+            },
+            onDelete: () {
+              clearMessageSelection();
+              unawaited(deleteMessage(selected));
+            },
+          )
+        else
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 16, 16, 12),
+            child: Row(
+              children: [
+                if (mobile)
+                  IconButton(
+                    onPressed: () {
+                      setState(() {
+                        repo.activeChat = null;
+                        reply = null;
+                      });
+                    },
+                    icon: const Icon(Icons.arrow_back),
+                  ),
+                Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: GestureDetector(
+                    onTap: peer == null || chat?['kind'] == 'group'
+                        ? null
+                        : () => openProfile(peer['user_id']),
+                    child: PulseAvatar(
+                      repo: repo,
+                      path: (chat?['kind'] == 'group')
+                          ? (repo.chatSummaries[repo
+                                .activeChat]?['avatar_path'])
+                          : (repo.profiles[peer?['user_id']]?['avatar_path']),
+                      name: name,
+                      radius: 21,
+                    ),
+                  ),
                 ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    InkWell(
-                      onTap: peer == null || chat?['kind'] == 'group'
-                          ? null
-                          : () => openProfile(peer['user_id']),
-                      child: Text(
-                        name,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      InkWell(
+                        onTap: peer == null || chat?['kind'] == 'group'
+                            ? null
+                            : () => openProfile(peer['user_id']),
+                        child: Text(
+                          name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                      ),
+                      Text(
+                        chat?['kind'] == 'group'
+                            ? '${(chat?['pulse_members'] as List? ?? []).length} members'
+                            : '${repo.requestFor(repo.activeChat)?['state'] == 'pending' ? 'Message request' : 'Friend chat'}${peer == null ? '' : ' · @${repo.profiles[peer['user_id']]?['username'] ?? 'pulse'}'}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.titleLarge,
+                        style: const TextStyle(fontSize: 12),
                       ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Chat studio: private notes, replies and styles',
+                  onPressed: openChatStudio,
+                  icon: const Icon(Icons.edit_note_rounded),
+                ),
+                if (chat?['kind'] == 'group')
+                  IconButton(
+                    tooltip: 'Manage group member',
+                    icon: const Icon(Icons.manage_accounts),
+                    onPressed: () async {
+                      final username = await pickPulseContact(context, repo);
+                      if (username == null || username.isEmpty) return;
+                      if (!mounted) return;
+                      final operation = await showDialog<String>(
+                        context: context,
+                        builder: (c) => SimpleDialog(
+                          title: const Text('Group member action'),
+                          children: ['add', 'remove', 'admin', 'member']
+                              .map(
+                                (a) => SimpleDialogOption(
+                                  onPressed: () => Navigator.pop(c, a),
+                                  child: Text(a),
+                                ),
+                              )
+                              .toList(),
+                        ),
+                      );
+                      if (operation == null) return;
+                      await perform(() async {
+                        final p = await repo.db
+                            .from('pulse_profiles')
+                            .select('id')
+                            .eq('username', username.toLowerCase())
+                            .single();
+                        await repo.rpc('manage_group', {
+                          'p_chat': repo.activeChat,
+                          'p_user': p['id'],
+                          'p_action': operation,
+                        });
+                      });
+                    },
+                  ),
+                PopupMenuButton<String>(
+                  onSelected: (v) async {
+                    if (v == 'voice' || v == 'video') {
+                      await startCall(v);
+                      return;
+                    }
+                    if (v == 'refresh') {
+                      await perform(() async {
+                        await repo.refresh();
+                        await repo.markRead();
+                      });
+                      return;
+                    }
+                    if (v == 'profile' && peer != null) {
+                      await openProfile(peer['user_id']);
+                      return;
+                    }
+                    if (chat == null) return;
+                    final members = (chat['pulse_members'] as List).where(
+                      (m) => m['user_id'] != repo.uid,
+                    );
+                    if (members.isEmpty) return;
+                    final user = members.first['user_id'];
+                    if (v == 'block')
+                      await perform(() async {
+                        await repo.rpc('block_user', {
+                          'p_user': user,
+                          'p_block': true,
+                        });
+                      });
+                    if (v == 'report') {
+                      final reason = await prompt(
+                        'Report this account',
+                        lines: 3,
+                      );
+                      if (reason != null && reason.isNotEmpty)
+                        await perform(() async {
+                          await repo.rpc('report_user', {
+                            'p_user': user,
+                            'p_reason': reason,
+                          });
+                        });
+                    }
+                  },
+                  itemBuilder: (_) => [
+                    if (chat?['kind'] == 'direct' && peer != null)
+                      const PopupMenuItem(
+                        value: 'profile',
+                        child: Text('View profile'),
+                      ),
+                    PopupMenuItem(
+                      value: 'voice',
+                      enabled:
+                          repo.requestFor(repo.activeChat) == null ||
+                          repo.requestFor(repo.activeChat)?['state'] ==
+                              'accepted',
+                      child: const Text('Voice call'),
                     ),
-                    Text(
-                      chat?['kind'] == 'group'
-                          ? '${(chat?['pulse_members'] as List? ?? []).length} members'
-                          : '${repo.requestFor(repo.activeChat)?['state'] == 'pending' ? 'Message request' : 'Friend chat'}${peer == null ? '' : ' · @${repo.profiles[peer['user_id']]?['username'] ?? 'pulse'}'}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 12),
+                    PopupMenuItem(
+                      value: 'video',
+                      enabled:
+                          repo.requestFor(repo.activeChat) == null ||
+                          repo.requestFor(repo.activeChat)?['state'] ==
+                              'accepted',
+                      child: const Text('Video call'),
+                    ),
+                    const PopupMenuItem(
+                      value: 'refresh',
+                      child: Text('Refresh / mark read'),
+                    ),
+                    const PopupMenuDivider(),
+                    const PopupMenuItem(
+                      value: 'block',
+                      child: Text('Block contact'),
+                    ),
+                    const PopupMenuItem(
+                      value: 'report',
+                      child: Text('Report contact'),
                     ),
                   ],
                 ),
-              ),
-              IconButton(
-                tooltip: 'Chat studio: private notes, replies and styles',
-                onPressed: openChatStudio,
-                icon: const Icon(Icons.edit_note_rounded),
-              ),
-              if (chat?['kind'] == 'group')
-                IconButton(
-                  tooltip: 'Manage group member',
-                  icon: const Icon(Icons.manage_accounts),
-                  onPressed: () async {
-                    final username = await pickPulseContact(context, repo);
-                    if (username == null || username.isEmpty) return;
-                    if (!mounted) return;
-                    final operation = await showDialog<String>(
-                      context: context,
-                      builder: (c) => SimpleDialog(
-                        title: const Text('Group member action'),
-                        children: ['add', 'remove', 'admin', 'member']
-                            .map(
-                              (a) => SimpleDialogOption(
-                                onPressed: () => Navigator.pop(c, a),
-                                child: Text(a),
-                              ),
-                            )
-                            .toList(),
-                      ),
-                    );
-                    if (operation == null) return;
-                    await perform(() async {
-                      final p = await repo.db
-                          .from('pulse_profiles')
-                          .select('id')
-                          .eq('username', username.toLowerCase())
-                          .single();
-                      await repo.rpc('manage_group', {
-                        'p_chat': repo.activeChat,
-                        'p_user': p['id'],
-                        'p_action': operation,
-                      });
-                    });
-                  },
-                ),
-              PopupMenuButton<String>(
-                onSelected: (v) async {
-                  if (v == 'voice' || v == 'video') {
-                    await startCall(v);
-                    return;
-                  }
-                  if (v == 'refresh') {
-                    await perform(() async {
-                      await repo.refresh();
-                      await repo.markRead();
-                    });
-                    return;
-                  }
-                  if (v == 'profile' && peer != null) {
-                    await openProfile(peer['user_id']);
-                    return;
-                  }
-                  if (chat == null) return;
-                  final members = (chat['pulse_members'] as List).where(
-                    (m) => m['user_id'] != repo.uid,
-                  );
-                  if (members.isEmpty) return;
-                  final user = members.first['user_id'];
-                  if (v == 'block')
-                    await perform(() async {
-                      await repo.rpc('block_user', {
-                        'p_user': user,
-                        'p_block': true,
-                      });
-                    });
-                  if (v == 'report') {
-                    final reason = await prompt(
-                      'Report this account',
-                      lines: 3,
-                    );
-                    if (reason != null && reason.isNotEmpty)
-                      await perform(() async {
-                        await repo.rpc('report_user', {
-                          'p_user': user,
-                          'p_reason': reason,
-                        });
-                      });
-                  }
-                },
-                itemBuilder: (_) => [
-                  if (chat?['kind'] == 'direct' && peer != null)
-                    const PopupMenuItem(
-                      value: 'profile',
-                      child: Text('View profile'),
-                    ),
-                  PopupMenuItem(
-                    value: 'voice',
-                    enabled:
-                        repo.requestFor(repo.activeChat) == null ||
-                        repo.requestFor(repo.activeChat)?['state'] ==
-                            'accepted',
-                    child: const Text('Voice call'),
-                  ),
-                  PopupMenuItem(
-                    value: 'video',
-                    enabled:
-                        repo.requestFor(repo.activeChat) == null ||
-                        repo.requestFor(repo.activeChat)?['state'] ==
-                            'accepted',
-                    child: const Text('Video call'),
-                  ),
-                  const PopupMenuItem(
-                    value: 'refresh',
-                    child: Text('Refresh / mark read'),
-                  ),
-                  const PopupMenuDivider(),
-                  const PopupMenuItem(
-                    value: 'block',
-                    child: Text('Block contact'),
-                  ),
-                  const PopupMenuItem(
-                    value: 'report',
-                    child: Text('Report contact'),
-                  ),
-                ],
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
         const Divider(height: 1),
         Expanded(
           child: PulseWallpaper(
@@ -1161,7 +1484,58 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     controller: scroll,
                     padding: const EdgeInsets.all(16),
                     itemCount: filtered.length,
-                    itemBuilder: (c, i) => messageBubble(filtered[i]),
+                    itemBuilder: (c, i) {
+                      final time = DateTime.tryParse(
+                        filtered[i]['created_at'] ?? '',
+                      )?.toLocal();
+                      final previous = i == 0
+                          ? null
+                          : DateTime.tryParse(
+                              filtered[i - 1]['created_at'] ?? '',
+                            )?.toLocal();
+                      final newDay =
+                          time != null &&
+                          (previous == null ||
+                              previous.year != time.year ||
+                              previous.month != time.month ||
+                              previous.day != time.day);
+                      return Column(
+                        children: [
+                          if (newDay)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              child: Chip(
+                                label: Text(
+                                  pulseChatDay(time!, DateTime.now()),
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                                visualDensity: VisualDensity.compact,
+                              ),
+                            ),
+                          GestureDetector(
+                            behavior: HitTestBehavior.translucent,
+                            onLongPress: () => setState(() {
+                              selectedChat = repo.activeChat;
+                              selectedMessage = filtered[i]['id'];
+                            }),
+                            onSecondaryTap: () => setState(() {
+                              selectedChat = repo.activeChat;
+                              selectedMessage = filtered[i]['id'];
+                            }),
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: selected?['id'] == filtered[i]['id']
+                                    ? Theme.of(context).colorScheme.primary
+                                          .withValues(alpha: .10)
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: messageBubble(filtered[i]),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
                   ),
           ),
         ),
@@ -1227,54 +1601,57 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               icon: const Icon(Icons.close),
             ),
           ),
-        IgnorePointer(
-          ignoring: !repo.canReply(repo.activeChat),
-          child: Opacity(
-            opacity: repo.canReply(repo.activeChat) ? 1 : .4,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  IconButton(
-                    tooltip: 'Attach file, image or video (10 MB)',
-                    onPressed: sending ? null : () => send(file: true),
-                    icon: const Icon(Icons.add_circle_outline),
-                  ),
-                  Expanded(
-                    child: TextField(
-                      controller: composer,
-                      minLines: 1,
-                      maxLines: 5,
-                      maxLength: 8000,
-                      decoration: const InputDecoration(
-                        hintText: 'Write a message…',
-                        counterText: '',
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: 'Record voice note',
-                    onPressed: sending ? null : recordVoice,
-                    icon: const Icon(Icons.mic_none),
-                  ),
-                  const SizedBox(width: 8),
-                  FilledButton(
-                    onPressed: sending ? null : send,
-                    child: sending
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: PulseLoader(size: 22),
-                          )
-                        : const Icon(Icons.arrow_upward),
-                  ),
-                ],
-              ),
-            ),
-          ),
+        PulseChatComposer(
+          controller: composer,
+          enabled: repo.canReply(repo.activeChat),
+          busy: sending,
+          onSend: () => send(),
+          onAttach: () => send(file: true),
+          onVoice: recordVoice,
+          onCamera: (note) => captureChat(note),
         ),
       ],
+    );
+  }
+
+  Widget chatMessageMenu(Map<String, dynamic> m) {
+    final pending = m['pending'] == true,
+        deleted = m['deleted_at'] != null,
+        mine = m['sender_id'] == repo.uid;
+    return PopupMenuButton<String>(
+      padding: EdgeInsets.zero,
+      iconSize: 16,
+      onSelected: (v) => messageAction(m, v),
+      itemBuilder: (_) => pending
+          ? [
+              if ((m['body'] as String? ?? '').trim().isNotEmpty)
+                const PopupMenuItem(value: 'copy', child: Text('Copy text')),
+              const PopupMenuItem(
+                value: 'discard',
+                child: Text('Discard queued message'),
+              ),
+            ]
+          : [
+              if (!deleted) ...[
+                if ((m['body'] as String? ?? '').trim().isNotEmpty)
+                  const PopupMenuItem(value: 'copy', child: Text('Copy text')),
+                const PopupMenuItem(value: 'reply', child: Text('Reply')),
+                const PopupMenuItem(
+                  value: 'star',
+                  child: Text('Star / unstar'),
+                ),
+                for (final emoji in ['❤️', '👍', '😂', '😮', '😢', '🙏'])
+                  PopupMenuItem(value: 'react:$emoji', child: Text(emoji)),
+                if (mine) ...[
+                  const PopupMenuItem(value: 'edit', child: Text('Edit')),
+                  const PopupMenuItem(
+                    value: 'delete',
+                    child: Text('Delete for everyone'),
+                  ),
+                ],
+              ],
+              const PopupMenuItem(value: 'hide', child: Text('Delete for me')),
+            ],
     );
   }
 
@@ -1326,267 +1703,438 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       PulseReceipt.delivered => 'Delivered',
       PulseReceipt.read => 'Read by at least one recipient',
     };
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
-      child: Row(
-        mainAxisAlignment: mine
-            ? MainAxisAlignment.end
-            : MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          if (!mine) ...[
-            GestureDetector(
-              onTap: () => openProfile(m['sender_id']),
-              child: PulseAvatar(
-                repo: repo,
-                path: profile?['avatar_path'],
-                name: profile?['display_name'] ?? 'P',
-                radius: 17,
-              ),
-            ),
-            const SizedBox(width: 8),
-          ],
-          Flexible(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: mine
-                  ? CrossAxisAlignment.end
-                  : CrossAxisAlignment.start,
-              children: [
-                Container(
-                  constraints: const BoxConstraints(maxWidth: 500),
-                  padding: const EdgeInsets.fromLTRB(14, 10, 4, 8),
-                  decoration: BoxDecoration(
-                    color: mine ? cs.primaryContainer : cs.surfaceContainerHigh,
-                    gradient: mine && accents.isNotEmpty
-                        ? LinearGradient(colors: accents)
-                        : null,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: DefaultTextStyle.merge(
-                    style: mine && accents.isNotEmpty
-                        ? const TextStyle(color: Color(0xff172831))
-                        : const TextStyle(),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Flexible(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (m['reply_to'] != null)
-                                Container(
-                                  margin: const EdgeInsets.only(bottom: 8),
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    border: Border(
-                                      left: BorderSide(
-                                        color: cs.primary,
-                                        width: 3,
-                                      ),
-                                    ),
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Reply to ${replyAuthor?['display_name'] ?? 'a message'}',
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                      if (replied != null)
-                                        Text(
-                                          replied['deleted_at'] != null
-                                              ? 'Message deleted'
-                                              : replied['body'],
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(fontSize: 12),
-                                        ),
-                                    ],
-                                  ),
-                                ),
-                              Text(
-                                deleted ? 'Message deleted' : m['body'],
-                                style: TextStyle(
-                                  fontStyle: deleted
-                                      ? FontStyle.italic
-                                      : FontStyle.normal,
-                                ),
-                              ),
-                              if (!deleted &&
-                                  RegExp(
-                                    r'pulse:post:([0-9a-f-]{36})',
-                                  ).hasMatch(m['body'] as String))
-                                TextButton.icon(
-                                  onPressed: () => openSocialPost(
-                                    context,
-                                    social,
-                                    RegExp(
-                                      r'pulse:post:([0-9a-f-]{36})',
-                                    ).firstMatch(m['body'])!.group(1)!,
-                                  ),
-                                  icon: const Icon(Icons.article_outlined),
-                                  label: const Text('Open Pulse post'),
-                                ),
-                              if (!deleted && m['attachment_path'] != null)
-                                PulseAttachment(
-                                  key: ValueKey(m['id']),
-                                  repo: repo,
-                                  message: m,
-                                ),
-                              const SizedBox(height: 5),
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  if (star)
-                                    const Padding(
-                                      padding: EdgeInsets.only(right: 4),
-                                      child: Icon(Icons.star_rounded, size: 12),
-                                    ),
-                                  Text(
-                                    '${m['edited_at'] != null ? 'edited · ' : ''}$clock',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      color: mine && accents.isNotEmpty
-                                          ? const Color(0xff374a55)
-                                          : cs.onSurfaceVariant,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 5),
-                                  Tooltip(
-                                    message: mine
-                                        ? label
-                                        : ownRead
-                                        ? 'Read by you'
-                                        : 'Unread',
-                                    child: Icon(
-                                      mine
-                                          ? icon
-                                          : ownRead
-                                          ? Icons.check_circle_outline
-                                          : Icons.circle_outlined,
-                                      size: 15,
-                                      color:
-                                          (mine &&
-                                                  receipt ==
-                                                      PulseReceipt.read) ||
-                                              (!mine && ownRead)
-                                          ? const Color(0xff139bba)
-                                          : cs.onSurfaceVariant,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                        PopupMenuButton<String>(
-                          padding: EdgeInsets.zero,
-                          iconSize: 16,
-                          onSelected: (v) => messageAction(m, v),
-                          itemBuilder: (_) => pending
-                              ? [
-                                  const PopupMenuItem(
-                                    value: 'discard',
-                                    child: Text('Discard queued message'),
-                                  ),
-                                ]
-                              : [
-                                  if (!deleted) ...[
-                                    const PopupMenuItem(
-                                      value: 'reply',
-                                      child: Text('Reply'),
-                                    ),
-                                    if ((m['body'] as String? ?? '').isNotEmpty)
-                                      PopupMenuItem(
-                                        value: 'forward',
-                                        child: Text(
-                                          m['attachment_path'] == null
-                                              ? 'Forward'
-                                              : 'Forward text only',
-                                        ),
-                                      ),
-                                    const PopupMenuItem(
-                                      value: 'star',
-                                      child: Text('Star / unstar'),
-                                    ),
-                                    for (final emoji in [
-                                      '❤️',
-                                      '👍',
-                                      '😂',
-                                      '😮',
-                                      '😢',
-                                      '🙏',
-                                    ])
-                                      PopupMenuItem(
-                                        value: 'react:$emoji',
-                                        child: Text(emoji),
-                                      ),
-                                    if (mine) ...[
-                                      const PopupMenuItem(
-                                        value: 'edit',
-                                        child: Text('Edit'),
-                                      ),
-                                      const PopupMenuItem(
-                                        value: 'delete',
-                                        child: Text('Delete for everyone'),
-                                      ),
-                                    ],
-                                  ],
-                                  const PopupMenuItem(
-                                    value: 'hide',
-                                    child: Text('Delete for me'),
-                                  ),
-                                ],
-                        ),
-                      ],
-                    ),
+    final visual =
+        !deleted &&
+        m['attachment_path'] is String &&
+        ['image', 'video'].contains(
+          m['media_kind'] ?? kindFor(mimeFor(m['attachment_path'] ?? '')),
+        );
+    final roundVideo = (m['attachment_path'] as String? ?? '').endsWith(
+      '-pulse_note.mp4',
+    );
+    final caption = (m['body'] as String? ?? '').trim().isNotEmpty;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final mediaWidth = (constraints.maxWidth - (mine ? 0 : 42) - 8)
+            .clamp(40.0, 460.0)
+            .toDouble();
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 5),
+          child: Row(
+            mainAxisAlignment: mine
+                ? MainAxisAlignment.end
+                : MainAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              if (!mine) ...[
+                GestureDetector(
+                  onTap: () => openProfile(m['sender_id']),
+                  child: PulseAvatar(
+                    repo: repo,
+                    path: profile?['avatar_path'],
+                    name: profile?['display_name'] ?? 'P',
+                    radius: 17,
                   ),
                 ),
-                if (!deleted && reactions.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Wrap(
-                      spacing: 5,
-                      runSpacing: 4,
-                      children: [
-                        for (final r in reactions.entries)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: cs.surfaceContainerHighest,
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: cs.outlineVariant),
-                            ),
-                            child: Text(
-                              '${r.key}${r.value > 1 ? ' ${r.value}' : ''}',
-                              style: const TextStyle(fontSize: 12),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
+                const SizedBox(width: 8),
               ],
-            ),
+              Flexible(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: mine
+                      ? CrossAxisAlignment.end
+                      : CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      constraints: const BoxConstraints(maxWidth: 500),
+                      padding: visual
+                          ? const EdgeInsets.all(4)
+                          : const EdgeInsets.fromLTRB(14, 10, 4, 8),
+                      decoration: BoxDecoration(
+                        color: mine
+                            ? cs.primaryContainer
+                            : cs.surfaceContainerHigh,
+                        gradient: mine && accents.isNotEmpty
+                            ? LinearGradient(colors: accents)
+                            : null,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: DefaultTextStyle.merge(
+                        style: mine && accents.isNotEmpty
+                            ? const TextStyle(color: Color(0xff172831))
+                            : const TextStyle(),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Flexible(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (!deleted && m['forwarded'] == true)
+                                    const Padding(
+                                      padding: EdgeInsets.fromLTRB(6, 4, 6, 6),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Icons.forward_rounded, size: 14),
+                                          SizedBox(width: 5),
+                                          Text(
+                                            'Forwarded',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontStyle: FontStyle.italic,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  if (!deleted && m['status_id'] != null)
+                                    InkWell(
+                                      onTap: () => openStatusReference(
+                                        m['status_id'] as String,
+                                      ),
+                                      child: Padding(
+                                        padding: const EdgeInsets.only(
+                                          bottom: 8,
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              Icons.donut_large,
+                                              size: 18,
+                                              color: cs.primary,
+                                            ),
+                                            const SizedBox(width: 8),
+                                            const Flexible(
+                                              child: Text(
+                                                'Status reply · View status',
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.w600,
+                                                  fontSize: 12,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  if (m['reply_to'] != null)
+                                    Container(
+                                      margin: const EdgeInsets.only(bottom: 8),
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        border: Border(
+                                          left: BorderSide(
+                                            color: cs.primary,
+                                            width: 3,
+                                          ),
+                                        ),
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'Reply to ${replyAuthor?['display_name'] ?? 'a message'}',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                          if (replied != null)
+                                            Text(
+                                              replied['deleted_at'] != null
+                                                  ? 'Message deleted'
+                                                  : replied['body'],
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  if (!visual || caption)
+                                    Text(
+                                      deleted ? 'Message deleted' : m['body'],
+                                      style: TextStyle(
+                                        fontStyle: deleted
+                                            ? FontStyle.italic
+                                            : FontStyle.normal,
+                                      ),
+                                    ),
+                                  if (!deleted &&
+                                      RegExp(
+                                        r'pulse:post:([0-9a-f-]{36})',
+                                      ).hasMatch(m['body'] as String))
+                                    TextButton.icon(
+                                      onPressed: () => openSocialPost(
+                                        context,
+                                        social,
+                                        RegExp(
+                                          r'pulse:post:([0-9a-f-]{36})',
+                                        ).firstMatch(m['body'])!.group(1)!,
+                                      ),
+                                      icon: const Icon(Icons.article_outlined),
+                                      label: const Text('Open Pulse post'),
+                                    ),
+                                  if (!deleted && m['attachment_path'] != null)
+                                    Stack(
+                                      children: [
+                                        PulseAttachment(
+                                          key: ValueKey(m['id']),
+                                          repo: repo,
+                                          message: m,
+                                          inlinePreview: visual,
+                                          width: roundVideo
+                                              ? mediaWidth
+                                                    .clamp(40.0, 280.0)
+                                                    .toDouble()
+                                              : visual
+                                              ? mediaWidth
+                                              : 260,
+                                          height: roundVideo
+                                              ? mediaWidth
+                                                    .clamp(40.0, 280.0)
+                                                    .toDouble()
+                                              : visual
+                                              ? mediaWidth * .8
+                                              : 180,
+                                        ),
+                                        if (visual)
+                                          Positioned(
+                                            top: 2,
+                                            right: 2,
+                                            child: Material(
+                                              color: Colors.black45,
+                                              shape: const CircleBorder(),
+                                              child: IconTheme(
+                                                data: const IconThemeData(
+                                                  color: Colors.white,
+                                                ),
+                                                child: chatMessageMenu(m),
+                                              ),
+                                            ),
+                                          ),
+                                        if (visual && !caption)
+                                          Positioned(
+                                            right: 8,
+                                            bottom: 8,
+                                            child: Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 7,
+                                                    vertical: 4,
+                                                  ),
+                                              decoration: BoxDecoration(
+                                                color: Colors.black54,
+                                                borderRadius:
+                                                    BorderRadius.circular(9),
+                                              ),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Text(
+                                                    clock,
+                                                    style: const TextStyle(
+                                                      color: Colors.white,
+                                                      fontSize: 11,
+                                                    ),
+                                                  ),
+                                                  if (star)
+                                                    const Padding(
+                                                      padding: EdgeInsets.only(
+                                                        left: 4,
+                                                      ),
+                                                      child: Icon(
+                                                        Icons.star_rounded,
+                                                        size: 12,
+                                                        color: Colors.white,
+                                                      ),
+                                                    ),
+                                                  const SizedBox(width: 5),
+                                                  Tooltip(
+                                                    message: mine
+                                                        ? label
+                                                        : ownRead
+                                                        ? 'Read by you'
+                                                        : 'Unread',
+                                                    child: Icon(
+                                                      mine
+                                                          ? icon
+                                                          : ownRead
+                                                          ? Icons
+                                                                .check_circle_outline
+                                                          : Icons
+                                                                .circle_outlined,
+                                                      size: 15,
+                                                      color:
+                                                          (mine &&
+                                                                  receipt ==
+                                                                      PulseReceipt
+                                                                          .read ||
+                                                              !mine && ownRead)
+                                                          ? const Color(
+                                                              0xff67d8f5,
+                                                            )
+                                                          : Colors.white,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  if (!visual || caption)
+                                    const SizedBox(height: 5),
+                                  if (!visual || caption)
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        if (star)
+                                          const Padding(
+                                            padding: EdgeInsets.only(right: 4),
+                                            child: Icon(
+                                              Icons.star_rounded,
+                                              size: 12,
+                                            ),
+                                          ),
+                                        Text(
+                                          '${m['edited_at'] != null ? 'edited · ' : ''}$clock',
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            color: mine && accents.isNotEmpty
+                                                ? const Color(0xff374a55)
+                                                : cs.onSurfaceVariant,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 5),
+                                        Tooltip(
+                                          message: mine
+                                              ? label
+                                              : ownRead
+                                              ? 'Read by you'
+                                              : 'Unread',
+                                          child: Icon(
+                                            mine
+                                                ? icon
+                                                : ownRead
+                                                ? Icons.check_circle_outline
+                                                : Icons.circle_outlined,
+                                            size: 15,
+                                            color:
+                                                (mine &&
+                                                        receipt ==
+                                                            PulseReceipt
+                                                                .read) ||
+                                                    (!mine && ownRead)
+                                                ? const Color(0xff139bba)
+                                                : cs.onSurfaceVariant,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                ],
+                              ),
+                            ),
+                            if (!visual) chatMessageMenu(m),
+                          ],
+                        ),
+                      ),
+                    ),
+                    if (!deleted && reactions.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Wrap(
+                          spacing: 5,
+                          runSpacing: 4,
+                          children: [
+                            for (final r in reactions.entries)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: cs.surfaceContainerHighest,
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(color: cs.outlineVariant),
+                                ),
+                                child: Text(
+                                  '${r.key}${r.value > 1 ? ' ${r.value}' : ''}',
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              if (!mine && !visual) const SizedBox(width: 12),
+            ],
           ),
-          if (!mine) const SizedBox(width: 12),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  Widget updatesView() => StatusUpdates(repo: repo);
+  Future<void> openStatusChat(String chat) async {
+    await repo.openChat(chat);
+    if (mounted)
+      setState(() {
+        section = 0;
+        socialSection = 3;
+      });
+  }
+
+  Future<void> openStatusReference(String id) async {
+    try {
+      final status = await repo.db
+          .from('pulse_statuses')
+          .select()
+          .eq('id', id)
+          .maybeSingle();
+      if (!mounted) return;
+      if (status == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'This status has expired, was deleted, or is unavailable.',
+            ),
+          ),
+        );
+        return;
+      }
+      final chat = await Navigator.push<String>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => StatusViewer(repo: repo, status: status),
+        ),
+      );
+      if (chat != null && mounted) await openStatusChat(chat);
+    } catch (_) {
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not open this status. Check your connection.'),
+          ),
+        );
+    }
+  }
+
+  Widget updatesView() => StatusUpdates(
+    repo: repo,
+    updates: channelUpdates,
+    onChat: openStatusChat,
+  );
   Widget groupsView() => PulseCommunities(
     repo: repo,
     onChat: (id) {
@@ -1818,7 +2366,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       const Padding(
         padding: EdgeInsets.all(24),
         child: Text(
-          'PULSE 0.4.6 · Private beta\nMessages are protected by access policies and TLS. End-to-end encryption, individual device management and MFA UI are not implemented yet. Do not use this beta for sensitive conversations.',
+          'PULSE 0.5.5 · Private beta\nMessages are protected by access policies and TLS. End-to-end encryption, individual device management and MFA UI are not implemented yet. Do not use this beta for sensitive conversations.',
         ),
       ),
     ],

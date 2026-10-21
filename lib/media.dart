@@ -109,7 +109,18 @@ class WaveformPainter extends CustomPainter {
 }
 
 class PulseAttachment extends StatefulWidget {
-  const PulseAttachment({super.key, required this.repo, required this.message});
+  const PulseAttachment({
+    super.key,
+    required this.repo,
+    required this.message,
+    this.channel = false,
+    this.autoplay = false,
+    this.inlinePreview = false,
+    this.width = 260,
+    this.height = 180,
+  });
+  final bool channel, autoplay, inlinePreview;
+  final double width, height;
   final PulseRepository repo;
   final Map<String, dynamic> message;
   @override
@@ -132,9 +143,19 @@ class _PulseAttachmentState extends State<PulseAttachment>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    if (widget.autoplay ||
+        (widget.channel || widget.inlinePreview) && kind == 'image' ||
+        widget.inlinePreview && kind == 'video')
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted)
+          open(
+            preview:
+                widget.inlinePreview && kind == 'video' && !widget.autoplay,
+          );
+      });
   }
 
-  Future<void> open() async {
+  Future<void> open({bool preview = false}) async {
     if (loading) return;
     if (player != null) {
       await PulseMedia.activate(player!);
@@ -149,8 +170,10 @@ class _PulseAttachmentState extends State<PulseAttachment>
       // Recheck that the message still exists and has not been deleted.
       if (widget.message['pending'] != true) {
         final current = await widget.repo.db
-            .from('pulse_messages')
-            .select('attachment_path,deleted_at')
+            .from(widget.channel ? 'pulse_posts' : 'pulse_messages')
+            .select(
+              widget.channel ? 'attachment_path' : 'attachment_path,deleted_at',
+            )
             .eq('id', widget.message['id'])
             .single();
         if (current['deleted_at'] != null ||
@@ -158,7 +181,7 @@ class _PulseAttachmentState extends State<PulseAttachment>
           throw Exception('Media unavailable');
       }
       final signed = await widget.repo.db.storage
-          .from('pulse-media')
+          .from(widget.channel ? 'pulse-channel-media' : 'pulse-media')
           .createSignedUrl(widget.message['attachment_path'], 300);
       if (!mounted) return;
       if (kind == 'file') {
@@ -171,17 +194,24 @@ class _PulseAttachmentState extends State<PulseAttachment>
         url = signed;
       } else {
         MediaKit.ensureInitialized();
-        final mediaPlayer = Player();
+        final mediaPlayer = Player(
+          configuration: const PlayerConfiguration(bufferSize: 6 * 1024 * 1024),
+        );
         player = mediaPlayer;
         if (kind == 'video') video = VideoController(mediaPlayer);
         subscriptions.add(
           mediaPlayer.stream.playing.listen((value) {
+            if (value) unawaited(PulseMedia.activate(mediaPlayer));
             if (mounted) setState(() => playing = value);
           }),
         );
         subscriptions.add(
           mediaPlayer.stream.position.listen((value) {
-            if (mounted) setState(() => position = value);
+            if (mounted)
+              setState(() {
+                if (playing && value > position) error = null;
+                position = value;
+              });
           }),
         );
         subscriptions.add(
@@ -198,14 +228,69 @@ class _PulseAttachmentState extends State<PulseAttachment>
               );
           }),
         );
-        await PulseMedia.activate(mediaPlayer);
-        await mediaPlayer.open(Media(signed));
+        if (!preview) await PulseMedia.activate(mediaPlayer);
+        await mediaPlayer.open(Media(signed), play: !preview);
       }
     } catch (_) {
       if (mounted)
         setState(() => error = 'Media is unavailable or you are offline.');
     } finally {
       if (mounted) setState(() => loading = false);
+    }
+  }
+
+  Future<void> viewPhoto() async {
+    try {
+      final current = await widget.repo.db
+          .from(widget.channel ? 'pulse_posts' : 'pulse_messages')
+          .select(
+            widget.channel ? 'attachment_path' : 'attachment_path,deleted_at',
+          )
+          .eq('id', widget.message['id'])
+          .single();
+      if (current['deleted_at'] != null ||
+          current['attachment_path'] != widget.message['attachment_path'])
+        throw StateError('Unavailable');
+      final signed = await widget.repo.db.storage
+          .from(widget.channel ? 'pulse-channel-media' : 'pulse-media')
+          .createSignedUrl(current['attachment_path'], 300);
+      await PulseMedia.pauseAll();
+      if (!mounted) return;
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => Scaffold(
+            backgroundColor: Colors.black,
+            appBar: AppBar(
+              backgroundColor: Colors.black,
+              foregroundColor: Colors.white,
+              title: const Text('Photo'),
+            ),
+            body: Center(
+              child: InteractiveViewer(
+                minScale: 1,
+                maxScale: 5,
+                child: Image.network(
+                  signed,
+                  cacheWidth: 1600,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => const Text(
+                    'Photo unavailable',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    } catch (_) {
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('This photo is unavailable or you are offline.'),
+          ),
+        );
     }
   }
 
@@ -238,7 +323,7 @@ class _PulseAttachmentState extends State<PulseAttachment>
         ? 0.0
         : (position.inMilliseconds / ms).clamp(0.0, 1.0).toDouble();
     return SizedBox(
-      width: 260,
+      width: widget.width,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -248,17 +333,34 @@ class _PulseAttachmentState extends State<PulseAttachment>
           if (kind == 'image' && url != null)
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: Image.network(
-                url!,
-                height: 180,
-                width: 260,
-                fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) =>
-                    const Text('Photo could not load.'),
+              child: GestureDetector(
+                onTap: viewPhoto,
+                child: Image.network(
+                  url!,
+                  cacheWidth: (widget.width * 2)
+                      .round()
+                      .clamp(100, 1000)
+                      .toInt(),
+                  height: widget.height,
+                  width: widget.width,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) =>
+                      const Text('Photo could not load.'),
+                ),
               ),
             )
           else if (kind == 'video' && video != null)
-            SizedBox(height: 180, child: Video(controller: video!))
+            SizedBox(
+              height: widget.height,
+              child:
+                  (widget.message['attachment_path'] as String? ?? '').endsWith(
+                    '-pulse_note.mp4',
+                  )
+                  ? ClipOval(
+                      child: Video(controller: video!, fit: BoxFit.cover),
+                    )
+                  : Video(controller: video!),
+            )
           else if (kind == 'audio')
             Row(
               children: [

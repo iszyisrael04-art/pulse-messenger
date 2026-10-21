@@ -28,6 +28,7 @@ class PulseRepository extends ChangeNotifier {
   Row? me;
   List<Row> chatRequests = [];
   Map<String, int> unread = {};
+  Map<String, Row> chatSummaries = {};
   Row? incoming;
   bool Function(String)? isChatVisible;
   final _announced = <String>{};
@@ -72,6 +73,10 @@ class PulseRepository extends ChangeNotifier {
     if (cache != null) {
       final c = jsonDecode(cache) as Row;
       chats = (c['chats'] as List).cast<Row>();
+      chatSummaries = {
+        for (final row in (c['summaries'] as List? ?? []))
+          row['chat_id'] as String: Map<String, dynamic>.from(row as Map),
+      };
       for (final p in (c['profiles'] as List).cast<Row>()) {
         profiles[p['id']] = p;
       }
@@ -157,6 +162,12 @@ class PulseRepository extends ChangeNotifier {
           .limit(200);
       final requests = await db.from('pulse_chat_requests').select();
       final unreadData = await rpc('unread_counts', {});
+      List<dynamic> summaryData = chatSummaries.values.toList();
+      try {
+        summaryData = await rpc('chat_summaries', {}) as List;
+      } on PostgrestException catch (e) {
+        if (!['PGRST202', '42883'].contains(e.code)) rethrow;
+      }
       final ids = <String>{uid};
       for (final c in cs) {
         for (final m in c['pulse_members'] as List) {
@@ -216,6 +227,10 @@ class PulseRepository extends ChangeNotifier {
         profiles[p['id']] = p;
       }
       chats = cs;
+      chatSummaries = {
+        for (final row in summaryData as List)
+          row['chat_id'] as String: Map<String, dynamic>.from(row as Map),
+      };
       chatRequests = requests;
       unread = Map<String, dynamic>.from(
         unreadData as Map,
@@ -237,6 +252,7 @@ class PulseRepository extends ChangeNotifier {
         key: _cacheKey,
         value: jsonEncode({
           'chats': chats,
+          'summaries': chatSummaries.values.toList(),
           'profiles': profiles.values.toList(),
         }),
       );
@@ -498,10 +514,10 @@ class PulseRepository extends ChangeNotifier {
     String? contentType,
     String? chatId,
   }) async {
-    if (await file.length() > (avatar ? 2097152 : 10485760))
+    if (await file.length() > (avatar ? 15728640 : 10485760))
       throw Exception(
         avatar
-            ? 'Avatar must be under 2 MB'
+            ? 'Avatar must be 15 MB or smaller'
             : 'File must be under 10 MB in this beta',
       );
     if (!avatar && (chatId ?? activeChat) == null)

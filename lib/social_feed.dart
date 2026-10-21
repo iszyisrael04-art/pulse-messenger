@@ -1,4 +1,5 @@
 import 'activity.dart';
+import 'interest_picker.dart';
 import 'social_context.dart';
 import 'brand.dart';
 import 'appearance.dart';
@@ -21,12 +22,13 @@ class SocialFeed extends StatefulWidget {
     this.author,
     this.kind = 'all',
     this.header = true,
+    this.grid = false,
     this.tag,
   });
   final SocialStore store;
   final String mode, kind;
   final String? author, tag;
-  final bool header;
+  final bool header, grid;
   @override
   State<SocialFeed> createState() => _SocialFeedState();
 }
@@ -87,6 +89,174 @@ class _SocialFeedState extends State<SocialFeed> {
     if (saved == true && mounted) await feed.load(reset: true);
   }
 
+  Widget profileGrid() => CustomScrollView(
+    controller: scroll,
+    physics: const AlwaysScrollableScrollPhysics(),
+    cacheExtent: 180,
+    slivers: [
+      SliverGrid(
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 3,
+          mainAxisSpacing: 2,
+          crossAxisSpacing: 2,
+          childAspectRatio: .72,
+        ),
+        delegate: SliverChildBuilderDelegate((context, index) {
+          final post = feed.rows[index];
+          final media = post['media'] as List? ?? const [];
+          final first = media.isEmpty ? null : media.first as Map;
+          final path = first == null
+              ? null
+              : first['cover_path'] ??
+                    (first['kind'] == 'image' ? first['path'] : null);
+          final draft = post['state'] == 'draft';
+          return Semantics(
+            button: true,
+            label:
+                '${draft ? 'Edit draft' : 'Open post'}: ${post['body'] ?? ''}',
+            child: InkWell(
+              onLongPress: draft
+                  ? () async {
+                      final remove = await showDialog<bool>(
+                        context: context,
+                        builder: (dialogContext) => AlertDialog(
+                          title: const Text('Delete draft?'),
+                          content: const Text(
+                            'This removes the saved draft from your account.',
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () =>
+                                  Navigator.pop(dialogContext, false),
+                              child: const Text('Cancel'),
+                            ),
+                            TextButton(
+                              onPressed: () =>
+                                  Navigator.pop(dialogContext, true),
+                              child: const Text('Delete'),
+                            ),
+                          ],
+                        ),
+                      );
+                      if (remove != true || !mounted) return;
+                      try {
+                        await widget.store.edit(post['id'], '', delete: true);
+                        feed.change(null, post['id']);
+                      } catch (e) {
+                        if (context.mounted) socialNotice(context, e);
+                      }
+                    }
+                  : null,
+              onTap: () async {
+                if (draft) {
+                  await create(draft: post);
+                } else {
+                  await Navigator.push<void>(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          SocialPostPage(store: widget.store, post: post),
+                    ),
+                  );
+                  if (mounted) await feed.load(reset: true);
+                }
+              },
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  ColoredBox(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
+                  ),
+                  if (path != null)
+                    SocialImage(
+                      store: widget.store,
+                      path: path as String,
+                      fit: BoxFit.cover,
+                      cacheWidth: 360,
+                    )
+                  else if (first != null)
+                    SocialDraftCover(
+                      key: ValueKey(post['id']),
+                      store: widget.store,
+                      media: first,
+                    )
+                  else
+                    Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Center(
+                        child: Text(
+                          post['body']?.toString() ?? '',
+                          maxLines: 6,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                  if (first != null)
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: Colors.black54,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(4),
+                          child: Icon(
+                            draft
+                                ? Icons.edit_outlined
+                                : first['kind'] == 'video'
+                                ? Icons.play_arrow_rounded
+                                : media.length > 1
+                                ? Icons.collections_outlined
+                                : Icons.image_outlined,
+                            size: 17,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          );
+        }, childCount: feed.rows.length),
+      ),
+      SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Center(
+            child: feed.loading
+                ? const PulseLoader()
+                : feed.error != null
+                ? Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(feed.error!, textAlign: TextAlign.center),
+                      TextButton(
+                        onPressed: () => feed.load(reset: feed.rows.isEmpty),
+                        child: const Text('Retry'),
+                      ),
+                    ],
+                  )
+                : feed.rows.isEmpty
+                ? const Icon(Icons.grid_off_outlined, size: 32)
+                : feed.hasMore
+                ? IconButton(
+                    tooltip: 'Load more',
+                    onPressed: () => feed.load(),
+                    icon: const Icon(Icons.expand_more),
+                  )
+                : const SizedBox.shrink(),
+          ),
+        ),
+      ),
+    ],
+  );
+
   @override
   Widget build(BuildContext context) => Column(
     children: [
@@ -103,6 +273,22 @@ class _SocialFeedState extends State<SocialFeed> {
                   alignment: Alignment.centerLeft,
                   child: PulseWordmark(size: 30),
                 ),
+              ),
+              IconButton(
+                tooltip: 'Change video interests',
+                icon: const Icon(Icons.tune_rounded),
+                onPressed: () async {
+                  final changed = await Navigator.push<bool>(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => PulseInterestPicker(store: widget.store),
+                    ),
+                  );
+                  if (changed == true && mounted) {
+                    feed.mode = 'for_you';
+                    await feed.load(reset: true);
+                  }
+                },
               ),
               PulseActivityButton(store: widget.store),
               IconButton(
@@ -147,8 +333,9 @@ class _SocialFeedState extends State<SocialFeed> {
           child: Row(
             children: [
               for (final entry in {
+                'for_you': 'For You',
                 'discovery': 'Discover',
-                'following': 'Following',
+                'following': 'Friends',
               }.entries)
                 Padding(
                   padding: const EdgeInsets.only(right: 24),
@@ -197,99 +384,104 @@ class _SocialFeedState extends State<SocialFeed> {
       Expanded(
         child: RefreshIndicator(
           onRefresh: () => feed.load(reset: true),
-          child: ListView.builder(
-            controller: scroll,
-            physics: const AlwaysScrollableScrollPhysics(),
-            cacheExtent: 200,
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
-            itemCount: feed.rows.length + 1,
-            itemBuilder: (context, index) {
-              if (index == feed.rows.length)
-                return Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    children: [
-                      if (feed.loading)
-                        const PulseLoader()
-                      else if (feed.error != null) ...[
-                        Text(feed.error!),
-                        TextButton(
-                          onPressed: () => feed.load(reset: feed.rows.isEmpty),
-                          child: const Text('Retry'),
+          child: widget.grid
+              ? profileGrid()
+              : ListView.builder(
+                  controller: scroll,
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  cacheExtent: 200,
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
+                  itemCount: feed.rows.length + 1,
+                  itemBuilder: (context, index) {
+                    if (index == feed.rows.length)
+                      return Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          children: [
+                            if (feed.loading)
+                              const PulseLoader()
+                            else if (feed.error != null) ...[
+                              Text(feed.error!),
+                              TextButton(
+                                onPressed: () =>
+                                    feed.load(reset: feed.rows.isEmpty),
+                                child: const Text('Retry'),
+                              ),
+                            ] else if (feed.rows.isEmpty)
+                              Text(
+                                feed.mode == 'following'
+                                    ? 'Follow creators to build your feed.'
+                                    : feed.mode == 'drafts'
+                                    ? 'No drafts yet. Create a post and choose Save draft.'
+                                    : 'No posts yet. Be the first to share something.',
+                              )
+                            else if (feed.hasMore)
+                              TextButton(
+                                onPressed: () => feed.load(),
+                                child: const Text('Load more'),
+                              )
+                            else
+                              const Text('You’re all caught up.'),
+                          ],
                         ),
-                      ] else if (feed.rows.isEmpty)
-                        Text(
-                          feed.mode == 'following'
-                              ? 'Follow creators to build your feed.'
-                              : feed.mode == 'drafts'
-                              ? 'No drafts yet. Create a post and choose Save draft.'
-                              : 'No posts yet. Be the first to share something.',
-                        )
-                      else if (feed.hasMore)
-                        TextButton(
-                          onPressed: () => feed.load(),
-                          child: const Text('Load more'),
-                        )
-                      else
-                        const Text('You’re all caught up.'),
-                    ],
-                  ),
-                );
-              final post = feed.rows[index];
-              return Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 680),
-                  child: post['state'] == 'draft'
-                      ? Card(
-                          child: ListTile(
-                            leading: SizedBox(
-                              width: 76,
-                              height: 76,
-                              child: (post['media'] as List).isEmpty
-                                  ? const Icon(Icons.drafts_outlined)
-                                  : SocialDraftCover(
-                                      key: ValueKey(post['id']),
-                                      store: widget.store,
-                                      media: (post['media'] as List).first,
-                                    ),
-                            ),
-                            title: Text(
-                              post['body'].toString().isEmpty
-                                  ? 'Media draft'
-                                  : post['body'],
-                            ),
-                            subtitle: Text(post['kind']),
-                            onTap: () => create(draft: post),
-                            trailing: IconButton(
-                              tooltip: 'Delete draft',
-                              onPressed: () async {
-                                try {
-                                  await widget.store.edit(
-                                    post['id'],
-                                    '',
-                                    delete: true,
-                                  );
-                                  feed.change(null, post['id']);
-                                } catch (e) {
-                                  if (context.mounted) socialNotice(context, e);
-                                }
-                              },
-                              icon: const Icon(Icons.delete_outline),
-                            ),
-                          ),
-                        )
-                      : SocialPostCard(
-                          key: ValueKey(post['id']),
-                          store: widget.store,
-                          post: post,
-                          onChanged: (updated) {
-                            feed.change(updated, post['id']);
-                          },
-                        ),
+                      );
+                    final post = feed.rows[index];
+                    return Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 680),
+                        child: post['state'] == 'draft'
+                            ? Card(
+                                child: ListTile(
+                                  leading: SizedBox(
+                                    width: 76,
+                                    height: 76,
+                                    child: (post['media'] as List).isEmpty
+                                        ? const Icon(Icons.drafts_outlined)
+                                        : SocialDraftCover(
+                                            key: ValueKey(post['id']),
+                                            store: widget.store,
+                                            media:
+                                                (post['media'] as List).first,
+                                          ),
+                                  ),
+                                  title: Text(
+                                    post['body'].toString().isEmpty
+                                        ? 'Media draft'
+                                        : post['body'],
+                                  ),
+                                  subtitle: Text(post['kind']),
+                                  onTap: () => create(draft: post),
+                                  trailing: IconButton(
+                                    tooltip: 'Delete draft',
+                                    onPressed: () async {
+                                      try {
+                                        await widget.store.edit(
+                                          post['id'],
+                                          '',
+                                          delete: true,
+                                        );
+                                        feed.change(null, post['id']);
+                                      } catch (e) {
+                                        if (context.mounted)
+                                          socialNotice(context, e);
+                                      }
+                                    },
+                                    icon: const Icon(Icons.delete_outline),
+                                  ),
+                                ),
+                              )
+                            : SocialPostCard(
+                                key: ValueKey(post['id']),
+                                store: widget.store,
+                                post: post,
+                                onChanged: (updated) {
+                                  feed.change(updated, post['id']);
+                                },
+                              ),
+                      ),
+                    );
+                  },
                 ),
-              );
-            },
-          ),
         ),
       ),
     ],

@@ -1,3 +1,9 @@
+import 'text_prompt.dart';
+import 'social_preview.dart';
+import 'media.dart';
+import 'package:path_provider/path_provider.dart';
+import 'channels.dart';
+import 'channel_updates.dart';
 import 'dart:async';
 import 'dart:io';
 
@@ -12,7 +18,14 @@ import 'avatar.dart';
 import 'repository.dart' hide Row;
 
 class StatusUpdates extends StatefulWidget {
-  const StatusUpdates({super.key, required this.repo});
+  const StatusUpdates({
+    super.key,
+    required this.repo,
+    this.onChat,
+    this.updates,
+  });
+  final Future<void> Function(String)? onChat;
+  final PulseChannelUpdates? updates;
   final PulseRepository repo;
   @override
   State<StatusUpdates> createState() => _StatusUpdatesState();
@@ -22,35 +35,14 @@ class _StatusUpdatesState extends State<StatusUpdates> {
   bool busy = false;
   String? error;
 
-  Future<String?> caption({required bool textOnly}) async {
-    final controller = TextEditingController();
-    final result = await showDialog<String>(
-      context: context,
-      builder: (dialog) => AlertDialog(
-        title: Text(textOnly ? 'Text status' : 'Add a caption'),
-        content: TextField(
-          controller: controller,
-          maxLength: 1000,
-          maxLines: 4,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialog),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () {
-              final value = controller.text.trim();
-              if (!textOnly || value.isNotEmpty) Navigator.pop(dialog, value);
-            },
-            child: const Text('Post'),
-          ),
-        ],
-      ),
-    );
-    controller.dispose();
-    return result;
-  }
+  Future<String?> caption({required bool textOnly}) => showPulseTextPrompt(
+    context,
+    textOnly ? 'Text status' : 'Add a caption',
+    maxLength: 1000,
+    maxLines: 4,
+    allowEmpty: !textOnly,
+    actionLabel: 'Post',
+  );
 
   Future<void> post(String type) async {
     if (busy) return;
@@ -58,7 +50,9 @@ class _StatusUpdatesState extends State<StatusUpdates> {
       busy = true;
       error = null;
     });
-    String? uploadedPath;
+    String? uploadedPath, uploadedCover;
+    PulseStudioResult? preview;
+    File? original;
     bool saved = false;
     try {
       PlatformFile? selected;
@@ -86,6 +80,22 @@ class _StatusUpdatesState extends State<StatusUpdates> {
         }[extension];
         if (mime == null) throw Exception('Choose a supported image or video.');
       }
+      if (type == 'video') {
+        original = File(selected!.path!);
+        await PulseMedia.pauseAll();
+        if (!mounted) return;
+        preview = await Navigator.push<PulseStudioResult>(
+          context,
+          MaterialPageRoute(
+            builder: (_) =>
+                SocialSelectionPreview(file: original!, video: true),
+          ),
+        );
+        if (preview == null || !mounted) return;
+        if (await preview.file.length() > 20 * 1024 * 1024)
+          throw Exception('Status files must be under 20 MB.');
+        mime = mimeFor(preview.file.path);
+      }
       if (!mounted) return;
       final body = await caption(textOnly: type == 'text');
       if (body == null) return;
@@ -93,21 +103,47 @@ class _StatusUpdatesState extends State<StatusUpdates> {
         await widget.repo.rpc('post_status', {'p_body': body});
       } else {
         final id = const Uuid().v4();
-        final extension = selected!.name.split('.').last.toLowerCase();
+        final extension = (preview?.file.path ?? selected!.name)
+            .split('.')
+            .last
+            .toLowerCase();
         uploadedPath = '${widget.repo.uid}/$id.$extension';
         await widget.repo.db.storage
             .from('pulse-status-media')
             .upload(
               uploadedPath,
-              File(selected.path!),
+              preview?.file ?? File(selected!.path!),
               fileOptions: FileOptions(contentType: mime),
             );
-        await widget.repo.rpc('post_media_status', {
-          'p_id': id,
-          'p_body': body,
-          'p_path': uploadedPath,
-          'p_type': type,
-        });
+        if (preview?.cover != null) {
+          uploadedCover = '${widget.repo.uid}/$id-cover.jpg';
+          final dir = await getTemporaryDirectory();
+          final temp = File('${dir.path}/pulse-status-cover-$id.jpg');
+          try {
+            await temp.writeAsBytes(preview!.cover!);
+            await widget.repo.db.storage
+                .from('pulse-status-media')
+                .upload(
+                  uploadedCover,
+                  temp,
+                  fileOptions: const FileOptions(contentType: 'image/jpeg'),
+                );
+          } finally {
+            if (await temp.exists()) await temp.delete();
+          }
+        }
+        await widget.repo.rpc(
+          uploadedCover == null ? 'post_media_status' : 'post_status_cover',
+          {
+            'p_id': id,
+            'p_body': body,
+            'p_path': uploadedPath,
+            if (uploadedCover == null)
+              'p_type': type
+            else
+              'p_cover': uploadedCover,
+          },
+        );
         saved = true;
       }
       await widget.repo.refresh();
@@ -129,9 +165,23 @@ class _StatusUpdatesState extends State<StatusUpdates> {
       // Unpublished files are private; remove them if the post fails or is cancelled.
       if (uploadedPath != null && !saved) {
         try {
-          await widget.repo.db.storage.from('pulse-status-media').remove([
-            uploadedPath,
-          ]);
+          final existing = await widget.repo.db
+              .from('pulse_statuses')
+              .select('id')
+              .eq('media_path', uploadedPath)
+              .maybeSingle();
+          if (existing == null)
+            await widget.repo.db.storage.from('pulse-status-media').remove([
+              uploadedPath,
+              if (uploadedCover != null) uploadedCover,
+            ]);
+        } catch (_) {}
+      }
+      if (preview != null &&
+          original != null &&
+          preview.file.path != original.path) {
+        try {
+          await preview.file.delete();
         } catch (_) {}
       }
       if (mounted) setState(() => busy = false);
@@ -164,6 +214,7 @@ class _StatusUpdatesState extends State<StatusUpdates> {
         try {
           await widget.repo.db.storage.from('pulse-status-media').remove([
             path,
+            if (status['cover_path'] is String) status['cover_path'] as String,
           ]);
         } catch (_) {}
       }
@@ -207,12 +258,6 @@ class _StatusUpdatesState extends State<StatusUpdates> {
           ],
         ),
       ),
-      const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 20),
-        child: Text(
-          'Visible to people who share a chat with you. Expires after 24 hours. Photos and videos: up to 20 MB.',
-        ),
-      ),
       if (error != null)
         Padding(padding: const EdgeInsets.all(16), child: Text(error!)),
       Expanded(
@@ -221,69 +266,309 @@ class _StatusUpdatesState extends State<StatusUpdates> {
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
             children: [
-              if (widget.repo.statuses.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.all(32),
-                  child: Text(
-                    'No active statuses. Add your first update above.',
-                  ),
+              const Padding(
+                padding: EdgeInsets.fromLTRB(20, 8, 20, 16),
+                child: Text(
+                  'Status',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
                 ),
-              for (final status in widget.repo.statuses)
-                Card(
-                  margin: const EdgeInsets.symmetric(
+              ),
+              SizedBox(
+                height: 206,
+                child: ListView(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  scrollDirection: Axis.horizontal,
+                  children: [
+                    SizedBox(
+                      width: 132,
+                      child: Card(
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(18),
+                          onTap: busy ? null : () => post('image'),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              PulseAvatar(
+                                repo: widget.repo,
+                                path: widget.repo.me?['avatar_path'],
+                                name: 'My status',
+                                radius: 30,
+                              ),
+                              const SizedBox(height: 12),
+                              const Icon(Icons.add_circle, size: 30),
+                              const SizedBox(height: 8),
+                              const Text('Add status'),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    for (final status in widget.repo.statuses)
+                      SizedBox(
+                        width: 140,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(18),
+                            onLongPress: status['user_id'] == widget.repo.uid
+                                ? () => remove(status)
+                                : null,
+                            onTap: () async {
+                              final chat = await Navigator.push<String>(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => StatusViewer(
+                                    repo: widget.repo,
+                                    status: status,
+                                  ),
+                                ),
+                              );
+                              if (chat != null && mounted)
+                                await widget.onChat?.call(chat);
+                            },
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(18),
+                              child: Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  PulseStatusCover(
+                                    repo: widget.repo,
+                                    status: status,
+                                  ),
+                                  const DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        begin: Alignment.topCenter,
+                                        end: Alignment.bottomCenter,
+                                        colors: [
+                                          Colors.black26,
+                                          Colors.transparent,
+                                          Colors.black87,
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                  Positioned(
+                                    top: 10,
+                                    left: 10,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(3),
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.primary,
+                                          width: 2,
+                                        ),
+                                      ),
+                                      child: PulseAvatar(
+                                        repo: widget.repo,
+                                        path: widget
+                                            .repo
+                                            .profiles[status['user_id']]?['avatar_path'],
+                                        name: 'Status',
+                                        radius: 22,
+                                      ),
+                                    ),
+                                  ),
+                                  if (status['media_type'] == 'video')
+                                    const Center(
+                                      child: Icon(
+                                        Icons.play_circle_outline,
+                                        color: Colors.white,
+                                        size: 38,
+                                      ),
+                                    ),
+                                  Positioned(
+                                    bottom: 12,
+                                    left: 10,
+                                    right: 10,
+                                    child: Text(
+                                      status['user_id'] == widget.repo.uid
+                                          ? 'My status'
+                                          : widget
+                                                    .repo
+                                                    .profiles[status['user_id']]?['display_name'] ??
+                                                'Pulse user',
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 26, 16, 12),
+                child: Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Channels',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => Scaffold(
+                            appBar: AppBar(
+                              title: const Text('Explore channels'),
+                            ),
+                            body: ChannelsScreen(
+                              repo: widget.repo,
+                              updates: widget.updates,
+                            ),
+                          ),
+                        ),
+                      ),
+                      child: const Text('Explore'),
+                    ),
+                  ],
+                ),
+              ),
+              for (final channel in widget.repo.channels.where(
+                (c) => widget.repo.followers.any(
+                  (f) =>
+                      f['channel_id'] == c['id'] &&
+                      f['user_id'] == widget.repo.uid,
+                ),
+              ))
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(
                     horizontal: 20,
-                    vertical: 6,
+                    vertical: 8,
                   ),
-                  child: ListTile(
-                    leading: PulseAvatar(
-                      repo: widget.repo,
-                      path: widget
-                          .repo
-                          .profiles[status['user_id']]?['avatar_path'],
-                      name:
-                          widget
-                              .repo
-                              .profiles[status['user_id']]?['display_name'] ??
-                          'Pulse user',
-                    ),
-                    title: Text(
-                      status['user_id'] == widget.repo.uid
-                          ? 'My status'
-                          : widget
-                                    .repo
-                                    .profiles[status['user_id']]?['display_name'] ??
-                                'Pulse user',
-                    ),
-                    subtitle: Text(
-                      status['media_type'] == 'video'
-                          ? 'Video · tap to play'
-                          : status['media_type'] == 'image'
-                          ? 'Photo · tap to view'
-                          : status['body'],
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    trailing: status['user_id'] == widget.repo.uid
-                        ? IconButton(
-                            tooltip: 'Delete status',
-                            icon: const Icon(Icons.delete_outline),
-                            onPressed: () => remove(status),
-                          )
-                        : const Icon(Icons.chevron_right),
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            StatusViewer(repo: widget.repo, status: status),
+                  leading: PulseAvatar(
+                    repo: widget.repo,
+                    path: channel['avatar_path'],
+                    name: channel['name'],
+                    radius: 27,
+                  ),
+                  title: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          channel['name'],
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (channel['verified'] == true)
+                        const Icon(
+                          Icons.verified,
+                          color: Colors.blue,
+                          size: 18,
+                        ),
+                    ],
+                  ),
+                  subtitle: Text(
+                    channel['description'] ?? '',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  trailing: (widget.updates?.counts[channel['id']] ?? 0) > 0
+                      ? Badge(
+                          label: Text(
+                            '${widget.updates!.counts[channel['id']]}',
+                          ),
+                        )
+                      : null,
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ChannelDetail(
+                        repo: widget.repo,
+                        channelId: channel['id'],
+                        updates: widget.updates,
                       ),
                     ),
                   ),
                 ),
+              const SizedBox(height: 24),
             ],
           ),
         ),
       ),
     ],
+  );
+}
+
+class PulseStatusCover extends StatefulWidget {
+  const PulseStatusCover({super.key, required this.repo, required this.status});
+  final PulseRepository repo;
+  final Map<String, dynamic> status;
+  @override
+  State<PulseStatusCover> createState() => _PulseStatusCoverState();
+}
+
+class _PulseStatusCoverState extends State<PulseStatusCover> {
+  late Future<String?> url;
+  Future<String?> load() async {
+    final path =
+        widget.status['cover_path'] ??
+        (widget.status['media_type'] == 'image'
+            ? widget.status['media_path']
+            : null);
+    if (path == null) return null;
+    try {
+      return await widget.repo.db.storage
+          .from('pulse-status-media')
+          .createSignedUrl(path as String, 60);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    url = load();
+  }
+
+  @override
+  void didUpdateWidget(PulseStatusCover old) {
+    super.didUpdateWidget(old);
+    if (old.status['id'] != widget.status['id']) url = load();
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<String?>(
+    future: url,
+    builder: (_, snap) => snap.data != null
+        ? Image.network(
+            snap.data!,
+            fit: BoxFit.cover,
+            cacheWidth: 300,
+            errorBuilder: (_, __, ___) => fallback(),
+          )
+        : fallback(),
+  );
+  Widget fallback() => Container(
+    color: const Color(0xff244d57),
+    alignment: Alignment.center,
+    padding: const EdgeInsets.fromLTRB(12, 65, 12, 35),
+    child: Text(
+      widget.status['body'] ?? '',
+      maxLines: 4,
+      overflow: TextOverflow.ellipsis,
+      textAlign: TextAlign.center,
+      style: const TextStyle(color: Colors.white, fontSize: 17),
+    ),
   );
 }
 
@@ -302,7 +587,10 @@ class _StatusViewerState extends State<StatusViewer>
   StreamSubscription<String>? playbackErrors;
   Timer? expiry;
   String? url, error;
-  bool loading = true;
+  bool loading = true, sending = false;
+  final reply = TextEditingController();
+  String? replyId;
+  String? replyError;
 
   @override
   void initState() {
@@ -323,14 +611,14 @@ class _StatusViewerState extends State<StatusViewer>
 
   Future<void> load() async {
     try {
+      // Recheck text and media statuses alike; cached content is not authorization.
+      await widget.repo.db
+          .from('pulse_statuses')
+          .select('id')
+          .eq('id', widget.status['id'])
+          .single();
       final path = widget.status['media_path'];
       if (path is String) {
-        // Recheck access and expiration rather than trusting the cached status list.
-        await widget.repo.db
-            .from('pulse_statuses')
-            .select('id')
-            .eq('id', widget.status['id'])
-            .single();
         final remaining = DateTime.parse(
           widget.status['expires_at'],
         ).toUtc().difference(DateTime.now().toUtc()).inSeconds;
@@ -372,10 +660,39 @@ class _StatusViewerState extends State<StatusViewer>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    reply.dispose();
     expiry?.cancel();
     playbackErrors?.cancel();
     player?.dispose();
     super.dispose();
+  }
+
+  Future<void> sendReply() async {
+    if (sending || error != null || loading || reply.text.trim().isEmpty)
+      return;
+    setState(() {
+      sending = true;
+      replyError = null;
+    });
+    replyId ??= const Uuid().v4();
+    try {
+      final chat = await widget.repo.rpc('reply_status', {
+        'p_id': replyId,
+        'p_status': widget.status['id'],
+        'p_body': reply.text.trim(),
+      });
+      if (!mounted) return;
+      Navigator.pop(context, chat as String);
+    } catch (e) {
+      if (mounted)
+        setState(
+          () => replyError = e is PostgrestException
+              ? e.message
+              : 'Could not send. Check your connection and retry.',
+        );
+    } finally {
+      if (mounted) setState(() => sending = false);
+    }
   }
 
   @override
@@ -413,6 +730,47 @@ class _StatusViewerState extends State<StatusViewer>
                   ),
           ),
         ),
+        if (replyError != null)
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Text(
+              replyError!,
+              style: const TextStyle(color: Colors.white),
+            ),
+          ),
+        if (widget.status['user_id'] != widget.repo.uid && error == null)
+          SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: TextField(
+                controller: reply,
+                enabled: !sending && !loading,
+                maxLength: 4000,
+                style: const TextStyle(color: Colors.white),
+                textInputAction: TextInputAction.send,
+                onSubmitted: (_) => sendReply(),
+                decoration: InputDecoration(
+                  hintText: 'Reply privately…',
+                  hintStyle: const TextStyle(color: Colors.white70),
+                  prefixIcon: const Icon(
+                    Icons.donut_large,
+                    color: Colors.white70,
+                  ),
+                  suffixIcon: IconButton(
+                    tooltip: 'Send status reply',
+                    onPressed: sending || loading ? null : sendReply,
+                    icon: sending
+                        ? const SizedBox.square(
+                            dimension: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.send, color: Colors.white),
+                  ),
+                ),
+              ),
+            ),
+          ),
         if (widget.status['media_path'] != null &&
             (widget.status['body'] as String).isNotEmpty)
           Padding(

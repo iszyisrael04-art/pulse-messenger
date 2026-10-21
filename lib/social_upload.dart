@@ -6,7 +6,12 @@ import 'dart:typed_data';
 /// Native TUS transport: at most one 6 MiB chunk in memory. Retries recover
 /// the server offset within this upload; process-restart recovery is not added.
 class PulseTusUploader {
-  PulseTusUploader({required this.endpoint, required this.token});
+  PulseTusUploader({
+    required this.endpoint,
+    required this.token,
+    this.bucket = 'pulse-social',
+  });
+  final String bucket;
   final Uri endpoint;
   final Future<String> Function() token;
   static const chunkSize = 6 * 1024 * 1024;
@@ -63,7 +68,7 @@ class PulseTusUploader {
       }
 
       final metadata = {
-        'bucketName': 'pulse-social',
+        'bucketName': bucket,
         'objectName': path,
         'contentType': mime,
         'cacheControl': '3600',

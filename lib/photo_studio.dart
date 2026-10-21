@@ -7,8 +7,9 @@ import 'package:uuid/uuid.dart';
 import 'studio_model.dart';
 
 class PulsePhotoStudio extends StatefulWidget {
-  const PulsePhotoStudio({super.key, required this.file});
+  const PulsePhotoStudio({super.key, required this.file, this.caption});
   final File file;
+  final String? caption;
   @override
   State<PulsePhotoStudio> createState() => _PulsePhotoStudioState();
 }
@@ -33,9 +34,11 @@ class _PulsePhotoStudioState extends State<PulsePhotoStudio> {
           String text,
         })
       >[];
+  late final TextEditingController caption;
   @override
   void initState() {
     super.initState();
+    caption = TextEditingController(text: widget.caption ?? '');
     load();
   }
 
@@ -161,7 +164,11 @@ class _PulsePhotoStudioState extends State<PulsePhotoStudio> {
         await file.writeAsBytes(
           bytes.buffer.asUint8List(bytes.offsetInBytes, bytes.lengthInBytes),
         );
-        if (mounted) Navigator.pop(context, PulseStudioResult(file));
+        if (mounted)
+          Navigator.pop(
+            context,
+            PulseStudioResult(file, caption: caption.text),
+          );
       } finally {
         output.dispose();
       }
@@ -177,6 +184,7 @@ class _PulsePhotoStudioState extends State<PulsePhotoStudio> {
 
   @override
   void dispose() {
+    caption.dispose();
     image?.dispose();
     super.dispose();
   }
@@ -313,6 +321,25 @@ class _PulsePhotoStudioState extends State<PulsePhotoStudio> {
                 ],
               ),
             ),
+            if (widget.caption != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
+                child: TextField(
+                  controller: caption,
+                  maxLength: 8000,
+                  maxLines: 2,
+                  readOnly: busy,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: const InputDecoration(
+                    hintText: 'Add a caption…',
+                    hintStyle: TextStyle(color: Colors.white54),
+                    counterText: '',
+                  ),
+                ),
+              ),
             Container(
               color: const Color(0xff151922),
               padding: const EdgeInsets.all(14),

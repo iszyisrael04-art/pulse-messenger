@@ -8,61 +8,21 @@ class PulseMark extends StatelessWidget {
   final bool tile;
   @override
   Widget build(BuildContext context) {
-    final ink = color ?? Theme.of(context).colorScheme.primary;
-    final mark = CustomPaint(
-      size: Size.square(size),
-      painter: PulseMarkPainter(tile ? const Color(0xff23e5ba) : ink),
-    );
     return Semantics(
       label: 'Pulse',
       image: true,
-      child: tile
-          ? Container(
-              width: size,
-              height: size,
-              padding: EdgeInsets.all(size * .18),
-              decoration: BoxDecoration(
-                color: const Color(0xff101a2a),
-                borderRadius: BorderRadius.circular(size * .25),
-              ),
-              child: mark,
-            )
-          : SizedBox.square(dimension: size, child: mark),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(size * (tile ? .25 : .20)),
+        child: Image.asset(
+          'assets/branding/pulse.png',
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          filterQuality: FilterQuality.high,
+        ),
+      ),
     );
   }
-}
-
-class PulseMarkPainter extends CustomPainter {
-  PulseMarkPainter(this.color);
-  final Color color;
-  @override
-  void paint(Canvas canvas, Size size) {
-    canvas.save();
-    canvas.scale(size.width / 100, size.height / 100);
-    final p = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 8
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-    final path = Path()
-      ..moveTo(30, 79)
-      ..lineTo(30, 24)
-      ..lineTo(53, 24)
-      ..cubicTo(70, 24, 79, 32, 79, 45)
-      ..cubicTo(79, 58, 69, 64, 53, 64)
-      ..lineTo(30, 64);
-    canvas.drawPath(path, p);
-    canvas.drawCircle(
-      const Offset(77, 80),
-      5,
-      Paint()..color = const Color(0xffae94ff),
-    );
-    canvas.restore();
-  }
-
-  @override
-  bool shouldRepaint(PulseMarkPainter old) => old.color != color;
 }
 
 class PulseWordmark extends StatelessWidget {

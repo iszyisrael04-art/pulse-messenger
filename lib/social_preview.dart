@@ -9,10 +9,13 @@ class SocialSelectionPreview extends StatelessWidget {
     super.key,
     required this.file,
     required this.video,
+    this.caption,
   });
   final File file;
   final bool video;
+  final String? caption;
   @override
-  Widget build(BuildContext context) =>
-      video ? PulseVideoStudio(file: file) : PulsePhotoStudio(file: file);
+  Widget build(BuildContext context) => video
+      ? PulseVideoStudio(file: file, caption: caption)
+      : PulsePhotoStudio(file: file, caption: caption);
 }

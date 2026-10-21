@@ -1,4 +1,5 @@
 import 'dart:collection';
+import 'interests.dart';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -32,6 +33,22 @@ class SocialStore {
   final hiddenCreators = <String>{};
   final urls = LinkedHashMap<String, ({String url, DateTime expires})>();
   String get uid => repo.uid;
+  List<String> get interests => pulseInterests(
+    repo.db.auth.currentUser?.userMetadata?['pulse_interests'],
+  );
+  bool get interestsChosen =>
+      repo.db.auth.currentUser?.userMetadata?['pulse_interests_chosen'] == true;
+  Future<void> saveInterests(List<String> values) async {
+    await repo.db.auth.updateUser(
+      UserAttributes(
+        data: {
+          'pulse_interests': pulseInterests(values),
+          'pulse_interests_chosen': true,
+        },
+      ),
+    );
+  }
+
   Future<dynamic> rpc(String name, SocialRow values) =>
       repo.rpc('social_$name', values);
   Future<SocialRow?> post(String id) async {
@@ -173,12 +190,21 @@ class SocialFeedController extends ChangeNotifier {
   bool loading = false, hasMore = true, disposed = false;
   String? error;
   int generation = 0;
+  bool discoveryMore = true;
+  int interestTurn = 0, recommendationSeed = 0;
+  final interestCursors = <String, SocialRow?>{};
+  final exhaustedInterests = <String>{};
   Future<void> load({bool reset = false}) async {
     if (disposed || (!reset && (loading || !hasMore))) return;
     if (reset) {
       generation++;
       rows = [];
       cursor = null;
+      discoveryMore = true;
+      interestTurn = 0;
+      recommendationSeed = DateTime.now().millisecondsSinceEpoch;
+      interestCursors.clear();
+      exhaustedInterests.clear();
       hasMore = true;
     }
     final ownGeneration = generation;
@@ -186,26 +212,64 @@ class SocialFeedController extends ChangeNotifier {
     error = null;
     notifyListeners();
     try {
-      final page = await store.feed(
-        mode: mode,
-        kind: kind,
-        author: author,
-        cursor: cursor,
-        tag: tag,
-      );
-      if (disposed || generation != ownGeneration) return;
+      List<SocialRow> page;
+      if (mode == 'for_you' && tag == null && author == null) {
+        final topics = store.interests
+            .where((t) => !exhaustedInterests.contains(t))
+            .toList();
+        final topic = topics.isEmpty
+            ? null
+            : topics[interestTurn++ % topics.length];
+        final discovery = discoveryMore
+            ? await store.feed(mode: 'discovery', kind: kind, cursor: cursor)
+            : <SocialRow>[];
+        List<SocialRow> topical = [];
+        if (topic != null) {
+          topical = await store.feed(
+            tag: topic,
+            kind: kind,
+            cursor: interestCursors[topic],
+          );
+        }
+        if (disposed || generation != ownGeneration) return;
+        if (discovery.isNotEmpty) cursor = discovery.last;
+        discoveryMore = discovery.length == 12;
+        if (topic != null) {
+          if (topical.isNotEmpty) interestCursors[topic] = topical.last;
+          if (topical.length < 12) exhaustedInterests.add(topic);
+        }
+        page = pulseRankForYou(
+          [...topical, ...discovery],
+          store.interests,
+          recommendationSeed,
+        );
+        hasMore =
+            discoveryMore ||
+            store.interests.any((t) => !exhaustedInterests.contains(t));
+      } else {
+        page = await store.feed(
+          mode: mode,
+          kind: kind,
+          author: author,
+          cursor: cursor,
+          tag: tag,
+        );
+        if (disposed || generation != ownGeneration) return;
+        if (page.isNotEmpty) cursor = page.last;
+        hasMore = page.length == 12;
+      }
       if (reset) rows = [];
       final ids = rows.map((r) => r['id']).toSet();
       rows.addAll(page.where((r) => ids.add(r['id'])));
-      // Keep the server cursor even when duplicate rows were suppressed.
-      if (page.isNotEmpty) cursor = page.last;
-      hasMore = page.length == 12;
     } catch (e) {
       if (!disposed && generation == ownGeneration) error = socialError(e);
     } finally {
       if (!disposed && generation == ownGeneration) {
         loading = false;
         notifyListeners();
+        if (mode == 'for_you' && rows.isEmpty && hasMore && error == null) {
+          Future<void>.microtask(() => load());
+        }
       }
     }
   }

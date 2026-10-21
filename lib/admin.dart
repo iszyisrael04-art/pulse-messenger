@@ -1,3 +1,4 @@
+import 'text_prompt.dart';
 import 'package:flutter/material.dart';
 
 import 'repository.dart';
@@ -38,28 +39,8 @@ class _AdminScreenState extends State<AdminScreen> {
     }
   }
 
-  Future<String?> input(String title) async {
-    final text = TextEditingController();
-    final result = await showDialog<String>(
-      context: context,
-      builder: (c) => AlertDialog(
-        title: Text(title),
-        content: TextField(controller: text),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(c),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(c, text.text.trim()),
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-    text.dispose();
-    return result;
-  }
+  Future<String?> input(String title) =>
+      showPulseTextPrompt(context, title, maxLines: 1, allowEmpty: true);
 
   Future<void> action(String action, Map<String, dynamic> data) async {
     try {
@@ -198,7 +179,7 @@ class _AdminScreenState extends State<AdminScreen> {
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 24),
                 child: Text(
-                  'Account suspension and audit logging require the next stage. Feature flags are stored; rollout evaluation is not implemented yet.',
+                  'Use Pulse Control for account suspension and staff audit actions. Feature flags are stored; rollout evaluation is not implemented yet.',
                 ),
               ),
             ],

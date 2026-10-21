@@ -1,3 +1,4 @@
+import 'text_prompt.dart';
 import 'package:flutter/material.dart';
 
 import 'media.dart';
@@ -16,33 +17,15 @@ Future<String?> socialPrompt(
   String title, {
   String initial = '',
   int limit = 4000,
-}) async {
-  final controller = TextEditingController(text: initial);
-  final result = await showDialog<String>(
-    context: context,
-    builder: (c) => AlertDialog(
-      title: Text(title),
-      content: TextField(
-        controller: controller,
-        minLines: 2,
-        maxLines: 6,
-        maxLength: limit,
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(c),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.pop(c, controller.text.trim()),
-          child: const Text('Save'),
-        ),
-      ],
-    ),
-  );
-  controller.dispose();
-  return result;
-}
+}) => showPulseTextPrompt(
+  context,
+  title,
+  initial: initial,
+  maxLength: limit,
+  minLines: 2,
+  maxLines: 6,
+  allowEmpty: true,
+);
 
 Future<void> openSocialPost(
   BuildContext context,

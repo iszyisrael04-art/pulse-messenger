@@ -22,6 +22,7 @@ class PulseCommunities extends StatefulWidget {
 class _PulseCommunitiesState extends State<PulseCommunities> {
   List<Map<String, dynamic>> rows = [];
   bool busy = false;
+  bool joinedOnly = false;
   String? error;
   final query = TextEditingController();
   @override
@@ -47,9 +48,16 @@ class _PulseCommunitiesState extends State<PulseCommunities> {
       });
       if (mounted)
         setState(() {
-          rows = (data as List)
-              .map((e) => Map<String, dynamic>.from(e as Map))
-              .toList();
+          rows =
+              (data as List)
+                  .map((e) => Map<String, dynamic>.from(e as Map))
+                  .toList()
+                ..sort((a, b) {
+                  final joinedA = a['role'] != 'none',
+                      joinedB = b['role'] != 'none';
+                  if (joinedA != joinedB) return joinedA ? -1 : 1;
+                  return a['name'].toString().compareTo(b['name'].toString());
+                });
           error = null;
         });
     } catch (_) {
@@ -187,72 +195,181 @@ class _PulseCommunitiesState extends State<PulseCommunities> {
             ),
           ),
         ),
+      if (widget.user == null)
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: FilterChip(
+              avatar: const Icon(Icons.forum_outlined, size: 18),
+              label: const Text('My communities'),
+              selected: joinedOnly,
+              onSelected: (v) => setState(() => joinedOnly = v),
+            ),
+          ),
+        ),
       if (busy) const LinearProgressIndicator(),
       if (error != null)
         Padding(padding: const EdgeInsets.all(12), child: Text(error!)),
       Expanded(
         child: ListView(
           children: [
-            if (rows.isEmpty && !busy && error == null)
-              const ListTile(title: Text('No visible communities yet')),
-            for (final r in rows)
-              Card(
+            if (rows.where((r) => !joinedOnly || r['role'] != 'none').isEmpty &&
+                !busy &&
+                error == null)
+              ListTile(
+                title: Text(
+                  joinedOnly
+                      ? 'You have not joined a community yet.'
+                      : 'No visible communities yet',
+                ),
+              ),
+            for (final r in rows.where(
+              (r) => !joinedOnly || r['role'] != 'none',
+            ))
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 child: ListTile(
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18),
+                  ),
                   leading: PulseAvatar(
                     repo: widget.repo,
                     path: r['avatar_path'],
                     name: r['name'],
+                    radius: 28,
                   ),
-                  title: Text(
-                    r['name'],
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  title: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          r['name'],
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (r['verified'] == true)
+                        const Padding(
+                          padding: EdgeInsets.only(left: 6),
+                          child: Icon(
+                            Icons.verified,
+                            size: 18,
+                            color: Colors.blue,
+                          ),
+                        ),
+                    ],
                   ),
                   subtitle: Text(
-                    '!${r['handle']} · ${r['members']} members\n${r['description'] ?? ''}',
-                    maxLines: 3,
+                    '${r['members']} members · ${r['description'] ?? ''}',
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   onTap: r['role'] != 'none' && widget.onChat != null
                       ? () => widget.onChat!(r['chat_id'])
-                      : null,
-                  trailing: PopupMenuButton<String>(
-                    onSelected: (a) {
-                      if (a == 'edit') {
-                        edit(r);
-                      } else if (a == 'open') {
-                        widget.onChat?.call(r['chat_id']);
-                      } else {
-                        action(r, a);
-                      }
-                    },
-                    itemBuilder: (_) => [
-                      if (r['role'] == 'none')
-                        PopupMenuItem(
-                          value: r['request_state'] == 'pending'
-                              ? 'cancel'
-                              : 'request',
-                          child: Text(
-                            r['request_state'] == 'pending'
-                                ? 'Cancel join request'
-                                : 'Request to join',
+                      : () => showModalBottomSheet<void>(
+                          context: context,
+                          showDragHandle: true,
+                          builder: (sheet) => SafeArea(
+                            child: Padding(
+                              padding: const EdgeInsets.all(24),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  PulseAvatar(
+                                    repo: widget.repo,
+                                    path: r['avatar_path'],
+                                    name: r['name'],
+                                    radius: 44,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    r['name'],
+                                    style: Theme.of(sheet).textTheme.titleLarge,
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    r['description'] ?? '',
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  const SizedBox(height: 20),
+                                  if (r['role'] == 'none')
+                                    FilledButton(
+                                      onPressed: () {
+                                        Navigator.pop(sheet);
+                                        action(
+                                          r,
+                                          r['request_state'] == 'pending'
+                                              ? 'cancel'
+                                              : 'request',
+                                        );
+                                      },
+                                      child: Text(
+                                        r['request_state'] == 'pending'
+                                            ? 'Cancel join request'
+                                            : 'Request to join',
+                                      ),
+                                    )
+                                  else
+                                    const Text('You are a member'),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
-                      if (r['role'] != 'none' && widget.onChat != null)
-                        const PopupMenuItem(
-                          value: 'open',
-                          child: Text('Open chat'),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if ((widget.repo.unread[r['chat_id']] ?? 0) > 0)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: Badge(
+                            label: Text('${widget.repo.unread[r['chat_id']]}'),
+                          ),
                         ),
-                      if (['owner', 'admin'].contains(r['role']))
-                        const PopupMenuItem(
-                          value: 'edit',
-                          child: Text('Edit picture & description'),
-                        ),
-                      if (r['role'] == 'member' || r['role'] == 'admin')
-                        const PopupMenuItem(
-                          value: 'leave',
-                          child: Text('Leave community'),
-                        ),
+                      PopupMenuButton<String>(
+                        onSelected: (a) {
+                          if (a == 'edit') {
+                            edit(r);
+                          } else if (a == 'open') {
+                            widget.onChat?.call(r['chat_id']);
+                          } else {
+                            action(r, a);
+                          }
+                        },
+                        itemBuilder: (_) => [
+                          if (r['role'] == 'none')
+                            PopupMenuItem(
+                              value: r['request_state'] == 'pending'
+                                  ? 'cancel'
+                                  : 'request',
+                              child: Text(
+                                r['request_state'] == 'pending'
+                                    ? 'Cancel join request'
+                                    : 'Request to join',
+                              ),
+                            ),
+                          if (r['role'] != 'none' && widget.onChat != null)
+                            const PopupMenuItem(
+                              value: 'open',
+                              child: Text('Open chat'),
+                            ),
+                          if (['owner', 'admin'].contains(r['role']))
+                            const PopupMenuItem(
+                              value: 'edit',
+                              child: Text('Edit picture & description'),
+                            ),
+                          if (r['role'] == 'member' || r['role'] == 'admin')
+                            const PopupMenuItem(
+                              value: 'leave',
+                              child: Text('Leave community'),
+                            ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -322,7 +439,19 @@ class _PulseProfileCommunitiesState extends State<PulseProfileCommunities> {
                 name: r['name'],
                 radius: 13,
               ),
-              label: Text(r['name']),
+              label: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(r['name'], overflow: TextOverflow.ellipsis),
+                  ),
+                  if (r['verified'] == true)
+                    const Padding(
+                      padding: EdgeInsets.only(left: 5),
+                      child: Icon(Icons.verified, size: 15, color: Colors.blue),
+                    ),
+                ],
+              ),
             ),
         ],
       );

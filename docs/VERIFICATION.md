@@ -1,3 +1,13 @@
+Current 0.5.4 chat update: [UPGRADE_0.5.4.md](UPGRADE_0.5.4.md). Older notes below are historical.
+
+Current 0.5.3 changes and validation: [UPGRADE_0.5.3.md](UPGRADE_0.5.3.md). Older notes below are historical.
+
+Current 0.5.2 changes and limits: [UPGRADE_0.5.2.md](UPGRADE_0.5.2.md). Earlier release notes below remain historical.
+
+# Current status: Pulse 0.5.1
+
+See [current upgrade and deployment evidence](UPGRADE_0.5.1.md). The notes below describe earlier source snapshots and are historical where they differ from 0.5.1.
+
 # 0.5.0 backend deployment completed
 
 See [current deployment and verification status](UPGRADE_0.5.0.md). Native builds/device tests and mail delivery setup remain pending. Earlier predeployment notes below are historical.

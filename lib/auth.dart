@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'package:country_picker/country_picker.dart';
+import 'phone_rules.dart';
 import 'brand.dart';
 import 'appearance.dart';
 import 'package:flutter/material.dart';
@@ -20,6 +22,13 @@ class _AuthScreenState extends State<AuthScreen> {
   final identity = TextEditingController(),
       password = TextEditingController(),
       code = TextEditingController();
+  Country country = Country.parse('NG');
+  String? requestedPhone;
+  String get loginIdentity => method == 2
+      ? (requestedPhone ??
+            pulsePhoneNumber(identity.text, country.countryCode) ??
+            '')
+      : identity.text.trim();
   int method = 0; // email, Pulse username, phone
   bool register = false,
       busy = false,
@@ -63,7 +72,7 @@ class _AuthScreenState extends State<AuthScreen> {
       notice = null;
     });
     try {
-      final id = identity.text.trim();
+      final id = loginIdentity;
       if (reset) {
         await db.auth.resetPasswordForEmail(id);
       } else if (method == 2) {
@@ -82,7 +91,12 @@ class _AuthScreenState extends State<AuthScreen> {
               'A new code was requested. Check your inbox/SMS and spam folder. Provider limits still apply.';
         });
     } on AuthException catch (e) {
-      if (mounted) setState(() => notice = e.message);
+      if (mounted)
+        setState(
+          () => notice = method == 2
+              ? pulsePhoneError(e.code ?? '', e.message)
+              : e.message,
+        );
     } catch (_) {
       if (mounted)
         setState(
@@ -115,7 +129,7 @@ class _AuthScreenState extends State<AuthScreen> {
     }
     setState(() => busy = true);
     try {
-      final id = identity.text.trim();
+      final id = loginIdentity;
       final newPassword = password.text;
       if (codeSent) {
         await db.auth.verifyOTP(
@@ -149,6 +163,7 @@ class _AuthScreenState extends State<AuthScreen> {
           setState(() {
             codeRequested();
             codeSent = true;
+            requestedPhone = id;
             notice = 'Enter the SMS code sent to $id.';
           });
       } else if (method == 1) {
@@ -175,7 +190,12 @@ class _AuthScreenState extends State<AuthScreen> {
         await db.auth.signInWithPassword(email: id, password: password.text);
       }
     } on AuthException catch (e) {
-      if (mounted) setState(() => notice = e.message);
+      if (mounted)
+        setState(
+          () => notice = method == 2
+              ? pulsePhoneError(e.code ?? '', e.message)
+              : e.message,
+        );
     } catch (_) {
       if (mounted)
         setState(
@@ -273,8 +293,26 @@ class _AuthScreenState extends State<AuthScreen> {
                         ? TextInputType.emailAddress
                         : TextInputType.text,
                     decoration: InputDecoration(
+                      prefixIcon: method == 2
+                          ? TextButton(
+                              onPressed: busy || codeSent
+                                  ? null
+                                  : () => showCountryPicker(
+                                      context: context,
+                                      showPhoneCode: true,
+                                      favorite: const ['NG'],
+                                      onSelect: (value) => setState(() {
+                                        country = value;
+                                        requestedPhone = null;
+                                      }),
+                                    ),
+                              child: Text(
+                                '${country.countryCode} +${country.phoneCode}',
+                              ),
+                            )
+                          : null,
                       labelText: method == 2
-                          ? 'Phone number (+234…)'
+                          ? 'Phone number'
                           : method == 1
                           ? 'Pulse username'
                           : 'Email address',
@@ -283,9 +321,10 @@ class _AuthScreenState extends State<AuthScreen> {
                       if (method == 1)
                         return validateUsername(v?.toLowerCase());
                       if (method == 2)
-                        return RegExp(r'^\+[1-9]\d{7,14}$').hasMatch(v ?? '')
+                        return pulsePhoneNumber(v ?? '', country.countryCode) !=
+                                null
                             ? null
-                            : 'Include your country code, e.g. +234…';
+                            : 'Enter a valid number for ${country.name}, or paste a full +country-code number.';
                       return RegExp(
                             r'^[^\s@]+@[^\s@]+\.[^\s@]+$',
                           ).hasMatch(v ?? '')
@@ -421,6 +460,7 @@ class _AuthScreenState extends State<AuthScreen> {
                           : () {
                               setState(() {
                                 codeSent = false;
+                                requestedPhone = null;
                                 reset = false;
                                 register = false;
                                 privacyAccepted = false;

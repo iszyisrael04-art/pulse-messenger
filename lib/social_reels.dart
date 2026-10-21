@@ -31,12 +31,14 @@ class _PulseReelsState extends State<PulseReels> with WidgetsBindingObserver {
   final counted = <String>{};
   int index = 0;
   String? desired, loaded, error;
+  Timer? playbackErrorTimer;
+  Duration lastPlaybackPosition = Duration.zero;
   bool pumping = false, buffering = false, muted = false, playing = false;
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    feed = SocialFeedController(widget.store, kind: 'reel')
+    feed = SocialFeedController(widget.store, kind: 'reel', mode: 'for_you')
       ..addListener(changed);
     feed.load(reset: true);
   }
@@ -63,6 +65,8 @@ class _PulseReelsState extends State<PulseReels> with WidgetsBindingObserver {
   }
 
   Future<void> select(int next) async {
+    playbackErrorTimer?.cancel();
+    lastPlaybackPosition = Duration.zero;
     index = next;
     loaded = null;
     error = null;
@@ -100,7 +104,11 @@ class _PulseReelsState extends State<PulseReels> with WidgetsBindingObserver {
             video = VideoController(player!);
             subscriptions.add(
               player!.stream.playing.listen((v) {
-                if (mounted) setState(() => playing = v);
+                if (mounted)
+                  setState(() {
+                    playing = v;
+                    if (v) error = null;
+                  });
               }),
             );
             subscriptions.add(
@@ -110,16 +118,40 @@ class _PulseReelsState extends State<PulseReels> with WidgetsBindingObserver {
             );
             subscriptions.add(
               player!.stream.error.listen((_) {
-                if (mounted)
-                  setState(
-                    () => error =
-                        'Video unavailable. Retry or swipe to the next Reel.',
-                  );
+                // Codec/network warnings can be followed by successful frames.
+                // Only show a failure if this same Reel stops advancing.
+                final observed = player;
+                final wanted = desired;
+                final before = observed?.state.position;
+                playbackErrorTimer?.cancel();
+                playbackErrorTimer = Timer(
+                  const Duration(milliseconds: 1200),
+                  () {
+                    if (!mounted ||
+                        player != observed ||
+                        desired != wanted ||
+                        observed == null)
+                      return;
+                    if (before != null && observed.state.position > before)
+                      return;
+                    setState(
+                      () => error =
+                          'Playback interrupted. Check your connection or retry.',
+                    );
+                  },
+                );
               }),
             );
             subscriptions.add(
               player!.stream.position.listen((position) {
                 final id = loaded;
+                if (id == desired &&
+                    player!.state.playing &&
+                    error != null &&
+                    position > lastPlaybackPosition) {
+                  setState(() => error = null);
+                }
+                if (id == desired) lastPlaybackPosition = position;
                 if (id != null &&
                     position.inSeconds >= 3 &&
                     player!.state.playing &&
@@ -166,6 +198,7 @@ class _PulseReelsState extends State<PulseReels> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    playbackErrorTimer?.cancel();
     desired = null;
     feed.removeListener(changed);
     feed.dispose();

@@ -26,6 +26,25 @@ int _windowsExport((String, String, int, int, bool) p) {
 Future<int> _runExport((String, String, int, int, bool) args) =>
     Isolate.run(() => _windowsExport(args));
 
+typedef _WatermarkNative =
+    Int32 Function(Pointer<Utf16>, Pointer<Utf16>, Pointer<Utf16>);
+typedef _WatermarkDart =
+    int Function(Pointer<Utf16>, Pointer<Utf16>, Pointer<Utf16>);
+int _windowsWatermark((String, String, String) args) {
+  final input = args.$1.toNativeUtf16(),
+      output = args.$2.toNativeUtf16(),
+      logo = args.$3.toNativeUtf16();
+  try {
+    return _library().lookupFunction<_WatermarkNative, _WatermarkDart>(
+      'pulse_editor_watermark',
+    )(input, output, logo);
+  } finally {
+    calloc.free(input);
+    calloc.free(output);
+    calloc.free(logo);
+  }
+}
+
 class NativePulseEditor {
   static Future<File> export(
     File input,
@@ -77,6 +96,83 @@ class NativePulseEditor {
         throw StateError('No video was exported');
       onProgress(1);
       return output;
+    } finally {
+      timer.cancel();
+    }
+  }
+
+  static Future<File> style(
+    File input,
+    File output,
+    Map<String, dynamic> settings,
+    void Function(double) onProgress,
+  ) async {
+    if (!Platform.isAndroid)
+      throw UnsupportedError('Video style export requires Android.');
+    final timer = Timer.periodic(const Duration(milliseconds: 200), (_) async {
+      try {
+        onProgress(
+          (await _editorChannel.invokeMethod<double>('progress') ?? 0)
+              .clamp(0, 1)
+              .toDouble(),
+        );
+      } catch (_) {}
+    });
+    try {
+      await _editorChannel.invokeMethod<void>('style', {
+        'input': input.path,
+        'output': output.path,
+        'settings': settings,
+      });
+      if (!await output.exists() || await output.length() == 0)
+        throw StateError('No styled video was exported');
+      onProgress(1);
+      return output;
+    } finally {
+      timer.cancel();
+    }
+  }
+
+  static Future<void> watermark(
+    File input,
+    File output,
+    File logo,
+    void Function(double) onProgress,
+  ) async {
+    final timer = Timer.periodic(const Duration(milliseconds: 200), (_) async {
+      try {
+        final value = Platform.isWindows
+            ? _library().lookupFunction<Double Function(), double Function()>(
+                'pulse_editor_progress',
+              )()
+            : await _editorChannel.invokeMethod<double>('progress') ?? 0;
+        onProgress(value.clamp(0, 1).toDouble());
+      } catch (_) {}
+    });
+    try {
+      if (Platform.isAndroid) {
+        await _editorChannel.invokeMethod<void>('watermark', {
+          'input': input.path,
+          'output': output.path,
+          'logo': logo.path,
+        });
+      } else if (Platform.isWindows) {
+        final args = (input.path, output.path, logo.path);
+        final result = await Isolate.run(() => _windowsWatermark(args));
+        if (result != 0)
+          throw StateError(
+            result == -3
+                ? 'Download cancelled'
+                : 'Could not export the watermarked video.',
+          );
+      } else {
+        throw UnsupportedError(
+          'Watermarked video downloads require Android or Windows.',
+        );
+      }
+      if (!await output.exists() || await output.length() == 0)
+        throw StateError('No video was exported.');
+      onProgress(1);
     } finally {
       timer.cancel();
     }

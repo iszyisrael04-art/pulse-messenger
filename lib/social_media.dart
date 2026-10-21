@@ -11,9 +11,17 @@ import 'video_visibility.dart';
 import 'social_repository.dart';
 
 class SocialImage extends StatefulWidget {
-  const SocialImage({super.key, required this.store, required this.path});
+  const SocialImage({
+    super.key,
+    required this.store,
+    required this.path,
+    this.fit = BoxFit.contain,
+    this.cacheWidth = 960,
+  });
   final SocialStore store;
   final String path;
+  final BoxFit fit;
+  final int cacheWidth;
   @override
   State<SocialImage> createState() => _SocialImageState();
 }
@@ -48,8 +56,8 @@ class _SocialImageState extends State<SocialImage> {
       if (!s.hasData) return const Center(child: PulseLoader());
       return Image.network(
         s.data!,
-        fit: BoxFit.contain,
-        cacheWidth: 960,
+        fit: widget.fit,
+        cacheWidth: widget.cacheWidth,
         loadingBuilder: (_, child, loading) =>
             loading == null ? child : const Center(child: PulseLoader()),
         errorBuilder: (_, __, ___) => Center(
@@ -88,6 +96,8 @@ class _SocialInlineVideoState extends State<SocialInlineVideo>
   String? error;
   bool loading = false, viewed = false, userPaused = false, foreground = true;
   Timer? visibilityTimer;
+  Timer? playbackErrorTimer;
+  Duration lastPlaybackPosition = Duration.zero;
   int playbackGeneration = 0;
   bool hasPlayed = false, muted = true;
   final subscriptions = <StreamSubscription<dynamic>>[];
@@ -180,11 +190,13 @@ class _SocialInlineVideoState extends State<SocialInlineVideo>
       );
       controller = VideoController(player!);
       final observedPlayer = player!;
+      lastPlaybackPosition = Duration.zero;
       subscriptions.add(
         observedPlayer.stream.playing.listen((playing) {
           if (!mounted || player != observedPlayer) return;
           if (playing) {
             hasPlayed = true;
+            if (error != null) setState(() => error = null);
             userPaused = false;
             PulseMedia.activate(observedPlayer)
                 .then((_) {
@@ -204,15 +216,31 @@ class _SocialInlineVideoState extends State<SocialInlineVideo>
       );
       subscriptions.add(
         player!.stream.error.listen((_) {
-          if (mounted)
+          final before = observedPlayer.state.position;
+          playbackErrorTimer?.cancel();
+          playbackErrorTimer = Timer(const Duration(milliseconds: 1200), () {
+            if (!mounted ||
+                player != observedPlayer ||
+                own != playbackGeneration)
+              return;
+            if (observedPlayer.state.position > before) return;
             setState(
-              () => error = 'Video could not play. Try an optimized MP4.',
+              () => error =
+                  'Playback interrupted. Check your connection or retry.',
             );
+          });
         }),
       );
       subscriptions.add(
         player!.stream.position.listen((position) {
           if (player != observedPlayer) return;
+          if (mounted &&
+              observedPlayer.state.playing &&
+              error != null &&
+              position > lastPlaybackPosition) {
+            setState(() => error = null);
+          }
+          lastPlaybackPosition = position;
           if (widget.recordView &&
               position.inSeconds >= 3 &&
               !viewed &&
@@ -256,6 +284,7 @@ class _SocialInlineVideoState extends State<SocialInlineVideo>
   @override
   void dispose() {
     visibilityTimer?.cancel();
+    playbackErrorTimer?.cancel();
     playbackGeneration++;
     WidgetsBinding.instance.removeObserver(this);
     for (final s in subscriptions) {

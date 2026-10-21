@@ -1,3 +1,5 @@
+import 'control_communities.dart';
+import 'control_channels.dart';
 import 'package:flutter/material.dart';
 import 'repository.dart' hide Row;
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -138,6 +140,24 @@ class _PulseControlState extends State<PulseControl> {
       title: const Text('Pulse Control'),
       actions: [
         IconButton(
+          tooltip: 'Verify communities',
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => PulseControlCommunities(repo: repo),
+            ),
+          ),
+          icon: const Icon(Icons.groups_outlined),
+        ),
+        IconButton(
+          tooltip: 'Verify channels',
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => PulseControlChannels(repo: repo)),
+          ),
+          icon: const Icon(Icons.campaign_outlined),
+        ),
+        IconButton(
           tooltip: 'Appeals',
           onPressed: () => Navigator.push(
             context,
@@ -182,8 +202,28 @@ class _PulseControlState extends State<PulseControl> {
                     path: u['avatar_path'],
                     name: u['display_name'],
                   ),
-                  title: Text(
-                    '${u['display_name']} ${u['verified'] == true ? '✓' : ''}',
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 10,
+                  ),
+                  title: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          u['display_name'],
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (u['verified'] == true) ...[
+                        const SizedBox(width: 6),
+                        const Icon(
+                          Icons.verified,
+                          size: 18,
+                          color: Colors.blue,
+                        ),
+                      ],
+                    ],
                   ),
                   subtitle: Text(
                     '@${u['username']} · ${u['state']}\n${u['until_at'] ?? ''}',
