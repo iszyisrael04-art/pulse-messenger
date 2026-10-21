@@ -63,6 +63,11 @@ class NativeConfigurationTest(unittest.TestCase):
             self.assertEqual(text.count('android:scheme="https"'), 1)
             self.assertEqual(text.count('firebase_messaging_auto_init_enabled'), 1)
             self.assertEqual(gradle.read_text().count('desugar_jdk_libs'), 1)
+            self.assertEqual(gradle.read_text().count('media3-transformer:1.8.0'), 1)
+            self.assertEqual(gradle.read_text().count('media3-effect:1.8.0'), 1)
+            self.assertTrue((activity.parent / 'PulseWatermark.kt').is_file())
+            self.assertEqual((root / 'android/app/src/main/res/drawable/pulse_launch_logo.png').read_bytes(), (root / 'assets/branding/pulse.png').read_bytes())
+            self.assertFalse((root / 'android/app/src/main/res/drawable/pulse_launch_logo.xml').exists())
             self.assertIn('VERSION_17', gradle.read_text())
             import xml.etree.ElementTree as ET
             for variant in ['values','values-night','values-v31','values-night-v31']:

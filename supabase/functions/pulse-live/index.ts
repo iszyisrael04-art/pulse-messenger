@@ -19,42 +19,87 @@ Deno.serve(async req => {
   const authorization = req.headers.get('Authorization') ?? '';
   if (!authorization.startsWith('Bearer ')) return json({error:'Sign in required'},401);
   const client = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, {global:{headers:{Authorization:authorization}},auth:{persistSession:false}});
-  // Custom authentication is deliberate: validate the caller with Auth, not JWT decoding.
   const {data:{user},error:authError} = await client.auth.getUser(authorization.slice(7));
   if (authError || !user) return json({error:'Sign in required'},401);
+  const {data:account,error:accountError} = await client.rpc('pulse_account_status');
+  if (accountError || account?.active !== true) return json({error:'An active Pulse account is required.'},403);
   const url = Deno.env.get('LIVEKIT_URL'), key = Deno.env.get('LIVEKIT_API_KEY'), secret = Deno.env.get('LIVEKIT_API_SECRET');
-  if (!url || !key || !secret) return json({error:'Live broadcasting requires LiveKit configuration.'},503);
-  if (!url.startsWith('wss://')) return json({error:'Invalid live service configuration'},503);
+  if (!url || !key || !secret || !url.startsWith('wss://')) return json({error:'Live broadcasting requires LiveKit configuration.'},503);
   try {
     const body = await req.json();
+    if(body.action==='health') {
+      const {error:probeError}=await client.rpc('pulse_live_probe');
+      if(probeError)return json({error:'Please wait before checking again.'},429);
+      const probeToken=await sign(key,secret,user.id,{roomList:true});
+      const response=await fetch(url.replace('wss://','https://').replace(/\/$/,'')+'/twirp/livekit.RoomService/ListRooms',{method:'POST',headers:{Authorization:`Bearer ${probeToken}`,'Content-Type':'application/json'},body:'{}',signal:AbortSignal.timeout(5000)});
+      await response.body?.cancel();
+      return response.ok?json({configured:true,control_plane:true,media_tested:false}):json({error:'LiveKit control service did not accept the connection.',configured:true,control_plane:false,media_tested:false},502);
+    }
     let sessionId: string;
     if (body.action === 'start') {
       if (typeof body.title !== 'string' || !body.title.trim() || body.title.length > 100) return json({error:'Invalid title'},400);
       const {data,error} = await client.rpc('pulse_live_start',{p_channel:body.channel_id,p_title:body.title});
       if (error) return json({error:error.message},403);
       sessionId = data;
-    } else if (body.action === 'join' || body.action === 'end') {
-      sessionId = body.session_id;
-    } else return json({error:'Unknown action'},400);
+    } else if (['join','end','party','party-sync'].includes(body.action)) sessionId = body.session_id;
+    else return json({error:'Unknown action'},400);
     if (typeof sessionId !== 'string' || !/^[0-9a-f-]{36}$/i.test(sessionId)) return json({error:'Invalid session'},400);
     const {data:session,error} = await client.from('pulse_live_sessions').select('*').eq('id',sessionId).single();
     if (error || !session) return json({error:'Live session unavailable'},404);
     const {data:admin,error:adminError} = await client.rpc('pulse_channel_admin',{p_channel:session.channel_id});
     if (adminError) return json({error:'Authorization unavailable'},503);
     const room = `pulse-channel-${sessionId}`;
+    const roomCall = async (method:string, payload:Record<string,unknown>) => {
+      const token = await sign(key,secret,user.id,{room,roomAdmin:true,roomList:true});
+      return fetch(url.replace('wss://','https://').replace(/\/$/,'')+'/twirp/livekit.RoomService/'+method,{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({room,...payload}),signal:AbortSignal.timeout(10000)});
+    };
+    const access = async (identity:string) => {
+      const r = await client.rpc('pulse_live_party',{p_action:'access',p_session:sessionId,p_user:identity});
+      if(r.error) throw new Error('Could not verify participant access');
+      return r.data;
+    };
+    const setPermission = async (identity:string, value:Record<string,unknown>, missingAllowed=false) => {
+      const response = await roomCall('UpdateParticipant',{identity,permission:{canSubscribe:value.watch===true,canPublish:value.publish===true,canPublishData:false,canPublishSources:value.mode==='audio'?[2]:[1,2]}});
+      if(!response.ok && !(missingAllowed && response.status===404)) throw new Error('Could not synchronize media permissions; retry');
+    };
     if (body.action === 'end') {
       if (session.host_id !== user.id && admin !== true) return json({error:'Administrator required'},403);
-      const token = await sign(key,secret,user.id,{room,roomAdmin:true});
-      const endpoint = url.replace('wss://','https://').replace(/\/$/,'')+'/twirp/livekit.RoomService/DeleteRoom';
-      const result = await fetch(endpoint,{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({room})});
+      const result = await roomCall('DeleteRoom',{});
       if (!result.ok && result.status !== 404) return json({error:'Could not stop live room. Please retry.'},502);
       const {error:endError} = await client.rpc('pulse_live_end',{p_session:sessionId});
       if (endError) return json({error:'Could not close live session'},502);
       return json({ended:true});
     }
     if (session.status !== 'live' || Date.parse(session.expires_at) <= Date.now()) return json({error:'This livestream has ended'},409);
+    if (body.action === 'party') {
+      const action=body.party_action;
+      if(!['request','leave','approve','reject','remove'].includes(action)) return json({error:'Invalid party action'},400);
+      const target=action==='leave'||action==='request'?user.id:body.user_id;
+      const {error:partyError}=await client.rpc('pulse_live_party',{p_action:action,p_session:sessionId,p_user:target,p_mode:body.mode??'video'});
+      if(partyError)return json({error:partyError.message},403);
+      if(action!=='request') await setPermission(target,await access(target),true);
+      return json({saved:true});
+    }
+    if (body.action === 'party-sync') {
+      const own=await access(user.id);
+      await setPermission(user.id,own);
+      if(body.reconcile===true && admin===true){
+        const response=await roomCall('ListParticipants',{});
+        if(!response.ok)throw new Error('Could not reconcile participant permissions');
+        const participants=(await response.json()).participants??[];
+        // Bound each reconciliation batch. Subsequent cycles cover new participants.
+        for(const participant of participants.filter((p:{tracks?:unknown[]})=>(p.tracks?.length??0)>0).slice(0,16)){
+          if(participant.identity===user.id)continue;
+          await setPermission(participant.identity,await access(participant.identity),true);
+        }
+      }
+      return json(own);
+    }
     const host = session.host_id === user.id && admin === true;
-    const token = await sign(key,secret,user.id,{room,roomJoin:true,canSubscribe:true,canPublish:host,canPublishData:false});
+    // Modern party clients use server grants; legacy host clients keep their
+    // existing broadcast behavior. Viewers never receive publisher JWT grants.
+    const legacyHost = host && body.party_version !== 1;
+    const token = await sign(key,secret,user.id,{room,roomJoin:true,canSubscribe:true,canPublish:legacyHost,canPublishData:false});
     return json({url,token,session_id:sessionId,host});
-  } catch (_) { return json({error:'Could not complete live request'},400); }
+  } catch (_) { return json({error:'Could not complete LIVE request or synchronize media permissions. Retry.'},502); }
 });

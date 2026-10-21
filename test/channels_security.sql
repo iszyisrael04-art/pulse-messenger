@@ -1,4 +1,6 @@
 begin;
+-- Legacy channel suite tests baseline behavior independently of eligibility.
+update pulse_private.live_policy set min_followers=0;
 create temporary table pulse_v02_ids(k text primary key,id uuid default gen_random_uuid());
 insert into pulse_v02_ids(k) values('owner'),('fan'),('admin'),('channel'),('live'),('message');
 grant select,update on pulse_v02_ids to authenticated;

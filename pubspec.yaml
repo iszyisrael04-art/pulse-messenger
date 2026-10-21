@@ -1,7 +1,7 @@
 name: pulse_messenger
 description: Native Pulse Messenger — staged private beta.
 publish_to: none
-version: 0.5.0+15
+version: 0.5.5+20
 environment:
   sdk: '>=3.12.0 <4.0.0'
 dependencies:
@@ -11,6 +11,10 @@ dependencies:
   flutter_secure_storage: 11.2.0
   uuid: 4.5.3
   file_picker: 13.1.0
+  camera: 0.11.2
+  camera_windows: 0.2.6+4
+  country_picker: 2.0.27
+  phone_numbers_parser: 9.0.17
   livekit_client: 2.13.1
   flutter_local_notifications: 19.5.0
   firebase_core: 4.2.1

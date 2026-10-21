@@ -1,0 +1,98 @@
+begin;
+create temporary table media_fixture(k text primary key,id uuid default gen_random_uuid());
+insert into media_fixture(k) values('owner'),('fan'),('stranger'),('channel'),('photo'),('video'),('audio'),('status'),('group');
+grant select,update on media_fixture to authenticated;
+insert into auth.users(id,aud,role,email,email_confirmed_at) select id,'authenticated','authenticated','media-'||id||'@example.invalid',now() from media_fixture where k in('owner','fan','stranger');
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from media_fixture where k='owner'),'role','authenticated')::text,true);
+set local role authenticated;
+update media_fixture set id=public.pulse_create_channel('Media fixture','Caption search fixture') where k='channel';
+-- TUS can authorize before metadata is populated. Publishing cannot.
+insert into storage.objects(bucket_id,name) select 'pulse-channel-media',c.id||'/'||o.id||'/'||p.id||'/video.mp4' from media_fixture c,media_fixture o,media_fixture p where c.k='channel' and o.k='owner' and p.k='video';
+do $$begin
+ begin perform public.pulse_channel_publish((select id from media_fixture where k='video'),(select id from media_fixture where k='channel'),'No metadata',(select c.id||'/'||o.id||'/'||p.id||'/video.mp4' from media_fixture c,media_fixture o,media_fixture p where c.k='channel' and o.k='owner' and p.k='video'),'video','video/mp4');raise exception 'FAIL: unknown-size media published';exception when others then if sqlerrm='FAIL: unknown-size media published' then raise;end if;end;
+end $$;
+reset role;
+update storage.objects set metadata='{"mimetype":"video/mp4","size":1024}' where bucket_id='pulse-channel-media' and name like (select id::text||'/%' from media_fixture where k='channel');
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from media_fixture where k='owner'),'role','authenticated')::text,true);
+set local role authenticated;
+insert into storage.objects(bucket_id,name,metadata) select 'pulse-channel-media',c.id||'/'||o.id||'/'||p.id||'/cover.jpg','{"mimetype":"image/jpeg","size":1024}' from media_fixture c,media_fixture o,media_fixture p where c.k='channel' and o.k='owner' and p.k='video';
+select public.pulse_channel_publish((select id from media_fixture where k='video'),(select id from media_fixture where k='channel'),'Moonlight premiere',(select c.id||'/'||o.id||'/'||p.id||'/video.mp4' from media_fixture c,media_fixture o,media_fixture p where c.k='channel' and o.k='owner' and p.k='video'),'video','video/mp4',2000,'[]',(select c.id||'/'||o.id||'/'||p.id||'/cover.jpg' from media_fixture c,media_fixture o,media_fixture p where c.k='channel' and o.k='owner' and p.k='video'));
+-- The same ID is safe to retry even inside the rate-limit interval.
+select public.pulse_channel_publish((select id from media_fixture where k='video'),(select id from media_fixture where k='channel'),'Retry');
+delete from storage.objects where bucket_id='pulse-channel-media' and name like (select id::text||'/%' from media_fixture where k='channel');
+reset role;
+do $$begin
+ if (select count(*) from storage.objects where bucket_id='pulse-channel-media' and name like (select id::text||'/%' from media_fixture where k='channel'))<>2 then raise exception 'FAIL: published object deleted directly';end if;
+end $$;
+update public.pulse_posts set created_at=now()-interval '1 minute' where channel_id=(select id from media_fixture where k='channel');
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from media_fixture where k='owner'),'role','authenticated')::text,true);
+set local role authenticated;
+insert into storage.objects(bucket_id,name,metadata) select 'pulse-channel-media',c.id||'/'||o.id||'/'||p.id||'/photo.jpg','{"mimetype":"image/jpeg","size":1024}' from media_fixture c,media_fixture o,media_fixture p where c.k='channel' and o.k='owner' and p.k='photo';
+select public.pulse_channel_publish((select id from media_fixture where k='photo'),(select id from media_fixture where k='channel'),'Sunrise photo',(select c.id||'/'||o.id||'/'||p.id||'/photo.jpg' from media_fixture c,media_fixture o,media_fixture p where c.k='channel' and o.k='owner' and p.k='photo'),'image','image/jpeg');
+reset role;
+update public.pulse_posts set created_at=now()-interval '1 minute' where channel_id=(select id from media_fixture where k='channel');
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from media_fixture where k='owner'),'role','authenticated')::text,true);
+set local role authenticated;
+insert into storage.objects(bucket_id,name,metadata) select 'pulse-channel-media',c.id||'/'||o.id||'/'||p.id||'/voice.m4a','{"mimetype":"audio/mp4","size":1024}' from media_fixture c,media_fixture o,media_fixture p where c.k='channel' and o.k='owner' and p.k='audio';
+select public.pulse_channel_publish((select id from media_fixture where k='audio'),(select id from media_fixture where k='channel'),'Voice note',(select c.id||'/'||o.id||'/'||p.id||'/voice.m4a' from media_fixture c,media_fixture o,media_fixture p where c.k='channel' and o.k='owner' and p.k='audio'),'audio','audio/mp4',1000,'[0.1,0.5,0.3]');
+reset role;
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from media_fixture where k='fan'),'role','authenticated')::text,true);
+set local role authenticated;
+do $$declare summary jsonb;begin
+ summary=public.pulse_channel_summary((select id from media_fixture where k='channel'));
+ if (summary->>'media_count')::int<>3 then raise exception 'FAIL: media count';end if;
+ if jsonb_array_length(public.pulse_channel_history((select id from media_fixture where k='channel'),'moonlight'))<>1 then raise exception 'FAIL: history search';end if;
+ if public.pulse_channel_entry((select id from media_fixture where k='video'))->>'media_kind'<>'video' then raise exception 'FAIL: channel entry';end if;
+ if not pulse_private.channel_media_read((select c.id||'/'||o.id||'/'||p.id||'/video.mp4' from media_fixture c,media_fixture o,media_fixture p where c.k='channel' and o.k='owner' and p.k='video')) then raise exception 'FAIL: public media denied';end if;
+ begin perform public.pulse_channel_publish(gen_random_uuid(),(select id from media_fixture where k='channel'),'Fake admin');raise exception 'FAIL: member published';exception when others then if sqlerrm='FAIL: member published' then raise;end if;end;
+ begin insert into storage.objects(bucket_id,name,metadata) select 'pulse-channel-media',c.id||'/'||auth.uid()||'/fake/file.jpg','{"mimetype":"image/jpeg","size":1024}' from media_fixture c where c.k='channel';raise exception 'FAIL: member uploaded';exception when insufficient_privilege then null;end;
+end $$;
+reset role;
+-- Cursor ordering is stable even when posts share a timestamp.
+insert into public.pulse_posts(channel_id,author_id,body,created_at) select c.id,o.id,'Needle announcement '||n,now()-interval '2 hours' from media_fixture c,media_fixture o,generate_series(1,40) n where c.k='channel' and o.k='owner';
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from media_fixture where k='fan'),'role','authenticated')::text,true);
+set local role authenticated;
+do $$declare first_page jsonb;second_page jsonb;last_row jsonb;begin
+ first_page=public.pulse_channel_history((select id from media_fixture where k='channel'),'needle');
+ last_row=first_page->29;
+ second_page=public.pulse_channel_history((select id from media_fixture where k='channel'),'needle',(last_row->>'created_at')::timestamptz,(last_row->>'id')::uuid);
+ if jsonb_array_length(first_page)<>30 or jsonb_array_length(second_page)<>10 then raise exception 'FAIL: pagination';end if;
+ if exists(select 1 from jsonb_array_elements(first_page) a join jsonb_array_elements(second_page) b on a->>'id'=b->>'id') then raise exception 'FAIL: duplicated cursor';end if;
+end $$;
+reset role;
+insert into public.pulse_blocks(user_id,blocked_id) select o.id,f.id from media_fixture o,media_fixture f where o.k='owner' and f.k='fan';
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from media_fixture where k='fan'),'role','authenticated')::text,true);
+set local role authenticated;
+do $$begin
+ if public.pulse_channel_entry((select id from media_fixture where k='video')) is not null then raise exception 'FAIL: blocked post visible';end if;
+ if pulse_private.channel_media_read((select c.id||'/'||o.id||'/'||p.id||'/video.mp4' from media_fixture c,media_fixture o,media_fixture p where c.k='channel' and o.k='owner' and p.k='video')) then raise exception 'FAIL: blocked media visible';end if;
+end $$;
+reset role;
+delete from public.pulse_blocks where user_id=(select id from media_fixture where k='owner');
+insert into public.pulse_chats(id,kind,name,owner_id) select g.id,'group','Status fixture',o.id from media_fixture g,media_fixture o where g.k='group' and o.k='owner';
+insert into public.pulse_members(chat_id,user_id) select g.id,u.id from media_fixture g,media_fixture u where g.k='group' and u.k in('owner','fan');
+insert into storage.objects(bucket_id,name,metadata) select 'pulse-status-media',o.id||'/'||s.id||'.mp4','{"mimetype":"video/mp4","size":1024}' from media_fixture o,media_fixture s where o.k='owner' and s.k='status';
+insert into storage.objects(bucket_id,name,metadata) select 'pulse-status-media',o.id||'/'||s.id||'-cover.jpg','{"mimetype":"image/jpeg","size":1024}' from media_fixture o,media_fixture s where o.k='owner' and s.k='status';
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from media_fixture where k='owner'),'role','authenticated')::text,true);
+set local role authenticated;
+select public.pulse_post_status_cover(s.id,'Video status',o.id||'/'||s.id||'.mp4',o.id||'/'||s.id||'-cover.jpg') from media_fixture o,media_fixture s where o.k='owner' and s.k='status';
+reset role;
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from media_fixture where k='fan'),'role','authenticated')::text,true);
+set local role authenticated;
+do $$begin if not pulse_private.can_read_status_media((select o.id||'/'||s.id||'-cover.jpg' from media_fixture o,media_fixture s where o.k='owner' and s.k='status')) then raise exception 'FAIL: permitted cover denied';end if;end $$;
+reset role;
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from media_fixture where k='stranger'),'role','authenticated')::text,true);
+set local role authenticated;
+do $$begin if pulse_private.can_read_status_media((select o.id||'/'||s.id||'-cover.jpg' from media_fixture o,media_fixture s where o.k='owner' and s.k='status')) then raise exception 'FAIL: private cover leaked';end if;end $$;
+reset role;
+update public.pulse_statuses set expires_at=now()-interval '1 second' where id=(select id from media_fixture where k='status');
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from media_fixture where k='fan'),'role','authenticated')::text,true);
+set local role authenticated;
+do $$begin if pulse_private.can_read_status_media((select o.id||'/'||s.id||'-cover.jpg' from media_fixture o,media_fixture s where o.k='owner' and s.k='status')) then raise exception 'FAIL: expired cover readable';end if;end $$;
+reset role;
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from media_fixture where k='owner'),'role','authenticated')::text,true);
+set local role authenticated;
+select public.pulse_live_probe();select public.pulse_live_probe();select public.pulse_live_probe();
+do $$begin begin perform public.pulse_live_probe();raise exception 'FAIL: unlimited live probes';exception when others then if sqlerrm='FAIL: unlimited live probes' then raise;end if;end;end $$;
+reset role;
+rollback;

@@ -1,6 +1,30 @@
-# Pulse 0.5.0 — backend deployed
+# Pulse 0.5.5 — camera, studio and For You interests
 
-Read [deployment status and build instructions](docs/UPGRADE_0.5.0.md). Database updates 016–018 are already applied. Native builds/device tests and email delivery configuration remain pending.
+Read [upgrade/build instructions](docs/UPGRADE_0.5.5.md). Upload the extracted cumulative update into the existing repository. Keep main.yml unchanged; no SQL update is needed. Phone OTP is blocked by disabled Phone authentication and still needs a configured SMS provider. Native builds and device tests remain pending.
+
+## Previous update
+
+# Pulse 0.5.4 — revised chat layout, no forwarding
+
+Read [upgrade/build instructions](docs/UPGRADE_0.5.4.md). Long-press/right-click offers Copy text and quick reactions. Message forwarding is removed; photos and videos retain large responsive cards. No SQL step is required for these changes. Keep main.yml unchanged. Native builds and device tests remain pending.
+
+## Previous update
+
+# Pulse 0.5.3 — channel media, status covers and watermarked downloads
+
+Read [upgrade/build instructions](docs/UPGRADE_0.5.3.md). Script 023 is installed on the connected backend and pulse-live Edge version 3 is deployed. Upload the extracted cumulative patch to your existing repository. Keep main.yml unchanged. Native builds and device testing remain pending.
+
+## Previous update
+
+# Pulse 0.5.2 — status replies and refreshed social layouts
+
+Read [upgrade and build instructions](docs/UPGRADE_0.5.2.md). Scripts 001–022 are installed on the connected backend. Upload this cumulative patch to the existing repository; main.yml does not need changing. Native builds and device tests remain pending.
+
+## Previous update
+
+# Pulse 0.5.1 — channel fixes, community badges and LIVE Party
+
+Read [the current upgrade and verification notes](docs/UPGRADE_0.5.1.md). Database scripts 001–021 are installed on the connected Pulse backend; pulse-live Edge version 2 is deployed. Do not reset the database or rerun all scripts. Native builds/device tests and real LiveKit media validation remain pending.
 
 ## Earlier release history
 

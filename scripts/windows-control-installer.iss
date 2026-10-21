@@ -1,12 +1,12 @@
 [Setup]
 AppId={{B7DE6748-6B63-4DB7-9E8F-76C54DA37215}
 AppName=Pulse Control
-AppVersion=0.5.0
+AppVersion=0.5.5
 DefaultDirName={localappdata}\Programs\PulseControl
 DefaultGroupName=Pulse Control
 PrivilegesRequired=lowest
 OutputDir=..\dist
-OutputBaseFilename=Pulse-Control-0.5.0-Windows-Setup
+OutputBaseFilename=Pulse-Control-0.5.5-Windows-Setup
 Compression=lzma2
 SolidCompression=yes
 ArchitecturesAllowed=x64compatible

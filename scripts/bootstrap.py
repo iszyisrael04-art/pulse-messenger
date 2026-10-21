@@ -64,6 +64,8 @@ if 'isCoreLibraryDesugaringEnabled' not in s:
     s = s.replace('compileOptions {', 'compileOptions {\n        isCoreLibraryDesugaringEnabled = true', 1)
 if 'desugar_jdk_libs' not in s:
     s += '\ndependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")\n}\n'
+if 'media3-transformer' not in s:
+    s += '\ndependencies {\n    implementation("androidx.media3:media3-transformer:1.8.0")\n    implementation("androidx.media3:media3-effect:1.8.0")\n}\n'
 gradle.write_text(s, encoding='utf-8')
 runner = root / 'windows/runner/main.cpp'
 if runner.exists():
@@ -81,6 +83,9 @@ if windows_resources.exists():
     windows_resources.write_text(text, encoding='utf-8')
 # Use the same original favicon for native launcher and runtime splash branding.
 branding = root / 'assets/branding'
+if (branding / 'pulse.png').exists():
+    (res / 'drawable/pulse_launch_logo.xml').unlink(missing_ok=True)
+    shutil.copyfile(branding / 'pulse.png', res / 'drawable/pulse_launch_logo.png')
 if (branding / 'android').exists():
     for source in (branding / 'android').glob('mipmap-*/ic_launcher.png'):
         destination = root / 'android/app/src/main/res' / source.parent.name / source.name
@@ -95,7 +100,8 @@ native = root / 'native/editor'
 if native.exists():
     kotlin = root / 'android/app/src/main/kotlin/com/pulsemessenger/pulse_messenger'
     kotlin.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(native / 'PulseNativeEditor.kt', kotlin / 'PulseNativeEditor.kt')
+    for source in native.glob('*.kt'):
+        shutil.copyfile(source, kotlin / source.name)
     activity = kotlin / 'MainActivity.kt'
     if activity.exists():
         text = activity.read_text(encoding='utf-8')

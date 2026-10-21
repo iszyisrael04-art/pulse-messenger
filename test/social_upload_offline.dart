@@ -12,13 +12,14 @@ Future<void> main() async {
   await file.writeAsBytes(bytes);
   final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
   var offset = 0, patches = 0, recovered = false;
+  var expectedBucket = 'pulse-social';
   final received = <int>[];
   final subscription = server.listen((request) async {
     if (request.headers.value('authorization') != 'Bearer fixture')
       throw StateError('Missing auth');
     if (request.method == 'POST') {
       final metadata = request.headers.value('upload-metadata')!;
-      if (!metadata.contains(base64Encode(utf8.encode('pulse-social'))))
+      if (!metadata.contains(base64Encode(utf8.encode(expectedBucket))))
         throw StateError('Metadata');
       request.response.statusCode = 201;
       request.response.headers.set('location', '/upload/fixture');
@@ -65,6 +66,17 @@ Future<void> main() async {
     for (var i = 0; i < bytes.length; i++) {
       if (bytes[i] != received[i]) throw StateError('Corrupt upload');
     }
+    expectedBucket = 'pulse-channel-media';
+    offset = 0;
+    patches = 0;
+    received.clear();
+    await PulseTusUploader(
+      endpoint: Uri.parse('http://127.0.0.1:${server.port}/upload'),
+      token: () async => 'fixture',
+      bucket: expectedBucket,
+    ).upload(file, 'channel/owner/post/video.mp4', 'video/mp4');
+    if (received.length != bytes.length)
+      throw StateError('Channel upload was incomplete');
     print(
       'PASS: bounded chunks, auth, metadata, uncertain-response recovery, progress and byte integrity',
     );

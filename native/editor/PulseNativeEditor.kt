@@ -16,16 +16,57 @@ import java.io.File
 import java.nio.ByteBuffer
 import java.util.concurrent.atomic.AtomicBoolean
 
+@androidx.media3.common.util.UnstableApi
 class PulseNativeEditor(private val activity: Activity, messenger: BinaryMessenger) {
   private val channel=MethodChannel(messenger,"pulse/native_editor")
   private val busy=AtomicBoolean(false)
   private val cancel=AtomicBoolean(false)
+  private var watermark: PulseWatermark? = null
   @Volatile private var progress=0.0
   init {
     channel.setMethodCallHandler { call,result ->
       when(call.method) {
         "progress" -> result.success(progress)
-        "cancel" -> {cancel.set(true);result.success(null)}
+        "cancel" -> {cancel.set(true);watermark?.cancel();result.success(null)}
+        "watermark" -> {
+          if(!busy.compareAndSet(false,true)) {result.error("busy","An export is already running",null)}
+          else {
+            progress=0.0;cancel.set(false)
+            val input=call.argument<String>("input") ?: ""
+            val output=call.argument<String>("output") ?: ""
+            val logo=call.argument<String>("logo") ?: ""
+            try {
+              val worker=PulseWatermark();watermark=worker
+              worker.start(activity,input,output,logo,{progress=it}) {error ->
+                busy.set(false);watermark=null
+                if(error==null) result.success(null)
+                else {File(output).delete();result.error("watermark_failed",error,null)}
+              }
+            } catch(e:Exception) {
+              busy.set(false);watermark=null;File(output).delete()
+              result.error("watermark_failed","Could not export this video with the Pulse watermark",null)
+            }
+          }
+        }
+        "style" -> {
+          if (!busy.compareAndSet(false, true)) result.error("busy", "An export is already running", null)
+          else {
+            progress=0.0; cancel.set(false)
+            val input=call.argument<String>("input") ?: ""
+            val output=call.argument<String>("output") ?: ""
+            try {
+              val worker=PulseWatermark(); watermark=worker
+              worker.style(activity,input,output,call.argument<Map<String,Any?>>("settings") ?: emptyMap(),{progress=it}) {error ->
+                busy.set(false); watermark=null
+                if(error==null) result.success(null)
+                else {File(output).delete();result.error("style_failed",error,null)}
+              }
+            } catch(e:Exception) {
+              busy.set(false);watermark=null;File(output).delete()
+              result.error("style_failed","This device could not export these video effects. Try fewer effects or a smaller video.",null)
+            }
+          }
+        }
         "export" -> {
           if(!busy.compareAndSet(false,true)) {result.error("busy","An export is already running",null)}
           else {

@@ -1,0 +1,9 @@
+PULSE 0.5.5+20 — cumulative source update
+
+Upload the extracted files into the existing repository, preserving paths. Keep main.yml/control.yml unchanged. Do not delete existing source or the database. No SQL step is needed.
+
+Includes: camera capture and hold/swipe video notes; caption-aware chat media editing; multi-photo media selection; Android video styles; For You interests onboarding and a separate Friends feed; country-code selection and phone formatting; prior Copy/reaction changes, with no forwarding.
+
+IMPORTANT: Phone authentication is disabled in the connected Supabase project. Configure an SMS provider and enable Phone there before testing SMS OTP. This ZIP alone cannot provide SMS delivery. See docs/UPGRADE_0.5.5.md.
+
+Local checks passed, but full Flutter analysis/native compilation/camera capture/export/device tests remain pending. Run the GitHub Actions builds and test both phones before sharing this beta.

@@ -1,0 +1,76 @@
+begin;
+create temporary table forward_fixture(k text primary key,id uuid default gen_random_uuid());
+insert into forward_fixture(k) values('sender'),('forwarder'),('recipient'),('outsider'),('sourcechat'),('target'),('photo'),('text'),('copy'),('textcopy'),('orphan'),('pendingchat'),('requesttext');
+grant select,update on forward_fixture to authenticated;
+insert into auth.users(id,aud,role,email,email_confirmed_at) select id,'authenticated','authenticated','forward-'||id||'@example.invalid',now() from forward_fixture where k in('sender','forwarder','recipient','outsider');
+insert into public.pulse_chats(id,kind,name,owner_id) select c.id,'group','Forward test',u.id from forward_fixture c,forward_fixture u where c.k in('sourcechat','target') and u.k='forwarder';
+insert into public.pulse_members(chat_id,user_id,role)select c.id,u.id,case when u.k='forwarder' then 'owner' else 'member' end from forward_fixture c,forward_fixture u where c.k='sourcechat' and u.k in('sender','forwarder') or c.k='target' and u.k in('forwarder','recipient');
+insert into storage.objects(bucket_id,name,metadata) select 'pulse-media',c.id||'/'||u.id||'/'||m.id||'/source.jpg','{"mimetype":"image/jpeg","size":1024}' from forward_fixture c,forward_fixture u,forward_fixture m where c.k='sourcechat' and u.k='sender' and m.k='photo';
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from forward_fixture where k='sender'),'role','authenticated')::text,true);
+insert into public.pulse_messages(id,chat_id,sender_id,body,attachment_path,media_kind,media_mime)select m.id,c.id,u.id,'Photo caption',c.id||'/'||u.id||'/'||m.id||'/source.jpg','image','image/jpeg' from forward_fixture c,forward_fixture u,forward_fixture m where c.k='sourcechat' and u.k='sender' and m.k='photo';
+insert into public.pulse_messages(id,chat_id,sender_id,body,created_at)select m.id,c.id,u.id,'Text to forward',now()+interval '1 second' from forward_fixture c,forward_fixture u,forward_fixture m where c.k='sourcechat' and u.k='sender' and m.k='text';
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from forward_fixture where k='forwarder'),'role','authenticated')::text,true);
+set local role authenticated;
+-- Simulate the destination object created by Storage's authenticated copy API.
+insert into storage.objects(bucket_id,name,metadata)select 'pulse-media',c.id||'/'||u.id||'/'||m.id||'/forward.jpg','{"mimetype":"image/jpeg","size":1024}' from forward_fixture c,forward_fixture u,forward_fixture m where c.k='target' and u.k='forwarder' and m.k='copy';
+reset role;
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from forward_fixture where k='recipient'),'role','authenticated')::text,true);
+set local role authenticated;
+do $$begin if exists(select 1 from storage.objects where bucket_id='pulse-media' and name like (select id::text||'/%' from forward_fixture where k='target')) then raise exception 'FAIL: unpublished media exposed';end if;end $$;
+reset role;
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from forward_fixture where k='forwarder'),'role','authenticated')::text,true);
+set local role authenticated;
+select public.pulse_forward_message(m.id,s.id,c.id,c.id||'/'||u.id||'/'||m.id||'/forward.jpg') from forward_fixture c,forward_fixture u,forward_fixture m,forward_fixture s where c.k='target' and u.k='forwarder' and m.k='copy' and s.k='photo';
+select public.pulse_forward_message(m.id,s.id,c.id,c.id||'/'||u.id||'/'||m.id||'/forward.jpg') from forward_fixture c,forward_fixture u,forward_fixture m,forward_fixture s where c.k='target' and u.k='forwarder' and m.k='copy' and s.k='photo';
+select public.pulse_forward_message((select id from forward_fixture where k='textcopy'),(select id from forward_fixture where k='text'),(select id from forward_fixture where k='target'));
+delete from storage.objects where bucket_id='pulse-media' and name like (select id::text||'/%' from forward_fixture where k='target');
+do $$begin
+ if not exists(select 1 from public.pulse_messages where id=(select id from forward_fixture where k='copy') and forwarded and body='Photo caption' and media_kind='image' and reply_to is null and status_id is null) then raise exception 'FAIL: media/caption/metadata forwarding';end if;
+ if (select count(*) from storage.objects where bucket_id='pulse-media' and name like (select id::text||'/%' from forward_fixture where k='target'))<>1 then raise exception 'FAIL: sent copy deleted by cleanup';end if;
+ if not exists(select 1 from jsonb_array_elements(public.pulse_chat_summaries()) s where s->>'chat_id'=(select id::text from forward_fixture where k='sourcechat') and s->>'body'='Text to forward') then raise exception 'FAIL: last message preview';end if;
+ begin perform public.pulse_forward_message(gen_random_uuid(),(select id from forward_fixture where k='photo'),(select id from forward_fixture where k='sourcechat'),'wrong/path');raise exception 'FAIL: invalid media path';exception when others then if sqlerrm='FAIL: invalid media path' then raise;end if;end;
+end $$;
+reset role;
+insert into public.pulse_message_preferences(user_id,message_id,hidden,starred)select u.id,m.id,true,false from forward_fixture u,forward_fixture m where u.k='forwarder' and m.k='text';
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from forward_fixture where k='forwarder'),'role','authenticated')::text,true);
+set local role authenticated;
+do $$begin
+ if exists(select 1 from jsonb_array_elements(public.pulse_chat_summaries()) s where s->>'chat_id'=(select id::text from forward_fixture where k='sourcechat') and s->>'body'='Text to forward') then raise exception 'FAIL: hidden message in preview';end if;
+ begin perform public.pulse_forward_message(gen_random_uuid(),(select id from forward_fixture where k='text'),(select id from forward_fixture where k='target'));raise exception 'FAIL: hidden source forwarded';exception when others then if sqlerrm='FAIL: hidden source forwarded' then raise;end if;end;
+end $$;
+reset role;
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from forward_fixture where k='outsider'),'role','authenticated')::text,true);
+set local role authenticated;
+do $$begin
+ if jsonb_array_length(public.pulse_chat_summaries())<>0 then raise exception 'FAIL: outsider previews';end if;
+ begin perform public.pulse_forward_message(gen_random_uuid(),(select id from forward_fixture where k='photo'),(select id from forward_fixture where k='target'));raise exception 'FAIL: outsider forwarded';exception when others then if sqlerrm='FAIL: outsider forwarded' then raise;end if;end;
+end $$;
+reset role;
+-- A target member who cannot read the source cannot forward it either.
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from forward_fixture where k='recipient'),'role','authenticated')::text,true);
+set local role authenticated;
+do $$begin begin perform public.pulse_forward_message(gen_random_uuid(),(select id from forward_fixture where k='photo'),(select id from forward_fixture where k='target'));raise exception 'FAIL: unreadable source forwarded';exception when others then if sqlerrm='FAIL: unreadable source forwarded' then raise;end if;end;end $$;
+reset role;
+update public.pulse_messages set deleted_at=now() where id=(select id from forward_fixture where k='photo');
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from forward_fixture where k='forwarder'),'role','authenticated')::text,true);
+set local role authenticated;
+do $$begin begin perform public.pulse_forward_message(gen_random_uuid(),(select id from forward_fixture where k='photo'),(select id from forward_fixture where k='target'));raise exception 'FAIL: deleted source forwarded';exception when others then if sqlerrm='FAIL: deleted source forwarded' then raise;end if;end;end $$;
+reset role;
+-- Retries of a completed forward survive deletion of the original.
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from forward_fixture where k='forwarder'),'role','authenticated')::text,true);
+set local role authenticated;
+select public.pulse_forward_message((select id from forward_fixture where k='copy'),(select id from forward_fixture where k='photo'),(select id from forward_fixture where k='target'));
+reset role;
+insert into public.pulse_chats(id,kind,name,owner_id)select c.id,'direct','Pending request',u.id from forward_fixture c,forward_fixture u where c.k='pendingchat' and u.k='recipient';
+insert into public.pulse_members(chat_id,user_id,role)select c.id,u.id,case when u.k='recipient' then 'owner' else 'member' end from forward_fixture c,forward_fixture u where c.k='pendingchat' and u.k in('recipient','forwarder');
+insert into public.pulse_messages(id,chat_id,sender_id,body)select m.id,c.id,u.id,'Consent test' from forward_fixture m,forward_fixture c,forward_fixture u where m.k='requesttext' and c.k='sourcechat' and u.k='sender';
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from forward_fixture where k='forwarder'),'role','authenticated')::text,true);
+set local role authenticated;
+do $$begin begin perform public.pulse_forward_message(gen_random_uuid(),(select id from forward_fixture where k='requesttext'),(select id from forward_fixture where k='pendingchat'));raise exception 'FAIL: request gate bypass';exception when others then if sqlerrm='FAIL: request gate bypass' then raise;end if;end;end $$;
+reset role;
+insert into public.pulse_blocks(user_id,blocked_id)select a.id,b.id from forward_fixture a,forward_fixture b where a.k='sender' and b.k='forwarder';
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from forward_fixture where k='forwarder'),'role','authenticated')::text,true);
+set local role authenticated;
+do $$begin begin perform public.pulse_forward_message(gen_random_uuid(),(select id from forward_fixture where k='requesttext'),(select id from forward_fixture where k='target'));raise exception 'FAIL: blocked source forwarded';exception when others then if sqlerrm='FAIL: blocked source forwarded' then raise;end if;end;end $$;
+reset role;
+rollback;
