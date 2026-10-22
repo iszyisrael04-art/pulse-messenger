@@ -25,6 +25,8 @@ void main() {
         await tester.tap(find.text('Open'));
         await tester.pumpAndSettle();
         await tester.enterText(find.byType(TextField), text);
+        // onChanged enables Save on the following frame.
+        await tester.pump();
         await tester.tap(find.text('Save'));
         // Exercise both the result future and route's later unmount.
         await tester.pump();

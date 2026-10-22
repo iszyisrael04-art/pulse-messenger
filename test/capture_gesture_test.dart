@@ -24,12 +24,14 @@ void main() {
     );
     final target = find.byType(PulseCameraButton);
     await tester.tap(target);
+    await tester.pumpAndSettle();
     expect(actions, [false]);
     final gesture = await tester.startGesture(tester.getCenter(target));
     await tester.pump(const Duration(milliseconds: 600));
     await gesture.moveBy(const Offset(0, -90));
     await tester.pump();
     await gesture.up();
+    await tester.pumpAndSettle();
     expect(actions, [false, true]);
   });
 }

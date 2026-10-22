@@ -35,6 +35,8 @@ class _PulseCameraButtonState extends State<PulseCameraButton> {
   bool opened = false, held = false;
   @override
   Widget build(BuildContext context) => Tooltip(
+    // Holding belongs to the recorder, not the tooltip gesture recognizer.
+    triggerMode: TooltipTriggerMode.manual,
     message: held
         ? 'Swipe up to record a video note'
         : 'Camera · hold and swipe up for video note',
@@ -56,7 +58,6 @@ class _PulseCameraButtonState extends State<PulseCameraButton> {
           : null,
       onLongPressEnd: (_) => setState(() => held = false),
       child: IconButton(
-        tooltip: 'Open camera',
         onPressed: widget.enabled ? () => widget.onOpen(false) : null,
         icon: Icon(held ? Icons.arrow_upward : Icons.photo_camera_outlined),
       ),
