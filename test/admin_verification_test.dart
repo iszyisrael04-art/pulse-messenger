@@ -6,9 +6,17 @@ import '../lib/admin.dart';
 import '../lib/control.dart';
 import '../lib/repository.dart' hide Row;
 
+// These widget tests mock RPCs and use empty avatars. A real Supabase client
+// starts asynchronous SDK resources whose disposal can stall the fake clock.
+// Fail immediately if a widget accidentally reaches the real-client boundary.
+class OfflineStaffClient implements SupabaseClient {
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw StateError('Unexpected SDK call: ${invocation.memberName}');
+}
+
 class StaffRepository extends PulseRepository {
-  StaffRepository()
-    : super(SupabaseClient('http://localhost:54321', 'test-key'));
+  StaffRepository() : super(OfflineStaffClient());
   bool verified = false, disposed = false, reject = false;
   final actions = <String>[];
   String? lastQuery;
@@ -92,7 +100,6 @@ void main() {
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
       repo.dispose();
-      await repo.db.dispose();
     },
   );
 
@@ -115,7 +122,6 @@ void main() {
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
     repo.dispose();
-    await repo.db.dispose();
   });
 
   testWidgets('cancel sends nothing and progress waits for server work', (
@@ -156,6 +162,5 @@ void main() {
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
     repo.dispose();
-    await repo.db.dispose();
   });
 }
