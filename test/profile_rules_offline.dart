@@ -5,6 +5,11 @@ void check(bool ok, String message) {
 }
 
 void main() {
+  check(compactProfileCount(null) == '0', 'Unknown counts');
+  check(compactProfileCount(999) == '999', 'Small counts');
+  check(compactProfileCount(119149) == '119.1K', 'Compact thousands');
+  check(compactProfileCount(999999) == '999.9K', 'Do not overstate counts');
+  check(compactProfileCount(2300000) == '2.3M', 'Compact millions');
   check(
     needsPrivacyAgreement(register: true, reset: false, codeSent: false),
     'Registration needs consent',

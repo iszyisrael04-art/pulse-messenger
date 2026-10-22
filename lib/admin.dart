@@ -1,4 +1,7 @@
 import 'text_prompt.dart';
+import 'control.dart';
+import 'control_channels.dart';
+import 'control_communities.dart';
 import 'package:flutter/material.dart';
 
 import 'repository.dart';
@@ -79,6 +82,48 @@ class _AdminScreenState extends State<AdminScreen> {
         : ListView(
             padding: const EdgeInsets.all(24),
             children: [
+              Text(
+                'Verification & accounts',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Find a Pulse username to add or remove its verified badge.',
+              ),
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => PulseControl(repo: widget.repo),
+                  ),
+                ),
+                icon: const Icon(Icons.verified_user_outlined),
+                label: const Text('Manage user verification'),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => PulseControlChannels(repo: widget.repo),
+                  ),
+                ),
+                icon: const Icon(Icons.campaign_outlined),
+                label: const Text('Manage channel verification'),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => PulseControlCommunities(repo: widget.repo),
+                  ),
+                ),
+                icon: const Icon(Icons.groups_outlined),
+                label: const Text('Manage community verification'),
+              ),
+              const SizedBox(height: 24),
               Wrap(
                 spacing: 16,
                 runSpacing: 16,
@@ -179,7 +224,7 @@ class _AdminScreenState extends State<AdminScreen> {
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 24),
                 child: Text(
-                  'Use Pulse Control for account suspension and staff audit actions. Feature flags are stored; rollout evaluation is not implemented yet.',
+                  'Manage user verification also includes suspension, bans and restoring account access. Feature flags are stored; rollout evaluation is not implemented yet.',
                 ),
               ),
             ],

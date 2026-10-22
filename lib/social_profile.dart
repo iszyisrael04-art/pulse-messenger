@@ -388,17 +388,13 @@ class _SocialProfileState extends State<SocialProfile> {
     final modes = mine
         ? ['Posts', 'Reels', 'Saved', 'Drafts']
         : ['Posts', 'Reels'];
-    return Column(
+    final profileHeader = Column(
       children: [
-        if (busy || loading) const LinearProgressIndicator(),
-        SizedBox(
-          height: (MediaQuery.sizeOf(context).height * .53)
-              .clamp(320.0, 480.0)
-              .toDouble(),
-          child: PulseProfileBackdrop(
-            style: profileStyle,
-            child: ListView(
-              padding: const EdgeInsets.all(16),
+        PulseProfileBackdrop(
+          style: profileStyle,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+            child: Column(
               children: [
                 if (p['cover_path'] != null)
                   SizedBox(
@@ -563,7 +559,7 @@ class _SocialProfileState extends State<SocialProfile> {
                           child: Column(
                             children: [
                               Text(
-                                '${entry.value ?? 0}',
+                                compactProfileCount(entry.value),
                                 style: const TextStyle(
                                   fontSize: 23,
                                   fontWeight: FontWeight.w800,
@@ -672,12 +668,18 @@ class _SocialProfileState extends State<SocialProfile> {
               ),
           ],
         ),
+      ],
+    );
+    return Column(
+      children: [
+        if (busy || loading) const LinearProgressIndicator(),
         Expanded(
           child: SocialFeed(
             key: ValueKey('${widget.user}:$tab'),
             store: widget.store,
             header: false,
             grid: true,
+            profileHeader: profileHeader,
             author: widget.user,
             mode: tab == 2
                 ? 'saved'

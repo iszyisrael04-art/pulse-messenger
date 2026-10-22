@@ -23,12 +23,14 @@ class SocialFeed extends StatefulWidget {
     this.kind = 'all',
     this.header = true,
     this.grid = false,
+    this.profileHeader,
     this.tag,
   });
   final SocialStore store;
   final String mode, kind;
   final String? author, tag;
   final bool header, grid;
+  final Widget? profileHeader;
   @override
   State<SocialFeed> createState() => _SocialFeedState();
 }
@@ -94,6 +96,8 @@ class _SocialFeedState extends State<SocialFeed> {
     physics: const AlwaysScrollableScrollPhysics(),
     cacheExtent: 180,
     slivers: [
+      if (widget.profileHeader != null)
+        SliverToBoxAdapter(child: widget.profileHeader),
       SliverGrid(
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 3,

@@ -1,3 +1,9 @@
+# Pulse 0.5.6 — profile, camera and inbox update
+
+Read [upgrade/build instructions](docs/UPGRADE_0.5.6.md). Addresses the camera preview disposal error shown in the recording and updates the referenced layouts. No main.yml or SQL change. Full Flutter/native/device verification remains pending.
+
+## Previous update
+
 # Pulse 0.5.5 — camera, studio and For You interests
 
 Read [upgrade/build instructions](docs/UPGRADE_0.5.5.md). Upload the extracted cumulative update into the existing repository. Keep main.yml unchanged; no SQL update is needed. Phone OTP is blocked by disabled Phone authentication and still needs a configured SMS provider. Native builds and device tests remain pending.

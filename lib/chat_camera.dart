@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:file_picker/file_picker.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
@@ -88,23 +90,32 @@ class _PulseCameraPageState extends State<PulseCameraPage>
   VideoController? playback;
   Timer? timer;
   DateTime? started;
+  int timerDelay = 0, countdown = 0, recordingLimit = 15;
+  bool foreground = true;
   @override
   void initState() {
     super.initState();
     video = widget.note || widget.videoOnly;
+    if (widget.note) recordingLimit = 30;
     WidgetsBinding.instance.addObserver(this);
     initialize(first: true);
   }
 
   Future<void> initialize({bool first = false}) async {
-    if (busy) return;
+    if (!mounted || busy || !foreground) return;
     final ticket = ++generation;
+    final previous = camera;
     setState(() {
+      camera = null;
       busy = true;
       error = null;
     });
     CameraController? next;
     try {
+      // Remove CameraPreview from the tree before disposing its controller.
+      await WidgetsBinding.instance.endOfFrame;
+      await previous?.dispose();
+      if (!mounted || ticket != generation || !foreground) return;
       if (first || cameras.isEmpty) {
         cameras = await availableCameras();
         if (widget.note) {
@@ -115,15 +126,13 @@ class _PulseCameraPageState extends State<PulseCameraPage>
         }
       }
       if (cameras.isEmpty) throw StateError('No camera was found.');
-      await camera?.dispose();
-      camera = null;
       next = CameraController(
         cameras[index % cameras.length],
         ResolutionPreset.medium,
         enableAudio: video,
       );
       await next.initialize();
-      if (!mounted || ticket != generation) {
+      if (!mounted || ticket != generation || !foreground) {
         await next.dispose();
         return;
       }
@@ -160,8 +169,15 @@ class _PulseCameraPageState extends State<PulseCameraPage>
     });
     try {
       await PulseMedia.pauseAll();
-      await camera!.startVideoRecording();
-      if (!mounted) return;
+      final active = camera;
+      if (active == null || !foreground) return;
+      await active.startVideoRecording();
+      if (!mounted || camera != active || !foreground) {
+        try {
+          await active.stopVideoRecording();
+        } catch (_) {}
+        return;
+      }
       started = DateTime.now();
       setState(() {
         recording = true;
@@ -172,7 +188,7 @@ class _PulseCameraPageState extends State<PulseCameraPage>
         setState(
           () => elapsed = DateTime.now().difference(started!).inMilliseconds,
         );
-        if (elapsed >= 30000) {
+        if (elapsed >= recordingLimit * 1000) {
           timer?.cancel();
           stop();
         }
@@ -231,9 +247,18 @@ class _PulseCameraPageState extends State<PulseCameraPage>
   }
 
   Future<void> preview(PulseCapture result) async {
-    captured = result;
-    await camera?.dispose();
-    camera = null;
+    if (!mounted) {
+      await result.file.delete().catchError((_) => result.file);
+      return;
+    }
+    final previous = camera;
+    setState(() {
+      camera = null;
+      captured = result;
+      recording = false;
+    });
+    await WidgetsBinding.instance.endOfFrame;
+    await previous?.dispose();
     if (!mounted) {
       try {
         await result.file.delete();
@@ -254,11 +279,15 @@ class _PulseCameraPageState extends State<PulseCameraPage>
 
   Future<void> retake() async {
     if (busy) return;
-    await player?.dispose();
-    player = null;
-    playback = null;
+    final previous = player;
     final file = captured?.file;
-    captured = null;
+    setState(() {
+      player = null;
+      playback = null;
+      captured = null;
+    });
+    await WidgetsBinding.instance.endOfFrame;
+    await previous?.dispose();
     if (file != null) {
       try {
         await file.delete();
@@ -274,19 +303,102 @@ class _PulseCameraPageState extends State<PulseCameraPage>
     if (mounted) Navigator.pop(context, captured);
   }
 
+  Future<void> upload() async {
+    if (busy || recording || widget.note) return;
+    setState(() => busy = true);
+    File? copy;
+    try {
+      final picked = await FilePicker.pickFile(
+        type: FileType.custom,
+        allowedExtensions: widget.videoOnly
+            ? ['mp4', 'mov', 'webm']
+            : ['jpg', 'jpeg', 'png', 'webp', 'mp4', 'mov', 'webm'],
+      );
+      if (picked?.path == null || !mounted) return;
+      final ext = picked!.name.split('.').last.toLowerCase();
+      final directory = await getTemporaryDirectory();
+      copy = await File(picked.path!).copy(
+        '${directory.path}/pulse-capture-${DateTime.now().microsecondsSinceEpoch}.$ext',
+      );
+      await preview(
+        PulseCapture(copy, video: ['mp4', 'mov', 'webm'].contains(ext)),
+      );
+      copy = null;
+    } catch (_) {
+      if (mounted)
+        setState(
+          () => error =
+              'This media could not be opened. Please try another file.',
+        );
+    } finally {
+      if (copy != null) await copy.delete().catchError((_) => copy!);
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
+  Future<void> shutter() async {
+    if (busy || camera == null) return;
+    if (recording) return stop();
+    final ticket = generation;
+    if (timerDelay > 0) {
+      setState(() {
+        busy = true;
+        countdown = timerDelay;
+      });
+      for (var left = timerDelay; left > 0; left--) {
+        await Future<void>.delayed(const Duration(seconds: 1));
+        if (!mounted || ticket != generation || !foreground) return;
+        setState(() => countdown = left - 1);
+      }
+      setState(() => busy = false);
+    }
+    if (!mounted || !foreground || camera == null) return;
+    if (video) {
+      await record();
+    } else {
+      await photo();
+    }
+  }
+
+  Future<void> light() async {
+    final active = camera;
+    if (busy || active == null) return;
+    try {
+      await active.setFlashMode(torch ? FlashMode.off : FlashMode.torch);
+      if (mounted && camera == active) setState(() => torch = !torch);
+    } catch (_) {
+      if (mounted)
+        setState(() => error = 'Light is unavailable on this camera.');
+    }
+  }
+
+  Future<void> flip() async {
+    if (busy || recording || cameras.length < 2) return;
+    index = (index + 1) % cameras.length;
+    torch = false;
+    await initialize();
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      foreground = true;
       if (camera == null && captured == null && !busy) initialize();
     } else if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.paused) {
+      foreground = false;
       player?.pause();
-      if (recording) {
+      if (recording && !busy) {
         stop();
-      } else if (!busy) {
-        final old = camera;
-        camera = null;
-        old?.dispose();
+      } else if (!busy || countdown > 0) {
+        generation++;
+        final previous = camera;
+        setState(() {
+          camera = null;
+          countdown = 0;
+          busy = false;
+        });
+        WidgetsBinding.instance.endOfFrame.then((_) => previous?.dispose());
       }
     }
   }
@@ -302,6 +414,24 @@ class _PulseCameraPageState extends State<PulseCameraPage>
       captured!.file.delete().catchError((_) => captured!.file);
     super.dispose();
   }
+
+  Widget cameraTool(IconData icon, String label, VoidCallback? action) =>
+      Padding(
+        padding: const EdgeInsets.only(bottom: 16),
+        child: Column(
+          children: [
+            IconButton.filledTonal(
+              onPressed: action,
+              tooltip: label,
+              icon: Icon(icon),
+            ),
+            Text(
+              label,
+              style: const TextStyle(color: Colors.white, fontSize: 12),
+            ),
+          ],
+        ),
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -340,29 +470,6 @@ class _PulseCameraPageState extends State<PulseCameraPage>
                   },
             icon: const Icon(Icons.close),
           ),
-          actions: [
-            if (!Platform.isWindows && captured == null && !recording)
-              IconButton(
-                tooltip: 'Light',
-                onPressed: busy || camera == null
-                    ? null
-                    : () async {
-                        try {
-                          await camera!.setFlashMode(
-                            torch ? FlashMode.off : FlashMode.torch,
-                          );
-                          if (mounted) setState(() => torch = !torch);
-                        } catch (_) {
-                          if (mounted)
-                            setState(
-                              () => error =
-                                  'Light is unavailable on this camera.',
-                            );
-                        }
-                      },
-                icon: Icon(torch ? Icons.flash_on : Icons.flash_off),
-              ),
-          ],
         ),
         body: SafeArea(
           child: Column(
@@ -384,14 +491,68 @@ class _PulseCameraPageState extends State<PulseCameraPage>
                 Padding(
                   padding: const EdgeInsets.all(10),
                   child: Text(
-                    '● ${elapsed ~/ 1000}s / 30s',
+                    '● ${elapsed ~/ 1000}s / ${recordingLimit}s',
                     style: const TextStyle(color: Colors.redAccent),
                   ),
                 ),
-              Expanded(child: view),
+              Expanded(
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    view,
+                    if (countdown > 0)
+                      Center(
+                        child: Text(
+                          '$countdown',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 84,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    if (captured == null && !recording)
+                      Positioned(
+                        right: 12,
+                        top: 16,
+                        child: Column(
+                          children: [
+                            cameraTool(
+                              Icons.cameraswitch_outlined,
+                              'Flip',
+                              busy || cameras.length < 2 ? null : flip,
+                            ),
+                            if (!Platform.isWindows)
+                              cameraTool(
+                                torch ? Icons.flash_on : Icons.flash_off,
+                                torch ? 'On' : 'Off',
+                                busy || camera == null ? null : light,
+                              ),
+                            if (!widget.note)
+                              cameraTool(
+                                Icons.timer_outlined,
+                                timerDelay == 0 ? 'Timer' : '${timerDelay}s',
+                                busy
+                                    ? null
+                                    : () => setState(
+                                        () => timerDelay = timerDelay == 0
+                                            ? 3
+                                            : timerDelay == 3
+                                            ? 10
+                                            : 0,
+                                      ),
+                              ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
               if (recording)
                 LinearProgressIndicator(
-                  value: (elapsed / 30000).clamp(0, 1).toDouble(),
+                  value: (elapsed / (recordingLimit * 1000))
+                      .clamp(0, 1)
+                      .toDouble(),
                 ),
               Padding(
                 padding: const EdgeInsets.all(16),
@@ -415,15 +576,57 @@ class _PulseCameraPageState extends State<PulseCameraPage>
                         label: const Text('Use capture'),
                       ),
                     ] else ...[
-                      if (!widget.note && !widget.videoOnly && !recording)
-                        TextButton(
-                          onPressed: busy
-                              ? null
-                              : () async {
-                                  video = !video;
-                                  await initialize();
-                                },
-                          child: Text(video ? 'Video' : 'Photo'),
+                      if (!widget.note && !recording)
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            for (final seconds in [15, 60, 180])
+                              TextButton(
+                                onPressed: busy
+                                    ? null
+                                    : () async {
+                                        setState(() {
+                                          video = true;
+                                          recordingLimit = seconds;
+                                        });
+                                        await initialize();
+                                      },
+                                child: Text(
+                                  seconds == 180 ? '3m' : '${seconds}s',
+                                  style: TextStyle(
+                                    color: video && recordingLimit == seconds
+                                        ? Theme.of(context).colorScheme.primary
+                                        : Colors.white70,
+                                  ),
+                                ),
+                              ),
+                            if (!widget.videoOnly)
+                              TextButton(
+                                onPressed: busy
+                                    ? null
+                                    : () async {
+                                        setState(() => video = false);
+                                        await initialize();
+                                      },
+                                child: Text(
+                                  'Photo',
+                                  style: TextStyle(
+                                    color: !video
+                                        ? Theme.of(context).colorScheme.primary
+                                        : Colors.white70,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      if (!widget.note && !recording)
+                        IconButton(
+                          tooltip: 'Upload photo or video',
+                          onPressed: busy ? null : upload,
+                          icon: const Icon(
+                            Icons.photo_library_outlined,
+                            color: Colors.white,
+                          ),
                         ),
                       IconButton.filled(
                         tooltip: recording
@@ -432,33 +635,13 @@ class _PulseCameraPageState extends State<PulseCameraPage>
                             ? 'Record'
                             : 'Take photo',
                         iconSize: 48,
-                        onPressed: busy || camera == null
-                            ? null
-                            : recording
-                            ? stop
-                            : video
-                            ? record
-                            : photo,
+                        onPressed: busy || camera == null ? null : shutter,
                         icon: Icon(
                           recording
                               ? Icons.stop_circle
                               : video
                               ? Icons.fiber_manual_record
                               : Icons.camera_alt,
-                        ),
-                      ),
-                      IconButton(
-                        tooltip: 'Switch camera before recording',
-                        onPressed: busy || recording || cameras.length < 2
-                            ? null
-                            : () async {
-                                index = (index + 1) % cameras.length;
-                                torch = false;
-                                await initialize();
-                              },
-                        icon: const Icon(
-                          Icons.cameraswitch_outlined,
-                          color: Colors.white,
                         ),
                       ),
                     ],

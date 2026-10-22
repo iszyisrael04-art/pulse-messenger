@@ -1096,22 +1096,25 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Wrap(
-            spacing: 8,
-            children: [
-              for (final e in {
-                'all': 'All',
-                'friends': 'Friends',
-                'unread': 'Unread',
-                'groups': 'Groups',
-                'requests': 'Requests',
-              }.entries)
-                ChoiceChip(
-                  label: Text(e.value),
-                  selected: chatFilter == e.key,
-                  onSelected: (_) => setState(() => chatFilter = e.key),
-                ),
-            ],
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              spacing: 8,
+              children: [
+                for (final e in {
+                  'all': 'All',
+                  'friends': 'Friends',
+                  'unread': 'Unread',
+                  'groups': 'Groups',
+                  'requests': 'Requests',
+                }.entries)
+                  ChoiceChip(
+                    label: Text(e.value),
+                    selected: chatFilter == e.key,
+                    onSelected: (_) => setState(() => chatFilter = e.key),
+                  ),
+              ],
+            ),
           ),
         ),
         const SizedBox(height: 12),
@@ -1151,6 +1154,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         vertical: 3,
                       ),
                       child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 12,
+                        ),
+                        minLeadingWidth: 58,
+                        horizontalTitleGap: 14,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(20),
                         ),
@@ -1168,6 +1177,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                 ? (repo.chatSummaries[c['id']]?['avatar_path'])
                                 : (person?['avatar_path']),
                             name: repo.chatName(c),
+                            radius: 29,
                           ),
                         ),
                         trailing: Column(
@@ -1206,6 +1216,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         ),
                         title: Text(
                           repo.chatName(c),
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -1217,6 +1231,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
+                            height: 1.6,
+                            fontSize: 13,
                             fontWeight: (repo.unread[c['id']] ?? 0) > 0
                                 ? FontWeight.w600
                                 : FontWeight.normal,

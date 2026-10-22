@@ -10,6 +10,7 @@ import 'social_media.dart';
 import 'social_preview.dart';
 import 'social_premium.dart';
 import 'media_picker.dart';
+import 'chat_camera.dart';
 
 class SocialComposer extends StatefulWidget {
   const SocialComposer({
@@ -53,6 +54,29 @@ class _SocialComposerState extends State<SocialComposer> {
   void dispose() {
     body.dispose();
     super.dispose();
+  }
+
+  Future<void> capture() async {
+    if (busy) return;
+    setState(() => busy = true);
+    PulseCapture? result;
+    try {
+      result = await Navigator.push<PulseCapture>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PulseCameraPage(videoOnly: kind == 'reel'),
+        ),
+      );
+      if (result != null && mounted) {
+        await chooseAndUpload(PulsePickedMedia(result.file, owned: true));
+      }
+    } catch (e) {
+      if (mounted) setState(() => error = socialError(e));
+    } finally {
+      if (result != null)
+        await result.file.delete().catchError((_) => result!.file);
+      if (mounted) setState(() => busy = false);
+    }
   }
 
   Future<void> pick() async {
@@ -376,6 +400,12 @@ class _SocialComposerState extends State<SocialComposer> {
                     ],
                   ),
                 ),
+              FilledButton.tonalIcon(
+                onPressed: busy ? null : capture,
+                icon: const Icon(Icons.photo_camera_outlined),
+                label: const Text('Open camera'),
+              ),
+              const SizedBox(height: 12),
               OutlinedButton.icon(
                 onPressed: busy ? null : pick,
                 icon: const Icon(Icons.add_photo_alternate_outlined),

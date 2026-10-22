@@ -8,16 +8,17 @@ import 'social_common.dart';
 import 'appeals.dart';
 
 class PulseControl extends StatefulWidget {
-  const PulseControl({super.key});
+  const PulseControl({super.key, this.repo});
+  final PulseRepository? repo;
   @override
   State<PulseControl> createState() => _PulseControlState();
 }
 
 class _PulseControlState extends State<PulseControl> {
-  late final repo = PulseRepository(Supabase.instance.client);
+  late final repo = widget.repo ?? PulseRepository(Supabase.instance.client);
   final search = TextEditingController();
   List<Map<String, dynamic>> users = [];
-  bool busy = false, more = true;
+  bool busy = false, more = true, changing = false;
   String? error;
   @override
   void initState() {
@@ -28,18 +29,18 @@ class _PulseControlState extends State<PulseControl> {
   @override
   void dispose() {
     search.dispose();
-    repo.dispose();
+    if (widget.repo == null) repo.dispose();
     super.dispose();
   }
 
   Future<void> load({bool reset = false}) async {
-    if (busy || !reset && !more) return;
+    if (!mounted || busy || !reset && !more) return;
     setState(() => busy = true);
     try {
       final r = await repo.rpc('control', {
         'p_action': 'search',
         'p_data': {
-          'query': search.text.trim(),
+          'query': search.text.trim().replaceFirst(RegExp(r'^@+'), ''),
           'after': reset || users.isEmpty ? null : users.last['username'],
         },
       });
@@ -65,6 +66,16 @@ class _PulseControlState extends State<PulseControl> {
   }
 
   Future<void> action(Map u, String action) async {
+    if (busy || changing) return;
+    setState(() => changing = true);
+    try {
+      await performAction(u, action);
+    } finally {
+      if (mounted) setState(() => changing = false);
+    }
+  }
+
+  Future<void> performAction(Map u, String action) async {
     String? reason;
     int? days;
     if (action == 'ban' || action == 'suspend') {
@@ -88,7 +99,13 @@ class _PulseControlState extends State<PulseControl> {
     final yes = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
-        title: Text('$action @${u['username']}?'),
+        title: Text(
+          '${action == 'verify'
+              ? 'Verify'
+              : action == 'unverify'
+              ? 'Remove verification from'
+              : action} @${u['username']}?',
+        ),
         content: Text(
           'This changes the real Pulse account. ${days == null ? '' : 'Duration: $days days.'}',
         ),
@@ -104,24 +121,31 @@ class _PulseControlState extends State<PulseControl> {
         ],
       ),
     );
-    if (yes != true) return;
+    if (yes != true || !mounted) return;
     try {
       final r = await repo.rpc('control', {
         'p_action': action,
         'p_user': u['id'],
         'p_data': {'reason': reason, 'days': days},
       });
-      if (mounted)
+      if (r is! Map || r['updated'] != true) {
+        throw StateError('The server did not confirm this update.');
+      }
+      if (mounted) {
+        if (action == 'verify' || action == 'unverify') {
+          setState(() => u['verified'] = action == 'verify');
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              (r as Map)['email_queued'] == true
+              r['email_queued'] == true
                   ? 'Account updated. Email queued; delivery requires the mail dispatcher.'
                   : 'Account updated. In-app mail created.',
             ),
           ),
         );
-      await load(reset: true);
+      }
+      if (mounted) await load(reset: true);
     } catch (_) {
       if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(
@@ -137,7 +161,7 @@ class _PulseControlState extends State<PulseControl> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      title: const Text('Pulse Control'),
+      title: Text(widget.repo == null ? 'Pulse Control' : 'User verification'),
       actions: [
         IconButton(
           tooltip: 'Verify communities',
@@ -165,11 +189,12 @@ class _PulseControlState extends State<PulseControl> {
           ),
           icon: const Icon(Icons.gavel_outlined),
         ),
-        IconButton(
-          tooltip: 'Sign out',
-          onPressed: () => repo.db.auth.signOut(),
-          icon: const Icon(Icons.logout),
-        ),
+        if (widget.repo == null)
+          IconButton(
+            tooltip: 'Sign out',
+            onPressed: () => repo.db.auth.signOut(),
+            icon: const Icon(Icons.logout),
+          ),
       ],
     ),
     body: Column(
@@ -178,6 +203,7 @@ class _PulseControlState extends State<PulseControl> {
           padding: const EdgeInsets.all(16),
           child: TextField(
             controller: search,
+            enabled: !busy && !changing,
             onSubmitted: (_) => load(reset: true),
             decoration: InputDecoration(
               labelText: 'Search Pulse usernames',
@@ -189,7 +215,12 @@ class _PulseControlState extends State<PulseControl> {
             ),
           ),
         ),
-        if (busy) const LinearProgressIndicator(),
+        if (busy || changing) const LinearProgressIndicator(),
+        if (!busy && error == null && users.isEmpty)
+          const Padding(
+            padding: EdgeInsets.all(16),
+            child: Text('No accounts found. Try another Pulse username.'),
+          ),
         if (error != null)
           Padding(padding: const EdgeInsets.all(16), child: Text(error!)),
         Expanded(
@@ -231,14 +262,16 @@ class _PulseControlState extends State<PulseControl> {
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      IconButton(
-                        tooltip: u['verified'] == true
-                            ? 'Remove verification'
-                            : 'Verify account',
-                        onPressed: () => action(
-                          u,
-                          u['verified'] == true ? 'unverify' : 'verify',
+                      TextButton.icon(
+                        label: Text(
+                          u['verified'] == true ? 'Remove' : 'Verify',
                         ),
+                        onPressed: busy || changing
+                            ? null
+                            : () => action(
+                                u,
+                                u['verified'] == true ? 'unverify' : 'verify',
+                              ),
                         icon: Icon(
                           u['verified'] == true
                               ? Icons.verified
@@ -247,6 +280,7 @@ class _PulseControlState extends State<PulseControl> {
                         ),
                       ),
                       PopupMenuButton<String>(
+                        enabled: !busy && !changing,
                         onSelected: (v) => action(u, v),
                         itemBuilder: (_) => [
                           for (final v in [

@@ -1,3 +1,7 @@
+PULSE 0.5.6+21 — profile, camera and inbox update
+
+Upload extracted contents to the existing Pulse repository, replacing matching files and preserving paths. Keep main.yml/control.yml unchanged. No SQL is needed. Rebuild and install the new application. Read docs/UPGRADE_0.5.6.md for changes, limitations and device checks.
+
 PULSE 0.5.5+20 — cumulative source update
 
 Upload the extracted files into the existing repository, preserving paths. Keep main.yml/control.yml unchanged. Do not delete existing source or the database. No SQL step is needed.
@@ -7,3 +11,8 @@ Includes: camera capture and hold/swipe video notes; caption-aware chat media ed
 IMPORTANT: Phone authentication is disabled in the connected Supabase project. Configure an SMS provider and enable Phone there before testing SMS OTP. This ZIP alone cannot provide SMS delivery. See docs/UPGRADE_0.5.5.md.
 
 Local checks passed, but full Flutter analysis/native compilation/camera capture/export/device tests remain pending. Run the GitHub Actions builds and test both phones before sharing this beta.
+
+ADMINISTRATOR DASHBOARD UPDATE
+Sign in to Pulse with your existing administrator account (@iszy). Open Settings > Administrator dashboard > Manage user verification. Search a username (with or without @), then choose Verify and Confirm. Remove reverses the badge. Channel and community verification have separate entries. The existing backend staff check still controls access. No new SQL is required. Badge-change email delivery still depends on the existing dispatcher.
+
+Backend checks confirmed the installed RPC, your administrator membership, staff account search, and denial of anonymous execution. Dart syntax/format checks passed. New widget tests require flutter test in Actions; native build/device verification is pending.

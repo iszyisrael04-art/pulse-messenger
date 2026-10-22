@@ -46,3 +46,13 @@ const pulseSignalModes = {
   'learning': 'Learning',
   'available': 'Available to help',
 };
+
+String compactProfileCount(Object? value) {
+  final count = int.tryParse(value?.toString() ?? '') ?? 0;
+  if (count < 1000) return '${count < 0 ? 0 : count}';
+  final unit = count >= 1000000 ? 1000000 : 1000;
+  final number = ((count / unit * 10).floor() / 10)
+      .toStringAsFixed(1)
+      .replaceFirst(RegExp(r'\.0$'), '');
+  return '$number${unit == 1000000 ? 'M' : 'K'}';
+}
