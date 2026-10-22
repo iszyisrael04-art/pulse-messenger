@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -11,6 +12,7 @@ class StaffRepository extends PulseRepository {
   bool verified = false, disposed = false, reject = false;
   final actions = <String>[];
   String? lastQuery;
+  Completer<void>? actionGate;
 
   @override
   Future<dynamic> rpc(String name, Map<String, dynamic> params) async {
@@ -39,6 +41,7 @@ class StaffRepository extends PulseRepository {
         ];
       }
       actions.add(action);
+      if (actionGate != null) await actionGate!.future;
       if (reject) throw StateError('Staff access required');
       verified = action == 'verify';
       return {'updated': true, 'email_queued': false};
@@ -69,6 +72,8 @@ void main() {
       expect(repo.lastQuery, 'test_member');
       await tester.tap(find.text('Verify'));
       await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(find.byType(LinearProgressIndicator), findsNothing);
       expect(repo.actions, isEmpty);
       await tester.tap(find.text('Confirm'));
       await tester.pumpAndSettle();
@@ -102,8 +107,52 @@ void main() {
     await tester.tap(find.text('Confirm'));
     await tester.pumpAndSettle();
     expect(repo.verified, isFalse);
+    expect(repo.actions, ['verify']);
+    expect(find.byType(LinearProgressIndicator), findsNothing);
+    expect(find.textContaining('Action denied.'), findsOneWidget);
     expect(find.text('Verify'), findsOneWidget);
     expect(find.text('Remove'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+    repo.dispose();
+    await repo.db.dispose();
+  });
+
+  testWidgets('cancel sends nothing and progress waits for server work', (
+    tester,
+  ) async {
+    final repo = StaffRepository();
+    await tester.pumpWidget(MaterialApp(home: PulseControl(repo: repo)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Verify'));
+    await tester.pumpAndSettle();
+    expect(find.byType(LinearProgressIndicator), findsNothing);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(repo.actions, isEmpty);
+    expect(repo.verified, isFalse);
+
+    final gate = Completer<void>();
+    repo.actionGate = gate;
+    await tester.tap(find.text('Verify'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Confirm'));
+    await tester.pump();
+    // The server is deliberately pending, so do not wait for all animations.
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(repo.actions, ['verify']);
+    expect(repo.verified, isFalse);
+    expect(find.byType(LinearProgressIndicator), findsOneWidget);
+    final verifyButton = tester.widget<TextButton>(
+      find.widgetWithText(TextButton, 'Verify'),
+    );
+    expect(verifyButton.onPressed, isNull);
+
+    gate.complete();
+    await tester.pumpAndSettle();
+    expect(repo.verified, isTrue);
+    expect(find.text('Remove'), findsOneWidget);
+    expect(find.byType(LinearProgressIndicator), findsNothing);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
     repo.dispose();

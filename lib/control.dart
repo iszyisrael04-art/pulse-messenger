@@ -18,7 +18,7 @@ class _PulseControlState extends State<PulseControl> {
   late final repo = widget.repo ?? PulseRepository(Supabase.instance.client);
   final search = TextEditingController();
   List<Map<String, dynamic>> users = [];
-  bool busy = false, more = true, changing = false;
+  bool busy = false, more = true, changing = false, applying = false;
   String? error;
   @override
   void initState() {
@@ -71,7 +71,12 @@ class _PulseControlState extends State<PulseControl> {
     try {
       await performAction(u, action);
     } finally {
-      if (mounted) setState(() => changing = false);
+      if (mounted) {
+        setState(() {
+          changing = false;
+          applying = false;
+        });
+      }
     }
   }
 
@@ -122,6 +127,9 @@ class _PulseControlState extends State<PulseControl> {
       ),
     );
     if (yes != true || !mounted) return;
+    // Keep duplicate actions blocked while confirming, but animate progress
+    // only once the confirmed request is actually being sent to the server.
+    setState(() => applying = true);
     try {
       final r = await repo.rpc('control', {
         'p_action': action,
@@ -215,7 +223,7 @@ class _PulseControlState extends State<PulseControl> {
             ),
           ),
         ),
-        if (busy || changing) const LinearProgressIndicator(),
+        if (busy || applying) const LinearProgressIndicator(),
         if (!busy && error == null && users.isEmpty)
           const Padding(
             padding: EdgeInsets.all(16),
