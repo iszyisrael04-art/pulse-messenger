@@ -27,8 +27,11 @@ class PulsePlaybackStatus extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.wifi_off_rounded,
-                    color: Colors.white70, size: 18),
+                const Icon(
+                  Icons.wifi_off_rounded,
+                  color: Colors.white70,
+                  size: 18,
+                ),
                 const SizedBox(width: 8),
                 Flexible(
                   child: Text(
@@ -42,8 +45,10 @@ class PulsePlaybackStatus extends StatelessWidget {
                   IconButton(
                     tooltip: 'Retry video',
                     onPressed: onRetry,
-                    icon: const Icon(Icons.refresh_rounded,
-                        color: Color(0xff8cebd7)),
+                    icon: const Icon(
+                      Icons.refresh_rounded,
+                      color: Color(0xff8cebd7),
+                    ),
                   ),
               ],
             ),

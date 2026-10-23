@@ -1,3 +1,7 @@
+# Pulse 0.5.12 — Squad sandbox checkout
+
+Read [the test setup](docs/UPGRADE_0.5.12.md). A separate simulated checkout and server verification are available from Animated profile & Boost after installing a new build. Real purchases remain disabled.
+
 # Pulse 0.5.11 — online and last-seen status
 
 Read [the update notes](docs/UPGRADE_0.5.11.md). Chat, profile and creator avatars can show online status, with last seen and a privacy setting. Native builds and device verification remain pending.

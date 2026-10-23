@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {sandboxKey,ownsReference,checkoutUrl,verifiedTest} from '../supabase/functions/pulse-payments/rules.mjs';
+assert.equal(sandboxKey('live_sk_example'),false);
+assert.equal(sandboxKey('sandbox_sk_example'),true);
+assert.equal(checkoutUrl('https://pay.squadco.com/test'),null);
+assert.equal(checkoutUrl('https://sandbox-pay.squadco.com.evil.test/a'),null);
+assert.equal(checkoutUrl('https://sandbox-pay.squadco.com/a'),'https://sandbox-pay.squadco.com/a');
+const uid='12345678-1234-1234-1234-123456789012';
+const ref='PTEST'+uid.replaceAll('-','')+'a'.repeat(32);
+assert(ownsReference(ref,uid));assert(!ownsReference(ref,'87654321-1234-1234-1234-123456789012'));
+const ok={transaction_ref:ref,transaction_status:'Success',transaction_currency_id:'NGN',transaction_amount:10000};
+assert(verifiedTest(ok,ref));
+for(const patch of [{transaction_amount:100},{transaction_amount:'10000'},{transaction_status:'Pending'},{transaction_currency_id:'USD'},{transaction_ref:'other'}]) assert(!verifiedTest({...ok,...patch},ref));
+console.log('PASS sandbox key, URL, owner, amount, currency and status checks');

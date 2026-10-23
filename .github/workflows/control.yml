@@ -136,3 +136,4 @@ jobs:
           node-version: '24'
       - run: npm ci --prefix test/isolated_backend
       - run: node test/isolated_backend/run.mjs
+      - run: node test/squad_sandbox_test.mjs

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'creator_products.dart';
+import 'payment_test.dart';
 import 'social_repository.dart';
 
 class PulseCreatorAccessPage extends StatefulWidget {
@@ -100,6 +101,15 @@ class _PulseCreatorAccessPageState extends State<PulseCreatorAccessPage> {
                 ),
               ),
             ],
+            OutlinedButton.icon(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => PulsePaymentTestPage(repo: widget.store.repo),
+                ),
+              ),
+              icon: const Icon(Icons.science_outlined),
+              label: const Text('Test Squad checkout (no real money)'),
+            ),
             if (purchases.isNotEmpty) ...[
               const Divider(height: 40),
               Text(
