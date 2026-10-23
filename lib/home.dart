@@ -86,6 +86,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     channelUpdates.start();
     social = SocialStore(repo);
     social.activity.start();
+    PulseNotifications.instance.setActivityTap(() {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => PulseActivityPage(store: social)),
+        );
+      });
+    });
     calls = PulseCalls(repo)..addListener(changed);
     calls.start();
   }
@@ -376,7 +385,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     calls.dispose();
     WidgetsBinding.instance.removeObserver(this);
     repo.removeListener(changed);
+    PulseNotifications.instance.setActivityTap(null);
     social.activity.dispose();
+    social.dispose();
     repo.dispose();
     channelUpdates.removeListener(channelUpdatesChanged);
     channelUpdates.dispose();

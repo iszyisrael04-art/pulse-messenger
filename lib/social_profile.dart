@@ -4,21 +4,15 @@ import 'communities.dart';
 import 'profile_rules.dart';
 import 'social_premium.dart';
 import 'appearance.dart';
-import 'dart:io';
 
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:uuid/uuid.dart';
 
 import 'avatar.dart';
-import 'media.dart';
 import 'profile.dart';
 import 'social_repository.dart';
 import 'social_feed.dart';
 import 'social_media.dart';
 import 'social_common.dart';
-
-import 'package:supabase_flutter/supabase_flutter.dart' show FileOptions;
 
 class SocialProfile extends StatefulWidget {
   const SocialProfile({
@@ -46,6 +40,7 @@ class _SocialProfileState extends State<SocialProfile> {
   @override
   void dispose() {
     featureRefresh?.cancel();
+    widget.store.removeListener(profileChanged);
     super.dispose();
   }
 
@@ -53,14 +48,35 @@ class _SocialProfileState extends State<SocialProfile> {
   @override
   void initState() {
     super.initState();
+    widget.store.addListener(profileChanged);
     load();
+  }
+
+  bool reloadPending = false;
+  void profileChanged() {
+    if (loading) {
+      reloadPending = true;
+      return;
+    }
+    load();
+  }
+
+  @override
+  void didUpdateWidget(SocialProfile old) {
+    super.didUpdateWidget(old);
+    if (old.store != widget.store) {
+      old.store.removeListener(profileChanged);
+      widget.store.addListener(profileChanged);
+    }
+    if (old.user != widget.user || old.store != widget.store) profileChanged();
   }
 
   Future<void> load() async {
     if (loading) return;
     setState(() => loading = true);
     try {
-      final result = await widget.store.profile(widget.user);
+      final user = widget.user;
+      final result = await widget.store.profile(user);
       final identity = await widget.store.repo.rpc('profile_features', {
         'p_user': widget.user,
       });
@@ -70,7 +86,7 @@ class _SocialProfileState extends State<SocialProfile> {
       final isAdmin = mine
           ? await widget.store.repo.rpc('is_admin', {}) == true
           : false;
-      if (!mounted) return;
+      if (!mounted || user != widget.user) return;
       setState(() {
         profile = result;
         profileStyle = style;
@@ -98,7 +114,13 @@ class _SocialProfileState extends State<SocialProfile> {
     } catch (e) {
       if (mounted) setState(() => error = socialError(e));
     } finally {
-      if (mounted) setState(() => loading = false);
+      if (mounted) {
+        setState(() => loading = false);
+        if (reloadPending) {
+          reloadPending = false;
+          load();
+        }
+      }
     }
   }
 
@@ -132,29 +154,6 @@ class _SocialProfileState extends State<SocialProfile> {
       ),
     );
     if (mounted) await load();
-  }
-
-  Future<void> cover() async {
-    final file = await FilePicker.pickFile(
-      type: FileType.custom,
-      allowedExtensions: ['jpg', 'jpeg', 'png', 'webp'],
-    );
-    if (file?.path == null || !mounted) return;
-    await perform(() async {
-      final source = File(file!.path!);
-      if (await source.length() > 10485760)
-        throw SocialFailure('Cover photos must be under 10 MB');
-      final mime = mimeFor(file.name),
-          safe = file.name.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
-      final path = '${widget.store.uid}/cover/${const Uuid().v4()}-$safe';
-      await widget.store.repo.db.storage
-          .from('pulse-social')
-          .upload(path, source, fileOptions: FileOptions(contentType: mime));
-      await widget.store.rpc('account', {
-        'p_private': profile!['is_private'],
-        'p_cover': path,
-      });
-    });
   }
 
   Future<void> requests() async {
@@ -279,10 +278,6 @@ class _SocialProfileState extends State<SocialProfile> {
                       child: const Text('Clear background & Signal'),
                     ),
                     OutlinedButton(
-                      onPressed: busy ? null : cover,
-                      child: const Text('Cover photo'),
-                    ),
-                    OutlinedButton(
                       onPressed: busy ? null : requests,
                       child: const Text('Follow requests'),
                     ),
@@ -292,7 +287,7 @@ class _SocialProfileState extends State<SocialProfile> {
                           : () => perform(() async {
                               await widget.store.rpc('account', {
                                 'p_private': p['is_private'] != true,
-                                'p_cover': p['cover_path'],
+                                'p_cover': null,
                               });
                             }),
                       child: Text(
@@ -396,18 +391,6 @@ class _SocialProfileState extends State<SocialProfile> {
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
             child: Column(
               children: [
-                if (p['cover_path'] != null)
-                  SizedBox(
-                    height: 110,
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: SocialImage(
-                        store: widget.store,
-                        path: p['cover_path'],
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                  ),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
@@ -680,6 +663,7 @@ class _SocialProfileState extends State<SocialProfile> {
             header: false,
             grid: true,
             profileHeader: profileHeader,
+            onProfileRefresh: load,
             author: widget.user,
             mode: tab == 2
                 ? 'saved'

@@ -9,6 +9,7 @@ import 'package:uuid/uuid.dart';
 
 import 'notifications.dart';
 import 'push.dart';
+import 'profile_media_rules.dart';
 
 typedef Row = Map<String, dynamic>;
 
@@ -486,7 +487,9 @@ class PulseRepository extends ChangeNotifier {
   final _avatarEntitlements =
       <String, ({DateTime cachedAt, DateTime? expiry})>{};
   Future<DateTime?> avatarMotionExpiry(String? path) async {
-    if (path == null || !path.toLowerCase().endsWith('.gif')) return null;
+    if (path == null ||
+        (!path.toLowerCase().endsWith('.gif') && !isProfileVideo(path)))
+      return null;
     final owner = path.split('/').first;
     if (!RegExp(r'^[a-fA-F0-9-]{36}$').hasMatch(owner)) return null;
     final cached = _avatarEntitlements[owner];
@@ -507,6 +510,32 @@ class PulseRepository extends ChangeNotifier {
   Future<String?> avatar(String? path) async => path == null
       ? null
       : db.storage.from('pulse-avatars').createSignedUrl(path, 3600);
+  Future<String> uploadProfileVideo(File video, File poster) async {
+    if (await video.length() > 15728640 || await poster.length() > 15728640)
+      throw const FormatException('Profile media must be 15 MB or smaller');
+    final path = '$uid/${const Uuid().v4()}-motion.mp4';
+    final preview = profilePosterPath(path);
+    final bucket = db.storage.from('pulse-avatars');
+    try {
+      await bucket.upload(
+        preview,
+        poster,
+        fileOptions: const FileOptions(contentType: 'image/jpeg'),
+      );
+      await bucket.upload(
+        path,
+        video,
+        fileOptions: const FileOptions(contentType: 'video/mp4'),
+      );
+      return path;
+    } catch (_) {
+      try {
+        await bucket.remove([preview, path]);
+      } catch (_) {}
+      rethrow;
+    }
+  }
+
   Future<String> upload(
     File file,
     String filename, {

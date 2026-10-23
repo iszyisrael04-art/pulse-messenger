@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'package:supabase_flutter/supabase_flutter.dart' show FunctionException;
+import 'live_diagnostics.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'notifications.dart';
@@ -17,7 +19,7 @@ class _PulseDiagnosticsPageState extends State<PulseDiagnosticsPage> {
   String result = 'Not checked';
   String liveResult = 'Not checked';
   String get report => [
-    'Pulse 0.5.5 private beta',
+    'Pulse 0.5.7 private beta',
     'Platform: ${Platform.operatingSystem}',
     'Authenticated: ${widget.repo.db.auth.currentSession != null}',
     'Backend check: $result',
@@ -70,11 +72,11 @@ class _PulseDiagnosticsPageState extends State<PulseDiagnosticsPage> {
         body: {'action': 'health'},
       );
       final data = response.data;
+      if (mounted) setState(() => liveResult = pulseLiveCheckMessage(data));
+    } on FunctionException catch (e) {
       if (mounted)
         setState(
-          () => liveResult = data is Map && data['control_plane'] == true
-              ? 'Control API connected. Camera, microphone and real calls still need device testing.'
-              : 'Not ready. Ask the platform administrator to check LiveKit configuration.',
+          () => liveResult = pulseLiveCheckMessage(e.details, status: e.status),
         );
     } catch (_) {
       if (mounted)

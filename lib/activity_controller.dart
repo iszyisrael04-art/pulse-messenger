@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'repository.dart';
+import 'activity_alerts.dart';
+import 'notifications.dart';
 
 class PulseActivityController extends ChangeNotifier
     with WidgetsBindingObserver {
@@ -10,6 +12,8 @@ class PulseActivityController extends ChangeNotifier
   int unread = 0, requestSerial = 0, appliedSerial = 0;
   bool disposed = false, refreshing = false, started = false;
   Timer? timer;
+  final alerts = PulseActivityAlerts();
+  int viewing = 0;
   Map<String, bool> preferences = {
     'mentions': true,
     'follows': true,
@@ -63,7 +67,25 @@ class PulseActivityController extends ChangeNotifier
     if (!active || refreshing) return;
     refreshing = true;
     try {
-      await page(limit: 1);
+      final data = await page(limit: 30);
+      if (!active) return;
+      final items = [
+        for (final row in data['items'] as List? ?? [])
+          Map<String, dynamic>.from(row as Map),
+      ];
+      final updates = alerts.collect(
+        items,
+        viewing: viewing > 0,
+        asOf: data['as_of'] as String?,
+      );
+      for (final entry in updates.entries) {
+        if (!active) return;
+        await PulseNotifications.instance.activity(
+          entry.key,
+          entry.value,
+          owner,
+        );
+      }
     } catch (_) {
       /* Keep the last confirmed badge while offline. */
     } finally {

@@ -26,7 +26,7 @@ class SocialFailure implements Exception {
   final String message;
 }
 
-class SocialStore {
+class SocialStore extends ChangeNotifier {
   SocialStore(this.repo);
   final PulseRepository repo;
   late final activity = PulseActivityController(repo);
@@ -101,10 +101,16 @@ class SocialStore {
     return Map<String, dynamic>.from(result as Map);
   }
 
-  Future<String> follow(String user, bool enabled) async =>
-      await rpc('follow', {'p_user': user, 'p_follow': enabled}) as String;
+  Future<String> follow(String user, bool enabled) async {
+    final state =
+        await rpc('follow', {'p_user': user, 'p_follow': enabled}) as String;
+    notifyListeners();
+    return state;
+  }
+
   Future<void> action(String id, String action, bool enabled) async {
     await rpc('action', {'p_id': id, 'p_action': action, 'p_enabled': enabled});
+    if (action == 'like') notifyListeners();
   }
 
   Future<void> edit(String id, String body, {bool delete = false}) async {

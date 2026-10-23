@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'push.dart';
+import 'activity_alerts.dart';
 
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -40,11 +41,43 @@ class PulseNotifications {
   }
 
   Future<void> clearAll() async {
+    _pendingActivityTap = false;
     _seen.clear();
     _chatCounts.clear();
     try {
       await _plugin.cancelAll();
     } catch (_) {}
+  }
+
+  void Function()? _activityTap;
+  bool _pendingActivityTap = false;
+  void setActivityTap(void Function()? handler) {
+    _activityTap = handler;
+    if (handler != null && _pendingActivityTap) {
+      _pendingActivityTap = false;
+      handler();
+    }
+  }
+
+  void activityTapped() {
+    final handler = _activityTap;
+    if (handler == null) {
+      _pendingActivityTap = true;
+    } else {
+      handler();
+    }
+  }
+
+  Future<void> activity(String kind, int count, String owner) async {
+    if (count <= 0) return;
+    await _show(
+      ('activity:$owner:$kind').hashCode & 0x7fffffff,
+      'Pulse activity',
+      pulseActivityAlertBody(kind, count),
+      number: count,
+      payload: 'pulse:activity',
+      activityAlert: true,
+    );
   }
 
   bool enabled = false, _ready = false;
@@ -61,6 +94,9 @@ class PulseNotifications {
             guid: '30f995ac-7aee-4cb1-8cc4-5f046026f024',
           ),
         ),
+        onDidReceiveNotificationResponse: (response) {
+          if (response.payload == 'pulse:activity') activityTapped();
+        },
       );
       if (Platform.isAndroid) {
         await _plugin
@@ -77,6 +113,14 @@ class PulseNotifications {
             );
       }
       _ready = true;
+      try {
+        final launch = await _plugin.getNotificationAppLaunchDetails();
+        if (launch?.didNotificationLaunchApp == true &&
+            launch?.notificationResponse?.payload == 'pulse:activity')
+          _pendingActivityTap = true;
+      } catch (_) {
+        /* Some Windows hosts do not supply launch metadata. */
+      }
     } catch (_) {
       _ready = false;
     }
@@ -100,7 +144,14 @@ class PulseNotifications {
     await _vault.write(key: 'pulse.notifications.enabled', value: '$value');
   }
 
-  Future<bool> _show(int id, String title, String body, {int? number}) async {
+  Future<bool> _show(
+    int id,
+    String title,
+    String body, {
+    int? number,
+    String? payload,
+    bool activityAlert = false,
+  }) async {
     if (!enabled || !_ready) return false;
     try {
       await _plugin.show(
@@ -109,19 +160,22 @@ class PulseNotifications {
         body,
         NotificationDetails(
           android: AndroidNotificationDetails(
-            'pulse_messages',
-            'Pulse messages',
-            channelDescription: 'New private and group messages',
+            activityAlert ? 'pulse_activity' : 'pulse_messages',
+            activityAlert ? 'Pulse activity' : 'Pulse messages',
+            channelDescription: activityAlert
+                ? 'Likes, comments, follows and mentions'
+                : 'New private and group messages',
             importance: Importance.high,
             priority: Priority.high,
             visibility: NotificationVisibility.private,
             icon: 'ic_pulse_notification',
             number: number,
-            groupKey: 'pulse_messages',
+            groupKey: activityAlert ? 'pulse_activity' : 'pulse_messages',
             onlyAlertOnce: true,
           ),
           windows: const WindowsNotificationDetails(),
         ),
+        payload: payload,
       );
       return true;
     } catch (_) {

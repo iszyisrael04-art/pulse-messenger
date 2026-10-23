@@ -10,6 +10,8 @@ import 'avatar.dart';
 import 'media.dart';
 import 'social_premium.dart';
 import 'social_repository.dart';
+import 'profile_video.dart';
+import 'video_avatar.dart';
 
 class ProfilePanel extends StatefulWidget {
   const ProfilePanel({super.key, required this.repo, required this.onSaved});
@@ -22,7 +24,8 @@ class ProfilePanel extends StatefulWidget {
 class _ProfilePanelState extends State<ProfilePanel> {
   final form = GlobalKey<FormState>();
   late TextEditingController name, username, bio;
-  File? avatar;
+  File? avatar, videoPoster;
+  Directory? videoWork;
   String? filename, error;
   bool busy = false;
   @override
@@ -36,6 +39,8 @@ class _ProfilePanelState extends State<ProfilePanel> {
 
   @override
   void dispose() {
+    if (videoWork != null)
+      videoWork!.delete(recursive: true).catchError((_) => videoWork!);
     name.dispose();
     username.dispose();
     bio.dispose();
@@ -91,6 +96,10 @@ class _ProfilePanelState extends State<ProfilePanel> {
       }
       if (mounted)
         setState(() {
+          final old = videoWork;
+          if (old != null) old.delete(recursive: true).catchError((_) => old);
+          videoWork = null;
+          videoPoster = null;
           avatar = selected;
           filename = result.name;
           error = null;
@@ -105,12 +114,51 @@ class _ProfilePanelState extends State<ProfilePanel> {
     }
   }
 
+  Future<void> chooseVideo() async {
+    if (busy) return;
+    if (!widget.repo.premiumActive) {
+      await choosePicture(motion: true);
+      return;
+    }
+    final file = await FilePicker.pickFile(
+      type: FileType.custom,
+      allowedExtensions: ['mp4', 'mov', 'm4v', 'webm'],
+    );
+    if (file?.path == null || !mounted) return;
+    final result = await Navigator.push<ProfileVideoResult>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ProfileVideoEditor(file: File(file!.path!)),
+      ),
+    );
+    if (result == null) return;
+    if (!mounted) {
+      await result.video.parent.delete(recursive: true);
+      return;
+    }
+    final old = videoWork;
+    setState(() {
+      avatar = result.video;
+      videoPoster = result.poster;
+      videoWork = result.video.parent;
+      filename = 'motion.mp4';
+      error = null;
+    });
+    if (old != null) {
+      try {
+        await old.delete(recursive: true);
+      } catch (_) {}
+    }
+  }
+
   Future<void> save() async {
     if (!form.currentState!.validate()) return;
     setState(() => busy = true);
     try {
       var path = widget.repo.me?['avatar_path'] as String?;
-      if (avatar != null)
+      if (avatar != null && videoPoster != null) {
+        path = await widget.repo.uploadProfileVideo(avatar!, videoPoster!);
+      } else if (avatar != null)
         path = await widget.repo.upload(
           avatar!,
           filename!,
@@ -178,6 +226,15 @@ class _ProfilePanelState extends State<ProfilePanel> {
                                     name: name.text,
                                     radius: 52,
                                   )
+                                : videoPoster != null
+                                ? PulseVideoAvatar(
+                                    key: ValueKey(avatar!.path),
+                                    url: avatar!.path,
+                                    poster: Image.file(
+                                      videoPoster!,
+                                      fit: BoxFit.cover,
+                                    ),
+                                  )
                                 : PulsePortrait(
                                     provider: ResizeImage(
                                       FileImage(avatar!),
@@ -221,10 +278,15 @@ class _ProfilePanelState extends State<ProfilePanel> {
               OutlinedButton.icon(
                 onPressed: busy ? null : () => choosePicture(motion: true),
                 icon: const Icon(Icons.motion_photos_on_outlined),
-                label: const Text('Animated picture · Premium'),
+                label: const Text('Animated GIF · Premium'),
+              ),
+              OutlinedButton.icon(
+                onPressed: busy ? null : chooseVideo,
+                icon: const Icon(Icons.video_file_outlined),
+                label: const Text('Video profile · trim to 5s · Premium'),
               ),
               const Text(
-                'Photos: up to 15 MB. Premium GIFs: up to 512 × 512 pixels.',
+                'Up to 15 MB. GIFs: 512 × 512 pixels. Video: five-second silent loop.',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 12),
               ),

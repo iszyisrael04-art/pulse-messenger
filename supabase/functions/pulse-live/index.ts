@@ -24,12 +24,12 @@ Deno.serve(async req => {
   const {data:account,error:accountError} = await client.rpc('pulse_account_status');
   if (accountError || account?.active !== true) return json({error:'An active Pulse account is required.'},403);
   const url = Deno.env.get('LIVEKIT_URL'), key = Deno.env.get('LIVEKIT_API_KEY'), secret = Deno.env.get('LIVEKIT_API_SECRET');
-  if (!url || !key || !secret || !url.startsWith('wss://')) return json({error:'Live broadcasting requires LiveKit configuration.'},503);
+  if (!url || !key || !secret || !url.startsWith('wss://')) return json({error:'Live broadcasting requires LiveKit configuration.',code:'not_configured',configured:false,media_tested:false},503);
   try {
     const body = await req.json();
     if(body.action==='health') {
       const {error:probeError}=await client.rpc('pulse_live_probe');
-      if(probeError)return json({error:'Please wait before checking again.'},429);
+      if(probeError)return json({error:'Please wait before checking again.',code:'rate_limited',media_tested:false},429);
       const probeToken=await sign(key,secret,user.id,{roomList:true});
       const response=await fetch(url.replace('wss://','https://').replace(/\/$/,'')+'/twirp/livekit.RoomService/ListRooms',{method:'POST',headers:{Authorization:`Bearer ${probeToken}`,'Content-Type':'application/json'},body:'{}',signal:AbortSignal.timeout(5000)});
       await response.body?.cancel();

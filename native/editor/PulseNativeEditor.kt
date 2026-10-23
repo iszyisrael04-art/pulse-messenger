@@ -48,6 +48,28 @@ class PulseNativeEditor(private val activity: Activity, messenger: BinaryMesseng
             }
           }
         }
+        "avatar" -> {
+          if (!busy.compareAndSet(false, true)) result.error("busy", "An export is already running", null)
+          else {
+            progress=0.0; cancel.set(false)
+            val input=call.argument<String>("input") ?: ""
+            val output=call.argument<String>("output") ?: ""
+            try {
+              val start=(call.argument<Number>("startMs")?.toLong() ?: -1)
+              val end=(call.argument<Number>("endMs")?.toLong() ?: -1)
+              require(start>=0 && end>start && end-start<=5000)
+              val worker=PulseWatermark(); watermark=worker
+              worker.avatar(activity,input,output,start,end,{progress=it}) {error ->
+                busy.set(false); watermark=null
+                if(error==null) result.success(null)
+                else {File(output).delete();result.error("avatar_failed",error,null)}
+              }
+            } catch(e:Exception) {
+              busy.set(false);watermark=null;File(output).delete()
+              result.error("avatar_failed","Could not export a five-second profile video",null)
+            }
+          }
+        }
         "style" -> {
           if (!busy.compareAndSet(false, true)) result.error("busy", "An export is already running", null)
           else {

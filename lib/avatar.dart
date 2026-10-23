@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'profile_rules.dart';
+import 'profile_media_rules.dart';
+import 'video_avatar.dart';
 import 'repository.dart' hide Row;
 
-/// Uses a photo placeholder rather than initials. GIF motion is entitlement-aware.
+/// Uses a photo placeholder rather than initials. GIF and video motion are entitlement-aware.
 class PulseAvatar extends StatefulWidget {
   const PulseAvatar({
     super.key,
@@ -21,7 +23,7 @@ class PulseAvatar extends StatefulWidget {
 }
 
 class _PulseAvatarState extends State<PulseAvatar> {
-  String? url;
+  String? url, posterUrl;
   DateTime? expiry;
   Timer? refresh;
   int generation = 0;
@@ -50,6 +52,7 @@ class _PulseAvatarState extends State<PulseAvatar> {
     refresh?.cancel();
     if (!motionOnly) {
       url = null;
+      posterUrl = null;
       expiry = null;
     }
     try {
@@ -58,11 +61,15 @@ class _PulseAvatarState extends State<PulseAvatar> {
             ? Future<String?>.value(url)
             : widget.repo.avatar(widget.path),
         widget.repo.avatarMotionExpiry(widget.path),
+        isProfileVideo(widget.path)
+            ? widget.repo.avatar(profilePosterPath(widget.path!))
+            : Future<String?>.value(null),
       ]);
       if (!mounted || own != generation) return;
       setState(() {
         url = results[0] as String?;
         expiry = results[1] as DateTime?;
+        posterUrl = results[2] as String?;
       });
       if (expiry != null && expiry!.isAfter(DateTime.now())) {
         refresh = Timer(
@@ -91,6 +98,34 @@ class _PulseAvatarState extends State<PulseAvatar> {
     super.dispose();
   }
 
+  Widget portrait(BuildContext context) {
+    if (url == null) return const PulsePhotoPlaceholder();
+    if (!isProfileVideo(widget.path))
+      return PulsePortrait(
+        provider: ResizeImage(NetworkImage(url!), width: 256),
+        animate: profileMotionAllowed(expiry, DateTime.now()),
+      );
+    final poster = posterUrl == null
+        ? const PulsePhotoPlaceholder()
+        : Image.network(
+            posterUrl!,
+            fit: BoxFit.cover,
+            cacheWidth: 256,
+            errorBuilder: (_, __, ___) => const PulsePhotoPlaceholder(),
+          );
+    final animate =
+        widget.radius >= 40 &&
+        profileMotionAllowed(
+          expiry,
+          DateTime.now(),
+          reducedMotion: MediaQuery.disableAnimationsOf(context),
+          visible: TickerMode.of(context),
+        );
+    return animate
+        ? PulseVideoAvatar(key: ValueKey(url), url: url!, poster: poster)
+        : poster;
+  }
+
   @override
   Widget build(BuildContext context) => Semantics(
     label: '${widget.name} profile picture',
@@ -98,12 +133,7 @@ class _PulseAvatarState extends State<PulseAvatar> {
     child: ClipOval(
       child: SizedBox.square(
         dimension: widget.radius * 2,
-        child: url == null
-            ? const PulsePhotoPlaceholder()
-            : PulsePortrait(
-                provider: ResizeImage(NetworkImage(url!), width: 256),
-                animate: profileMotionAllowed(expiry, DateTime.now()),
-              ),
+        child: portrait(context),
       ),
     ),
   );

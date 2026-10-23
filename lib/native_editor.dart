@@ -101,6 +101,44 @@ class NativePulseEditor {
     }
   }
 
+  static Future<File> avatar(
+    File input,
+    File output,
+    int startMs,
+    int endMs,
+    void Function(double) onProgress,
+  ) async {
+    if (startMs < 0 || endMs <= startMs || endMs - startMs > 5000)
+      throw ArgumentError('Profile clips must be at most five seconds');
+    if (Platform.isWindows)
+      return export(input, output, startMs, endMs, true, onProgress);
+    if (!Platform.isAndroid)
+      throw UnsupportedError('Video avatars support Android and Windows');
+    final timer = Timer.periodic(const Duration(milliseconds: 200), (_) async {
+      try {
+        onProgress(
+          (await _editorChannel.invokeMethod<double>('progress') ?? 0)
+              .clamp(0, 1)
+              .toDouble(),
+        );
+      } catch (_) {}
+    });
+    try {
+      await _editorChannel.invokeMethod<void>('avatar', {
+        'input': input.path,
+        'output': output.path,
+        'startMs': startMs,
+        'endMs': endMs,
+      });
+      if (!await output.exists() || await output.length() == 0)
+        throw StateError('No profile video was exported');
+      onProgress(1);
+      return output;
+    } finally {
+      timer.cancel();
+    }
+  }
+
   static Future<File> style(
     File input,
     File output,

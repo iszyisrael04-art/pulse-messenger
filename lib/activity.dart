@@ -54,6 +54,7 @@ class _PulseActivityPageState extends State<PulseActivityPage> {
   @override
   void initState() {
     super.initState();
+    controller.viewing++;
     load(reset: true);
     scroll.addListener(() {
       if (scroll.position.extentAfter < 400) load();
@@ -63,6 +64,7 @@ class _PulseActivityPageState extends State<PulseActivityPage> {
   @override
   void dispose() {
     generation++;
+    controller.viewing--;
     scroll.dispose();
     super.dispose();
   }

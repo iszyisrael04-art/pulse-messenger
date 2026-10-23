@@ -24,6 +24,7 @@ class SocialFeed extends StatefulWidget {
     this.header = true,
     this.grid = false,
     this.profileHeader,
+    this.onProfileRefresh,
     this.tag,
   });
   final SocialStore store;
@@ -31,6 +32,7 @@ class SocialFeed extends StatefulWidget {
   final String? author, tag;
   final bool header, grid;
   final Widget? profileHeader;
+  final Future<void> Function()? onProfileRefresh;
   @override
   State<SocialFeed> createState() => _SocialFeedState();
 }
@@ -387,7 +389,12 @@ class _SocialFeedState extends State<SocialFeed> {
         ),
       Expanded(
         child: RefreshIndicator(
-          onRefresh: () => feed.load(reset: true),
+          onRefresh: () async {
+            await Future.wait([
+              feed.load(reset: true),
+              if (widget.onProfileRefresh != null) widget.onProfileRefresh!(),
+            ]);
+          },
           child: widget.grid
               ? profileGrid()
               : ListView.builder(

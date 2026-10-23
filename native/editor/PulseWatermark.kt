@@ -91,10 +91,21 @@ class PulseWatermark {
     launch(activity, input, output, effects, progress, done)
   }
 
+  fun avatar(activity: Activity, input: String, output: String, startMs: Long, endMs: Long,
+             progress: (Double) -> Unit, done: (String?) -> Unit) {
+    require(startMs>=0 && endMs>startMs && endMs-startMs<=5000)
+    val source = MediaItem.Builder().setUri(Uri.fromFile(File(input)))
+      .setClippingConfiguration(MediaItem.ClippingConfiguration.Builder()
+        .setStartPositionMs(startMs).setEndPositionMs(endMs).build()).build()
+    launch(activity,input,output,listOf(Presentation.createForHeight(512)),progress,done,source,true)
+  }
+
   private fun launch(activity: Activity, input: String, output: String, effects: List<Effect>,
-                     progress: (Double) -> Unit, done: (String?) -> Unit) {
+                     progress: (Double) -> Unit, done: (String?) -> Unit,
+                     source: MediaItem = MediaItem.fromUri(Uri.fromFile(File(input))), removeAudio: Boolean = false) {
     finish = done
-    val item = EditedMediaItem.Builder(MediaItem.fromUri(Uri.fromFile(File(input))))
+    val item = EditedMediaItem.Builder(source)
+      .setRemoveAudio(removeAudio)
       .setEffects(Effects(emptyList(), effects))
       .build()
     val worker = Transformer.Builder(activity)

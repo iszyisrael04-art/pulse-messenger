@@ -52,6 +52,6 @@ console.log('TEST PASS live_edge_offline: read-only JWTs, staff/host authorizati
 signedIn=true;active=true;actor=guest;admin=false;configured=true;probeLimited=false;
 r=await request({action:'health'});assert.equal(r.status,200);assert.deepEqual(r.data,{configured:true,control_plane:true,media_tested:false});assert.ok(!JSON.stringify(r.data).includes('fixture-server-secret'));
 probeLimited=true;r=await request({action:'health'});assert.equal(r.status,429);probeLimited=false;
-configured=false;r=await request({action:'health'});assert.equal(r.status,503);configured=true;
+configured=false;r=await request({action:'health'});assert.equal(r.status,503);assert.equal(r.data.code,'not_configured');assert.equal(r.data.media_tested,false);configured=true;
 signedIn=false;r=await request({action:'health'});assert.equal(r.status,401);
 console.log('TEST PASS live health: authenticated, rate limited, no secret exposure, control API only');
