@@ -8,6 +8,7 @@ import 'appearance.dart';
 import 'package:flutter/material.dart';
 
 import 'avatar.dart';
+import 'presence_widgets.dart';
 import 'statuses.dart';
 import 'profile.dart';
 import 'social_repository.dart';
@@ -457,6 +458,7 @@ class _SocialProfileState extends State<SocialProfile> {
                                   child: PulseAvatar(
                                     repo: widget.store.repo,
                                     path: p['avatar_path'],
+                                    userId: widget.user,
                                     name: p['display_name'],
                                     radius: 120,
                                   ),
@@ -476,6 +478,7 @@ class _SocialProfileState extends State<SocialProfile> {
                             PulseAvatar(
                               repo: widget.store.repo,
                               path: p['avatar_path'],
+                              userId: widget.user,
                               name: p['display_name'],
                               radius: 54,
                             ),
@@ -546,6 +549,12 @@ class _SocialProfileState extends State<SocialProfile> {
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                       fontSize: 15,
                     ),
+                  ),
+                ),
+                Center(
+                  child: PulsePresenceLabel(
+                    presence: widget.store.repo.presence,
+                    userId: widget.user,
                   ),
                 ),
                 Padding(

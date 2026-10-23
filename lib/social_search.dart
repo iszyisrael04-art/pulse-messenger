@@ -270,6 +270,7 @@ class _SocialSearchPageState extends State<SocialSearchPage> {
                           leading: PulseAvatar(
                             repo: widget.store.repo,
                             path: r['avatar_path'],
+                            userId: r['id'],
                             name: r['display_name'],
                           ),
                           title: Text(r['display_name']),

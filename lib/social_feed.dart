@@ -590,6 +590,7 @@ class _SocialPostCardState extends State<SocialPostCard> {
               leading: PulseAvatar(
                 repo: widget.store.repo,
                 path: author['avatar_path'],
+                userId: author['id'],
                 name: author['display_name'],
               ),
               title: Row(

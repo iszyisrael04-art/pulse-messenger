@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'profile_rules.dart';
+import 'presence_widgets.dart';
 import 'profile_media_rules.dart';
 import 'video_avatar.dart';
 import 'repository.dart' hide Row;
@@ -13,11 +14,13 @@ class PulseAvatar extends StatefulWidget {
     required this.path,
     required this.name,
     this.radius = 24,
+    this.userId,
   });
   final PulseRepository repo;
   final String? path;
   final String name;
   final double radius;
+  final String? userId;
   @override
   State<PulseAvatar> createState() => _PulseAvatarState();
 }
@@ -127,16 +130,25 @@ class _PulseAvatarState extends State<PulseAvatar> {
   }
 
   @override
-  Widget build(BuildContext context) => Semantics(
-    label: '${widget.name} profile picture',
-    image: true,
-    child: ClipOval(
-      child: SizedBox.square(
-        dimension: widget.radius * 2,
-        child: portrait(context),
+  Widget build(BuildContext context) {
+    final picture = Semantics(
+      label: '${widget.name} profile picture',
+      image: true,
+      child: ClipOval(
+        child: SizedBox.square(
+          dimension: widget.radius * 2,
+          child: portrait(context),
+        ),
       ),
-    ),
-  );
+    );
+    return widget.userId == null
+        ? picture
+        : PulseOnlineIndicator(
+            presence: widget.repo.presence,
+            userId: widget.userId!,
+            child: picture,
+          );
+  }
 }
 
 class PulsePhotoPlaceholder extends StatelessWidget {

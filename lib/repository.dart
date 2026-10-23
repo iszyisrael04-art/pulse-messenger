@@ -9,6 +9,7 @@ import 'package:uuid/uuid.dart';
 
 import 'notifications.dart';
 import 'push.dart';
+import 'presence.dart';
 import 'profile_media_rules.dart';
 
 typedef Row = Map<String, dynamic>;
@@ -16,6 +17,11 @@ typedef Row = Map<String, dynamic>;
 class PulseRepository extends ChangeNotifier {
   PulseRepository(this.db);
   final SupabaseClient db;
+  late final presence = PulsePresence(
+    rpc: rpc,
+    owner: () => uid,
+    peers: () => profiles.keys,
+  );
   static const vault = FlutterSecureStorage();
   final profiles = <String, Row>{};
   final messages = <Row>[];
@@ -85,6 +91,7 @@ class PulseRepository extends ChangeNotifier {
       me = profiles[uid];
     }
     if (_disposed || db.auth.currentUser == null) return;
+    presence.start();
     await refresh();
     if (_disposed || db.auth.currentUser == null) return;
     PulsePush.instance.onMessage = (id) => unawaited(fetchIncoming(id));
@@ -578,6 +585,7 @@ class PulseRepository extends ChangeNotifier {
 
   @override
   void dispose() {
+    presence.dispose();
     _disposed = true;
     PulsePush.instance.onMessage = null;
     _generation++;

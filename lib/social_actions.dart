@@ -65,6 +65,7 @@ class _SocialActionsState extends State<SocialActions> {
     return PulseAvatar(
       repo: repo,
       path: profile?['avatar_path'],
+      userId: members.isEmpty ? null : members.first['user_id'],
       name: repo.chatName(chat),
     );
   }

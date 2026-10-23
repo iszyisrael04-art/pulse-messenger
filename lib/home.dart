@@ -35,6 +35,7 @@ import 'admin.dart';
 import 'channels.dart';
 import 'notifications.dart';
 import 'push.dart';
+import 'presence_widgets.dart';
 import 'statuses.dart';
 import 'calls.dart';
 import 'media.dart';
@@ -1187,6 +1188,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                             path: c['kind'] == 'group'
                                 ? (repo.chatSummaries[c['id']]?['avatar_path'])
                                 : (person?['avatar_path']),
+                            userId: c['kind'] == 'group' ? null : person?['id'],
                             name: repo.chatName(c),
                             radius: 29,
                           ),
@@ -1346,6 +1348,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                 .activeChat]?['avatar_path'])
                           : (repo.profiles[peer?['user_id']]?['avatar_path']),
                       name: name,
+                      userId: chat?['kind'] == 'group'
+                          ? null
+                          : peer?['user_id'],
                       radius: 21,
                     ),
                   ),
@@ -1365,6 +1370,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           style: Theme.of(context).textTheme.titleLarge,
                         ),
                       ),
+                      if (chat?['kind'] != 'group' && peer != null)
+                        PulsePresenceLabel(
+                          presence: repo.presence,
+                          userId: peer['user_id'],
+                        ),
                       Text(
                         chat?['kind'] == 'group'
                             ? '${(chat?['pulse_members'] as List? ?? []).length} members'
@@ -2279,6 +2289,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             ),
           ),
         ),
+      ListTile(
+        leading: const Icon(Icons.circle_outlined),
+        title: const Text('Active status'),
+        subtitle: const Text('Online and last seen privacy'),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => PulsePresenceSettings(presence: repo.presence),
+          ),
+        ),
+      ),
       ListTile(
         leading: const Icon(Icons.palette_outlined),
         title: const Text('Themes & wallpapers'),

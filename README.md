@@ -1,3 +1,9 @@
+# Pulse 0.5.11 — online and last-seen status
+
+Read [the update notes](docs/UPGRADE_0.5.11.md). Chat, profile and creator avatars can show online status, with last seen and a privacy setting. Native builds and device verification remain pending.
+
+## Previous releases
+
 # Pulse 0.5.10 — media-first Studio and playback recovery
 
 Read [the update notes](docs/UPGRADE_0.5.10.md). Create now uses a local editing workspace, a reorderable photo strip and video-download privacy. Home and Reels have cover-backed loading and bounded playback recovery. Native builds and device testing remain pending.

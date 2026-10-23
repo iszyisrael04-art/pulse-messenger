@@ -484,6 +484,7 @@ class _PulseReelsState extends State<PulseReels> with WidgetsBindingObserver {
                                     PulseAvatar(
                                       repo: widget.store.repo,
                                       path: author['avatar_path'],
+                                      userId: author['id'],
                                       name: author['display_name'],
                                       radius: 20,
                                     ),
