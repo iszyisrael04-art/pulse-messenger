@@ -133,6 +133,16 @@ Future<void> pulseBackgroundPush(RemoteMessage message) async {
   if (id == null) return;
   WidgetsFlutterBinding.ensureInitialized();
   try {
+    await Firebase.initializeApp(
+      options: const FirebaseOptions(
+        apiKey: String.fromEnvironment('FIREBASE_API_KEY'),
+        appId: String.fromEnvironment('FIREBASE_APP_ID'),
+        messagingSenderId: String.fromEnvironment(
+          'FIREBASE_MESSAGING_SENDER_ID',
+        ),
+        projectId: String.fromEnvironment('FIREBASE_PROJECT_ID'),
+      ),
+    );
     const url = String.fromEnvironment('SUPABASE_URL');
     const key = String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY');
     if (url.isEmpty || key.isEmpty) return;

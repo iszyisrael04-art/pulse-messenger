@@ -180,6 +180,17 @@ class _PulseControlChannelsState extends State<PulseControlChannels> {
     ),
     body: Column(
       children: [
+        ListTile(
+          leading: const Icon(Icons.live_tv_outlined),
+          title: const Text('LIVE follower requirement'),
+          subtitle: const Text(
+            'Set the minimum channel followers needed to broadcast.',
+          ),
+          trailing: TextButton(
+            onPressed: livePolicy,
+            child: const Text('Change'),
+          ),
+        ),
         Padding(
           padding: const EdgeInsets.all(20),
           child: TextField(

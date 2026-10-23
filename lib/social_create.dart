@@ -848,6 +848,8 @@ class _SocialComposerState extends State<SocialComposer> {
             ),
             Text(
               'Create a moment',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800),
             ),
           ],

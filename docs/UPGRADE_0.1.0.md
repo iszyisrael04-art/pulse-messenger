@@ -1,6 +1,6 @@
 # Pulse 0.1.0+28: combined release candidate
 
-The requested visible version is 0.1.0. Android build number increases to 28 so an existing Android installation can update without deleting its data. Windows installer IDs are unchanged.
+The requested visible version is 0.1.0. Android build number increases to 28 so an existing Android installation can update without deleting its data PROVIDED the signing key is the same. The current workflow produces debug APKs; a stable existing signing key must be configured before reliable public upgrades. A build-number increase alone cannot fix a signing-key mismatch. Windows installer IDs are unchanged.
 
 ## Implemented
 - Calling stays Calling until a recipient device acknowledges the current call. A pending server invitation or online dot never counts as ringing.
@@ -36,14 +36,14 @@ Public client JSON shape (replace values from Firebase app settings):
   "FIREBASE_PROJECT_ID": "PROJECT_ID"
 }
 ```
-These are build-time app identifiers, not the private service account JSON. App package ID must match the generated Android runner.
+These are build-time app identifiers, not the private service account JSON. App package ID must match the generated Android runner. The build helper also writes native Android Firebase resources, so a push can initialize Firebase before the Flutter UI starts.
 
 ## Checks performed here
 - Full Dart source formatting parsed all 126 files; changed source formatted.
 - Pure Dart call-state and chat-preview tests passed; pure Dart analyzer passed their modules.
 - Isolated PostgreSQL security fixtures passed for schemas through 029, wallet access, forged credits, exact Rose rewards, duplicate gift requests and receipts, insufficient funds, battle consent/scoring, call acknowledgements and payment fulfillment.
 - Node payment tests passed for sandbox/live separation, URL host allowlists, webhook signatures, reference/amount/currency/status checks. Mocked FCM dispatcher tests passed for authorization, missing configuration, short TTL and content-free payloads.
-- Python helper suite: 11 tests, 1 skipped, no failures.
+- Python helper suite: 12 tests, 1 skipped, no failures.
 - Native Flutter analyze/widget/Android/Windows checks are delegated to GitHub Actions; they have not run locally. No real provider payment, payout, or two-device call test was performed by this environment.
 
 ## Temporary limitations
