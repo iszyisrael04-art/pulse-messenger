@@ -21,7 +21,7 @@ class PulseMediaPicker extends StatefulWidget {
     this.remaining = 8,
   });
   final bool videoOnly;
-  final int remaining;
+  final int? remaining;
   @override
   State<PulseMediaPicker> createState() => _PulseMediaPickerState();
 }
@@ -60,9 +60,10 @@ class _PulseMediaPickerState extends State<PulseMediaPicker> {
   void add(PulsePickedMedia file) {
     if (selected.any((m) => m.file.path == file.file.path)) return;
     if (selected.isNotEmpty && (file.video || selected.first.video) ||
-        selected.length >= widget.remaining) {
-      error =
-          'Choose up to ${widget.remaining} photos or one video. Remove the current selection to switch.';
+        (widget.remaining != null && selected.length >= widget.remaining!)) {
+      error = widget.remaining == null
+          ? 'Use multiple photos or one video. Remove the current selection to switch.'
+          : 'Choose up to ${widget.remaining} photos or one video. Remove the current selection to switch.';
       if (file.owned) file.file.delete().catchError((_) => file.file);
     } else {
       selected.add(file);

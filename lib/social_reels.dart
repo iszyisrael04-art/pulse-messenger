@@ -1,6 +1,8 @@
 import 'activity.dart';
 import 'social_context.dart';
 import 'appearance.dart';
+import 'social_media.dart';
+import 'playback_status.dart';
 import 'social_hashtags.dart';
 import 'social_search.dart';
 import 'dart:async';
@@ -32,6 +34,7 @@ class _PulseReelsState extends State<PulseReels> with WidgetsBindingObserver {
   int index = 0;
   String? desired, loaded, error;
   Timer? playbackErrorTimer;
+  Timer? startupDeadline;
   Duration lastPlaybackPosition = Duration.zero;
   bool pumping = false, buffering = false, muted = false, playing = false;
   @override
@@ -78,20 +81,36 @@ class _PulseReelsState extends State<PulseReels> with WidgetsBindingObserver {
     await pump();
   }
 
+  void armPlaybackDeadline(String wanted) {
+    startupDeadline?.cancel();
+    final before = lastPlaybackPosition;
+    startupDeadline = Timer(const Duration(seconds: 18), () {
+      if (mounted &&
+          desired == wanted &&
+          (lastPlaybackPosition == before || buffering)) {
+        player?.pause();
+        setState(
+          () => error =
+              'Playback is taking too long. Check your connection, then retry.',
+        );
+      }
+    });
+  }
+
   Future<void> pump() async {
     if (pumping) return;
     pumping = true;
     try {
       while (mounted && desired != null && desired != loaded) {
         final wanted = desired!;
+        armPlaybackDeadline(wanted);
         final match = feed.rows.where((r) => r['id'] == wanted);
         if (match.isEmpty) break;
         final row = match.first;
         try {
-          final url = await widget.store.signed(
-            (row['media'] as List).first['path'],
-            renew: true,
-          );
+          final url = await widget.store
+              .signed((row['media'] as List).first['path'], renew: true)
+              .timeout(const Duration(seconds: 12));
           if (!mounted) return;
           if (desired != wanted) continue;
           if (player == null) {
@@ -113,7 +132,11 @@ class _PulseReelsState extends State<PulseReels> with WidgetsBindingObserver {
             );
             subscriptions.add(
               player!.stream.buffering.listen((v) {
-                if (mounted) setState(() => buffering = v);
+                if (mounted) {
+                  setState(() => buffering = v);
+                  if (v && playing && desired != null)
+                    armPlaybackDeadline(desired!);
+                }
               }),
             );
             subscriptions.add(
@@ -151,7 +174,14 @@ class _PulseReelsState extends State<PulseReels> with WidgetsBindingObserver {
                     position > lastPlaybackPosition) {
                   setState(() => error = null);
                 }
-                if (id == desired) lastPlaybackPosition = position;
+                if (id == desired) {
+                  if (position > lastPlaybackPosition) {
+                    startupDeadline?.cancel();
+                    if (lastPlaybackPosition == Duration.zero && mounted)
+                      setState(() {});
+                  }
+                  lastPlaybackPosition = position;
+                }
                 if (id != null &&
                     position.inSeconds >= 3 &&
                     player!.state.playing &&
@@ -169,7 +199,9 @@ class _PulseReelsState extends State<PulseReels> with WidgetsBindingObserver {
           if (desired != wanted) continue;
           await player!.setVolume(muted ? 0 : 100);
           await player!.setPlaylistMode(PlaylistMode.single);
-          await player!.open(Media(url), play: false);
+          await player!
+              .open(Media(url), play: false)
+              .timeout(const Duration(seconds: 18));
           if (!mounted) return;
           if (desired != wanted) continue;
           loaded = wanted;
@@ -199,6 +231,7 @@ class _PulseReelsState extends State<PulseReels> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     playbackErrorTimer?.cancel();
+    startupDeadline?.cancel();
     desired = null;
     feed.removeListener(changed);
     feed.dispose();
@@ -207,8 +240,41 @@ class _PulseReelsState extends State<PulseReels> with WidgetsBindingObserver {
       s.cancel();
     }
     if (PulseMedia.active == player) PulseMedia.active = null;
-    player?.dispose();
+    final current = player;
+    if (current != null)
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        current.dispose();
+      });
     super.dispose();
+  }
+
+  Widget playbackTimeline() {
+    final p = player;
+    if (p == null) return const SizedBox.shrink();
+    return StreamBuilder<Duration>(
+      stream: p.stream.position,
+      initialData: p.state.position,
+      builder: (_, snapshot) {
+        final total = p.state.duration.inMilliseconds;
+        final position = (snapshot.data ?? Duration.zero).inMilliseconds
+            .clamp(0, total > 0 ? total : 0)
+            .toDouble();
+        return SliderTheme(
+          data: SliderTheme.of(context).copyWith(
+            trackHeight: 2,
+            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 4),
+            overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),
+          ),
+          child: Slider(
+            value: position,
+            max: total > 0 ? total.toDouble() : 1,
+            onChanged: total <= 0
+                ? null
+                : (v) => p.seek(Duration(milliseconds: v.round())),
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -225,7 +291,7 @@ class _PulseReelsState extends State<PulseReels> with WidgetsBindingObserver {
                   'Reels',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 26,
+                    fontSize: 22,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -334,34 +400,41 @@ class _PulseReelsState extends State<PulseReels> with WidgetsBindingObserver {
                             ),
                           )
                         else
-                          const ColoredBox(color: Colors.black),
+                          const DecoratedBox(decoration: pulseVideoGradient),
+                        if ((!active ||
+                                loaded != post['id'] ||
+                                lastPlaybackPosition == Duration.zero ||
+                                error != null) &&
+                            (post['media'] as List).first['cover_path'] != null)
+                          SocialImage(
+                            store: widget.store,
+                            path: (post['media'] as List).first['cover_path'],
+                            fit: BoxFit.cover,
+                            quiet: true,
+                          ),
                         if (active &&
                             (loaded != post['id'] ||
                                 buffering ||
+                                lastPlaybackPosition == Duration.zero ||
                                 error != null))
-                          Center(
-                            child: error == null
-                                ? const PulseLoader()
-                                : Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        error!,
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                        ),
-                                      ),
-                                      TextButton(
-                                        onPressed: () {
-                                          loaded = null;
-                                          pump();
-                                        },
-                                        child: const Text('Retry video'),
-                                      ),
-                                    ],
-                                  ),
+                          PulsePlaybackStatus(
+                            loading: error == null,
+                            message: error,
+                            onRetry: error == null
+                                ? null
+                                : () {
+                                    loaded = null;
+                                    error = null;
+                                    lastPlaybackPosition = Duration.zero;
+                                    setState(() {});
+                                    pump();
+                                  },
                           ),
-                        if (active && loaded == post['id'] && !playing)
+                        if (active &&
+                            loaded == post['id'] &&
+                            !playing &&
+                            error == null &&
+                            lastPlaybackPosition > Duration.zero)
                           const Center(
                             child: IgnorePointer(
                               child: Icon(
@@ -460,7 +533,7 @@ class _PulseReelsState extends State<PulseReels> with WidgetsBindingObserver {
                         ),
                         Positioned(
                           right: 4,
-                          bottom: 20,
+                          bottom: 42,
                           child: SizedBox(
                             width: 88,
                             child: SocialActions(
@@ -476,6 +549,47 @@ class _PulseReelsState extends State<PulseReels> with WidgetsBindingObserver {
                             ),
                           ),
                         ),
+                        Positioned(
+                          left: 8,
+                          top: 12,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 7,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.black45,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: Colors.white12),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.auto_awesome_rounded,
+                                  size: 14,
+                                  color: Color(0xff8cebd7),
+                                ),
+                                SizedBox(width: 6),
+                                Text(
+                                  'For You',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        if (active && loaded == post['id'])
+                          Positioned(
+                            left: 4,
+                            right: 4,
+                            bottom: 0,
+                            child: playbackTimeline(),
+                          ),
                       ],
                     );
                   },

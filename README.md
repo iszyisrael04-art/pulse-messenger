@@ -1,3 +1,9 @@
+# Pulse 0.5.10 — media-first Studio and playback recovery
+
+Read [the update notes](docs/UPGRADE_0.5.10.md). Create now uses a local editing workspace, a reorderable photo strip and video-download privacy. Home and Reels have cover-backed loading and bounded playback recovery. Native builds and device testing remain pending.
+
+## Previous releases
+
 # Pulse 0.5.9 — free core features and standalone creator purchases
 
 Read [the update notes](docs/UPGRADE_0.5.9.md). Premium subscriptions, redemption and Premium badges are retired. Core features are free; animated profiles and account Boost have separate prices. Checkout is not connected yet. Native build and device verification remain pending.

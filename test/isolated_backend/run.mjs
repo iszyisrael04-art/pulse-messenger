@@ -29,6 +29,10 @@ await db.exec(fs.readFileSync(root+'/supabase/schema/025_creator_access.sql','ut
 console.log('SCHEMA PASS 025_creator_access.sql');
 await db.exec(fs.readFileSync(root+'/test/creator_access_security.sql','utf8'));
 console.log('TEST PASS creator_access_security.sql');
+await db.exec(fs.readFileSync(root+'/supabase/schema/026_composer_download_privacy.sql','utf8'));
+console.log('SCHEMA PASS 026_composer_download_privacy.sql');
+await db.exec(fs.readFileSync(root+'/test/composer_privacy_security.sql','utf8'));
+console.log('TEST PASS composer_privacy_security.sql');
 await db.close();
 await import('../live_edge_offline.mjs');
 }catch(e){console.log('BOOTSTRAP FAIL',e.message);process.exit(1);}

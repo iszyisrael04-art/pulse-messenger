@@ -280,7 +280,10 @@ class _SocialActionsState extends State<SocialActions> {
         tooltip: 'Post actions',
         onSelected: busy ? null : menu,
         itemBuilder: (_) => [
-          if ((post['media'] as List).isNotEmpty)
+          if ((post['media'] as List).isNotEmpty &&
+              (mine ||
+                  post['allow_download'] != false ||
+                  !(post['media'] as List).any((m) => m['kind'] == 'video')))
             const PopupMenuItem(value: 'download', child: Text('Download')),
           if (mine) ...[
             const PopupMenuItem(value: 'edit', child: Text('Edit caption')),

@@ -15,7 +15,7 @@ Future<void> downloadPulsePost(
   String id, {
   bool external = false,
 }) async {
-  final fresh = await store.post(id);
+  final fresh = await store.rpc('export_post', {'p_id': id});
   if (fresh == null) throw SocialFailure('This post is no longer available.');
   final media = (fresh['media'] as List).cast<Map>();
   final author = fresh['author'];
@@ -63,7 +63,8 @@ Future<void> downloadPulsePost(
     username: username,
     externalText: external ? text : null,
     signedUrl: () => store.signed(media[selected]['path'], renew: true),
-    stillAllowed: () async => await store.post(id) != null,
+    stillAllowed: () async =>
+        await store.rpc('export_post', {'p_id': id}) != null,
   );
 }
 

@@ -263,6 +263,36 @@ class _SocialFeedState extends State<SocialFeed> {
     ],
   );
 
+  Future<void> openFeedTool(String tool) async {
+    if (tool == 'interests') {
+      final changed = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PulseInterestPicker(store: widget.store),
+        ),
+      );
+      if (changed == true && mounted) {
+        feed.mode = 'for_you';
+        await feed.load(reset: true);
+      }
+    } else {
+      final value = await socialPrompt(
+        context,
+        'Paste a Pulse post ID',
+        limit: 80,
+      );
+      if (value == null || !mounted) return;
+      final match = RegExp(
+        r'[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}',
+      ).firstMatch(value);
+      if (match == null) {
+        socialNotice(context, SocialFailure('Enter a valid post ID'));
+        return;
+      }
+      await openSocialPost(context, widget.store, match.group(0)!);
+    }
+  }
+
   @override
   Widget build(BuildContext context) => Column(
     children: [
@@ -271,30 +301,14 @@ class _SocialFeedState extends State<SocialFeed> {
           padding: const EdgeInsets.fromLTRB(20, 16, 16, 8),
           child: Row(
             children: [
-              const PulseMark(size: 30),
+              const PulseMark(size: 26),
               const SizedBox(width: 10),
               const Expanded(
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerLeft,
-                  child: PulseWordmark(size: 30),
+                  child: PulseWordmark(size: 25),
                 ),
-              ),
-              IconButton(
-                tooltip: 'Change video interests',
-                icon: const Icon(Icons.tune_rounded),
-                onPressed: () async {
-                  final changed = await Navigator.push<bool>(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => PulseInterestPicker(store: widget.store),
-                    ),
-                  );
-                  if (changed == true && mounted) {
-                    feed.mode = 'for_you';
-                    await feed.load(reset: true);
-                  }
-                },
               ),
               PulseActivityButton(store: widget.store),
               IconButton(
@@ -302,33 +316,17 @@ class _SocialFeedState extends State<SocialFeed> {
                 onPressed: () => openPulseSearch(context, widget.store),
                 icon: const Icon(Icons.search),
               ),
-              IconButton(
-                tooltip: 'Open post ID',
-                onPressed: () async {
-                  final value = await socialPrompt(
-                    context,
-                    'Paste a Pulse post ID',
-                    limit: 80,
-                  );
-                  if (value == null || !mounted) return;
-                  final match = RegExp(
-                    r'[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}',
-                  ).firstMatch(value);
-                  if (match == null) {
-                    socialNotice(
-                      context,
-                      SocialFailure('Enter a valid post ID'),
-                    );
-                    return;
-                  }
-                  await openSocialPost(context, widget.store, match.group(0)!);
-                },
-                icon: const Icon(Icons.link),
-              ),
-              IconButton(
-                tooltip: 'Create post',
-                onPressed: create,
-                icon: const Icon(Icons.add_box_outlined),
+              PopupMenuButton<String>(
+                tooltip: 'Feed options',
+                onSelected: openFeedTool,
+                icon: const Icon(Icons.more_horiz_rounded),
+                itemBuilder: (_) => const [
+                  PopupMenuItem(
+                    value: 'interests',
+                    child: Text('Your interests'),
+                  ),
+                  PopupMenuItem(value: 'post', child: Text('Open post ID')),
+                ],
               ),
             ],
           ),
@@ -575,7 +573,16 @@ class _SocialPostCardState extends State<SocialPostCard> {
       ),
       child: Card(
         clipBehavior: Clip.antiAlias,
-        margin: const EdgeInsets.only(bottom: 16),
+        margin: const EdgeInsets.only(bottom: 20),
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+          side: BorderSide(
+            color: Theme.of(
+              context,
+            ).colorScheme.outlineVariant.withValues(alpha: .55),
+          ),
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -606,23 +613,14 @@ class _SocialPostCardState extends State<SocialPostCard> {
                     ? 'Only me'
                     : post['audience'] == 'followers'
                     ? 'Followers'
-                    : 'Public'}\n${DateTime.parse(post['created_at']).toLocal().toString().substring(0, 16)}',
+                    : 'Public'} · ${DateTime.parse(post['created_at']).toLocal().toString().substring(0, 10)}',
               ),
               onTap: () =>
                   openCreator(context, widget.store, post['author_id']),
             ),
-            if (post['body'].toString().isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                child: SelectableText(post['body']),
-              ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: SocialHashtags(store: widget.store, body: post['body']),
-            ),
             if (media.isNotEmpty && media.first['kind'] == 'image') ...[
               SizedBox(
-                height: 320,
+                height: 380,
                 child: PageView.builder(
                   itemCount: media.length,
                   onPageChanged: (v) => setState(() => image = v),
@@ -640,13 +638,26 @@ class _SocialPostCardState extends State<SocialPostCard> {
             ],
             if (media.isNotEmpty && media.first['kind'] == 'video')
               SizedBox(
-                height: 340,
+                height: (MediaQuery.sizeOf(context).width * 1.15).clamp(
+                  280.0,
+                  460.0,
+                ),
                 child: SocialInlineVideo(
                   store: widget.store,
                   postId: post['id'],
                   path: media.first['path'],
+                  coverPath: media.first['cover_path'],
                 ),
               ),
+            if (post['body'].toString().isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                child: SelectableText(post['body']),
+              ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: SocialHashtags(store: widget.store, body: post['body']),
+            ),
             SocialActions(
               store: widget.store,
               post: post,

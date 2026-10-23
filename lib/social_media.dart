@@ -1,4 +1,5 @@
 import 'appearance.dart';
+import 'playback_status.dart';
 import 'dart:async';
 import 'dart:typed_data';
 
@@ -17,11 +18,13 @@ class SocialImage extends StatefulWidget {
     required this.path,
     this.fit = BoxFit.contain,
     this.cacheWidth = 960,
+    this.quiet = false,
   });
   final SocialStore store;
   final String path;
   final BoxFit fit;
   final int cacheWidth;
+  final bool quiet;
   @override
   State<SocialImage> createState() => _SocialImageState();
 }
@@ -45,29 +48,39 @@ class _SocialImageState extends State<SocialImage> {
     future: url,
     builder: (_, s) {
       if (s.hasError)
-        return Center(
-          child: TextButton(
-            onPressed: () => setState(
-              () => url = widget.store.signed(widget.path, renew: true),
-            ),
-            child: const Text('Photo unavailable · retry'),
-          ),
-        );
-      if (!s.hasData) return const Center(child: PulseLoader());
+        return widget.quiet
+            ? const SizedBox.shrink()
+            : Center(
+                child: TextButton(
+                  onPressed: () => setState(
+                    () => url = widget.store.signed(widget.path, renew: true),
+                  ),
+                  child: const Text('Photo unavailable · retry'),
+                ),
+              );
+      if (!s.hasData)
+        return widget.quiet
+            ? const SizedBox.shrink()
+            : const Center(child: PulseLoader());
       return Image.network(
         s.data!,
         fit: widget.fit,
         cacheWidth: widget.cacheWidth,
-        loadingBuilder: (_, child, loading) =>
-            loading == null ? child : const Center(child: PulseLoader()),
-        errorBuilder: (_, __, ___) => Center(
-          child: TextButton(
-            onPressed: () => setState(
-              () => url = widget.store.signed(widget.path, renew: true),
-            ),
-            child: const Text('Reload photo'),
-          ),
-        ),
+        loadingBuilder: (_, child, loading) => loading == null
+            ? child
+            : widget.quiet
+            ? const SizedBox.shrink()
+            : const Center(child: PulseLoader()),
+        errorBuilder: (_, __, ___) => widget.quiet
+            ? const SizedBox.shrink()
+            : Center(
+                child: TextButton(
+                  onPressed: () => setState(
+                    () => url = widget.store.signed(widget.path, renew: true),
+                  ),
+                  child: const Text('Reload photo'),
+                ),
+              ),
       );
     },
   );
@@ -81,10 +94,12 @@ class SocialInlineVideo extends StatefulWidget {
     required this.path,
     this.recordView = true,
     this.autoplay = true,
+    this.coverPath,
   });
   final SocialStore store;
   final bool recordView, autoplay;
   final String postId, path;
+  final String? coverPath;
   @override
   State<SocialInlineVideo> createState() => _SocialInlineVideoState();
 }
@@ -97,6 +112,8 @@ class _SocialInlineVideoState extends State<SocialInlineVideo>
   bool loading = false, viewed = false, userPaused = false, foreground = true;
   Timer? visibilityTimer;
   Timer? playbackErrorTimer;
+  Timer? loadingDeadline;
+  bool frameSeen = false, buffering = false;
   Duration lastPlaybackPosition = Duration.zero;
   int playbackGeneration = 0;
   bool hasPlayed = false, muted = true;
@@ -130,6 +147,8 @@ class _SocialInlineVideoState extends State<SocialInlineVideo>
     player = null;
     controller = null;
     playbackGeneration++;
+    loadingDeadline?.cancel();
+    frameSeen = false;
     hasPlayed = false;
     for (final subscription in subscriptions) {
       subscription.cancel();
@@ -138,7 +157,10 @@ class _SocialInlineVideoState extends State<SocialInlineVideo>
     if (old != null) PulseMedia.consumeAutomaticPause(old);
     if (PulseMedia.active == old) PulseMedia.active = null;
     if (mounted) setState(() {});
-    await old?.dispose();
+    if (old != null) {
+      await WidgetsBinding.instance.endOfFrame;
+      await old.dispose();
+    }
   }
 
   void checkVisibility() {
@@ -151,6 +173,7 @@ class _SocialInlineVideoState extends State<SocialInlineVideo>
       play(automatic: true);
     else if (!userPaused &&
         player != null &&
+        error == null &&
         !player!.state.playing &&
         PulseMedia.active == null)
       play(automatic: true);
@@ -158,7 +181,24 @@ class _SocialInlineVideoState extends State<SocialInlineVideo>
 
   Future<void> play({bool automatic = false}) async {
     if (loading) return;
+    if (player != null && error == null && player!.state.playing) {
+      userPaused = true;
+      loadingDeadline?.cancel();
+      await player!.pause();
+      if (mounted) setState(() {});
+      return;
+    }
     final own = playbackGeneration;
+    loadingDeadline?.cancel();
+    loadingDeadline = Timer(const Duration(seconds: 18), () {
+      if (mounted && own == playbackGeneration && (!frameSeen || buffering)) {
+        player?.pause();
+        setState(() {
+          error =
+              'This video is taking too long. Check your connection, then retry.';
+        });
+      }
+    });
     if (!automatic) userPaused = false;
     setState(() {
       loading = true;
@@ -179,9 +219,13 @@ class _SocialInlineVideoState extends State<SocialInlineVideo>
         if (PulseMedia.active == old) PulseMedia.active = null;
         player = null;
         controller = null;
+        if (mounted) setState(() {});
+        await WidgetsBinding.instance.endOfFrame;
         await old.dispose();
       }
-      final url = await widget.store.signed(widget.path, renew: true);
+      final url = await widget.store
+          .signed(widget.path, renew: true)
+          .timeout(const Duration(seconds: 12));
       if (!mounted || own != playbackGeneration || automatic && !visible)
         return;
       MediaKit.ensureInitialized();
@@ -190,6 +234,27 @@ class _SocialInlineVideoState extends State<SocialInlineVideo>
       );
       controller = VideoController(player!);
       final observedPlayer = player!;
+      subscriptions.add(
+        observedPlayer.stream.buffering.listen((value) {
+          if (!mounted || player != observedPlayer) return;
+          setState(() => buffering = value);
+          if (value && !userPaused) {
+            loadingDeadline?.cancel();
+            loadingDeadline = Timer(const Duration(seconds: 18), () {
+              if (mounted &&
+                  player == observedPlayer &&
+                  buffering &&
+                  !userPaused) {
+                observedPlayer.pause();
+                setState(
+                  () => error =
+                      'Playback stalled. Check your connection, then retry.',
+                );
+              }
+            });
+          }
+        }),
+      );
       lastPlaybackPosition = Duration.zero;
       subscriptions.add(
         observedPlayer.stream.playing.listen((playing) {
@@ -240,6 +305,10 @@ class _SocialInlineVideoState extends State<SocialInlineVideo>
               position > lastPlaybackPosition) {
             setState(() => error = null);
           }
+          if (position > lastPlaybackPosition) {
+            loadingDeadline?.cancel();
+            if (!frameSeen && mounted) setState(() => frameSeen = true);
+          }
           lastPlaybackPosition = position;
           if (widget.recordView &&
               position.inSeconds >= 3 &&
@@ -257,7 +326,7 @@ class _SocialInlineVideoState extends State<SocialInlineVideo>
       muted = automatic;
       await current.setVolume(muted ? 0 : 100);
       await PulseMedia.activate(current);
-      await current.open(Media(url));
+      await current.open(Media(url)).timeout(const Duration(seconds: 18));
       if (PulseMedia.active != current) await current.pause();
       if (!mounted || automatic && !visible) await releaseOffscreen();
     } catch (e) {
@@ -285,6 +354,7 @@ class _SocialInlineVideoState extends State<SocialInlineVideo>
   void dispose() {
     visibilityTimer?.cancel();
     playbackErrorTimer?.cancel();
+    loadingDeadline?.cancel();
     playbackGeneration++;
     WidgetsBinding.instance.removeObserver(this);
     for (final s in subscriptions) {
@@ -293,67 +363,81 @@ class _SocialInlineVideoState extends State<SocialInlineVideo>
     final current = player;
     if (current != null) PulseMedia.consumeAutomaticPause(current);
     if (PulseMedia.active == current) PulseMedia.active = null;
-    current?.dispose();
+    if (current != null)
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        current.dispose();
+      });
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) => Column(
+  Widget build(BuildContext context) => Stack(
+    fit: StackFit.expand,
     children: [
+      const DecoratedBox(decoration: pulseVideoGradient),
+      if (controller != null && error == null)
+        Video(
+          controller: controller!,
+          controls: NoVideoControls,
+          fit: BoxFit.contain,
+        ),
+      if (widget.coverPath != null && (!frameSeen || error != null))
+        SocialImage(
+          store: widget.store,
+          path: widget.coverPath!,
+          fit: BoxFit.cover,
+          quiet: true,
+        ),
       if (error != null)
-        Padding(
-          padding: const EdgeInsets.all(8),
-          child: Column(
+        PulsePlaybackStatus(
+          message: error,
+          onRetry: loading ? null : () => play(),
+        )
+      else if (loading || buffering || player != null && !frameSeen)
+        const PulsePlaybackStatus(loading: true)
+      else if (player == null || !player!.state.playing)
+        Center(
+          child: IconButton.filledTonal(
+            tooltip: 'Play video',
+            iconSize: 42,
+            onPressed: () => play(),
+            icon: const Icon(Icons.play_arrow_rounded),
+          ),
+        ),
+      if (frameSeen && error == null)
+        Positioned(
+          right: 12,
+          bottom: 12,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Text(error!),
-              TextButton(
-                onPressed: loading ? null : play,
-                child: const Text('Reload video'),
+              IconButton.filledTonal(
+                tooltip: player?.state.playing == true
+                    ? 'Pause video'
+                    : 'Play video',
+                onPressed: () => play(),
+                icon: Icon(
+                  player?.state.playing == true
+                      ? Icons.pause
+                      : Icons.play_arrow,
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton.filledTonal(
+                tooltip: muted ? 'Enable sound' : 'Mute sound',
+                onPressed: () async {
+                  final p = player;
+                  if (p == null) return;
+                  await p.setVolume(muted ? 100 : 0);
+                  if (mounted) setState(() => muted = !muted);
+                },
+                icon: Icon(
+                  muted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
+                ),
               ),
             ],
           ),
         ),
-      Expanded(
-        child: controller != null
-            ? Stack(
-                fit: StackFit.expand,
-                children: [
-                  Video(controller: controller!),
-                  Positioned(
-                    right: 10,
-                    top: 10,
-                    child: Material(
-                      color: Colors.black54,
-                      shape: const CircleBorder(),
-                      child: IconButton(
-                        tooltip: muted ? 'Enable sound' : 'Mute sound',
-                        icon: Icon(
-                          muted
-                              ? Icons.volume_off_rounded
-                              : Icons.volume_up_rounded,
-                          color: Colors.white,
-                        ),
-                        onPressed: () async {
-                          final p = player;
-                          if (p == null) return;
-                          await p.setVolume(muted ? 100 : 0);
-                          if (mounted) setState(() => muted = !muted);
-                        },
-                      ),
-                    ),
-                  ),
-                ],
-              )
-            : Center(
-                child: loading
-                    ? const PulseLoader()
-                    : FilledButton.icon(
-                        onPressed: play,
-                        icon: const Icon(Icons.play_arrow),
-                        label: const Text('Play video'),
-                      ),
-              ),
-      ),
     ],
   );
 }
