@@ -1,0 +1,76 @@
+begin;
+create temporary table creator_fixture(k text primary key,id uuid default gen_random_uuid());
+insert into creator_fixture(k) values('owner'),('buyer'),('viewer'),('other'),('post');
+grant select on creator_fixture to authenticated,service_role;
+insert into auth.users(id,aud,role,email,email_confirmed_at) select id,'authenticated','authenticated','creator-test-'||id||'@example.invalid',now() from creator_fixture where k<>'post';
+insert into pulse_private.motion_access(user_id,source) select id,'owner' from creator_fixture where k='owner';
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from creator_fixture where k='buyer'),'role','authenticated')::text,true);
+set local role authenticated;
+do $$begin
+ if not pulse_private.social_size_allowed(524288001) or pulse_private.social_size_allowed(2147483649) then raise exception 'FAIL: free upload maximum';end if;
+ perform public.pulse_profile_features_save('ocean','Free for everyone','creating');
+ if public.pulse_profile_features(auth.uid())->>'background'<>'ocean' or public.pulse_profile_features(auth.uid())->>'signal'<>'Free for everyone' then raise exception 'FAIL: free identity';end if;
+ if pulse_private.avatar_upload_allowed(auth.uid()::text||'/motion.mp4','video/mp4') then raise exception 'FAIL: unpaid motion';end if;
+ if (public.pulse_creator_access()->>'motion')::boolean then raise exception 'FAIL: unpaid access';end if;
+ if (public.pulse_creator_access()->>'checkout_enabled')::boolean then raise exception 'FAIL: pretend checkout';end if;
+ perform public.pulse_user_tools('quick_save',null,null,'Hello','Hello friend');
+ if jsonb_array_length(public.pulse_user_tools('quick_list')->'items')<>1 then raise exception 'FAIL: free quick replies';end if;
+ if has_function_privilege('authenticated','public.pulse_confirm_creator_purchase(uuid,text,text,text,integer)','EXECUTE') or has_function_privilege('anon','public.pulse_confirm_creator_purchase(uuid,text,text,text,integer)','EXECUTE') then raise exception 'FAIL: client credit privilege';end if;
+ if has_function_privilege('authenticated','public.pulse_redeem(text)','EXECUTE') or has_function_privilege('authenticated','public.pulse_redeem_result(text)','EXECUTE') then raise exception 'FAIL: redemption still callable';end if;
+ begin insert into pulse_private.motion_access values(auth.uid(),'owner',now());raise exception 'FAIL: local entitlement grant';exception when insufficient_privilege then null;end;
+end $$;
+reset role;
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from creator_fixture where k='owner'),'role','authenticated')::text,true);
+set local role authenticated;
+do $$begin
+ if not (public.pulse_creator_access()->>'motion_free')::boolean or not pulse_private.avatar_upload_allowed(auth.uid()::text||'/motion.mp4','video/mp4') then raise exception 'FAIL: permanent owner motion';end if;
+ if pulse_private.avatar_upload_allowed((select id::text from creator_fixture where k='buyer')||'/motion.mp4','video/mp4') then raise exception 'FAIL: foreign avatar';end if;
+end $$;
+reset role;
+select set_config('request.jwt.claims','{"role":"service_role"}',true);
+set local role service_role;
+select public.pulse_confirm_creator_purchase((select id from creator_fixture where k='buyer'),'motion','fixture','motion-paid',100);
+select public.pulse_confirm_creator_purchase((select id from creator_fixture where k='buyer'),'motion','fixture','motion-paid',100);
+do $$begin
+ begin perform public.pulse_confirm_creator_purchase((select id from creator_fixture where k='other'),'motion','fixture','motion-paid',100);raise exception 'FAIL: reused receipt';exception when others then if sqlerrm='FAIL: reused receipt' then raise;end if;end;
+ begin perform public.pulse_confirm_creator_purchase((select id from creator_fixture where k='buyer'),'boost_50k','fixture','bad-price',100);raise exception 'FAIL: price mismatch';exception when others then if sqlerrm='FAIL: price mismatch' then raise;end if;end;
+end $$;
+select public.pulse_confirm_creator_purchase((select id from creator_fixture where k='buyer'),'boost_50k','fixture','boost-paid',2500);
+reset role;
+do $$begin
+ if (select count(*) from pulse_private.creator_purchases where provider='fixture' and receipt='motion-paid')<>1 then raise exception 'FAIL: receipt idempotency';end if;
+ if not exists(select 1 from pulse_private.creator_products where sku='boost_500k' and usd_cents=100000 and view_cap=500000 and period='year') then raise exception 'FAIL: annual catalog';end if;
+end $$;
+insert into public.pulse_social_content(id,author_id,kind,body,media,state,audience)
+ select f.id,b.id,'reel','Boost fixture','[{"kind":"video","path":"fixture.mp4"}]'::jsonb,'published','public' from creator_fixture f cross join creator_fixture b where f.k='post' and b.k='buyer';
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from creator_fixture where k='other'),'role','authenticated')::text,true);
+set local role authenticated;
+select public.pulse_social_action((select id from creator_fixture where k='post'),'view',true);
+reset role;
+do $$begin if exists(select 1 from pulse_private.boost_views where post_id=(select id from creator_fixture where k='post')) then raise exception 'FAIL: organic view billed as promotion';end if;end $$;
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from creator_fixture where k='viewer'),'role','authenticated')::text,true);
+set local role authenticated;
+do $$begin if public.pulse_boost_candidate()->>'promoted'<>'true' then raise exception 'FAIL: no promoted slot';end if;end $$;
+select public.pulse_social_action((select id from creator_fixture where k='post'),'view',true);
+reset role;
+do $$begin if exists(select 1 from pulse_private.boost_views where post_id=(select id from creator_fixture where k='post')) then raise exception 'FAIL: instant promotion view';end if;end $$;
+update pulse_private.boost_exposures set served_at=clock_timestamp()-interval '4 seconds' where post_id=(select id from creator_fixture where k='post');
+set local role authenticated;
+select public.pulse_social_action((select id from creator_fixture where k='post'),'view',true);
+select public.pulse_social_action((select id from creator_fixture where k='post'),'view',true);
+reset role;
+do $$begin
+ if (select count(*) from pulse_private.boost_views where post_id=(select id from creator_fixture where k='post'))<>1 then raise exception 'FAIL: duplicate qualified view';end if;
+ if (select count(*) from public.pulse_social_views where post_id=(select id from creator_fixture where k='post'))<>2 then raise exception 'FAIL: manufactured view count';end if;
+end $$;
+update pulse_private.creator_purchases set ends_at=now()-interval '1 second' where sku='boost_50k' and user_id=(select id from creator_fixture where k='buyer');
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from creator_fixture where k='other'),'role','authenticated')::text,true);
+set local role authenticated;
+do $$begin if public.pulse_boost_candidate() is not null then raise exception 'FAIL: expired boost';end if;end $$;
+reset role;
+update pulse_private.creator_purchases set revoked_at=now() where user_id=(select id from creator_fixture where k='buyer') and sku='motion';
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from creator_fixture where k='buyer'),'role','authenticated')::text,true);
+set local role authenticated;
+do $$begin if (public.pulse_creator_access()->>'motion')::boolean then raise exception 'FAIL: refunded motion still active';end if;end $$;
+reset role;
+rollback;

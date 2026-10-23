@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'profile_rules.dart';
 import 'social_repository.dart';
-import 'social_premium.dart';
 
 List<Color> pulseBackgroundColors(String style) => switch (style) {
   'aurora' => [const Color(0xff175c66), const Color(0xff553b86)],
@@ -47,17 +46,6 @@ Future<bool?> editPulseIdentity(
   SocialStore store,
   Map features,
 ) async {
-  if (!store.repo.premiumActive) {
-    return Navigator.push<bool>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => PulsePremiumPage(
-          store: store,
-          reason: 'Unlock profile backgrounds and your Profile Signal.',
-        ),
-      ),
-    );
-  }
   return showDialog<bool>(
     context: context,
     builder: (_) => _IdentityEditor(store: store, features: features),
@@ -111,8 +99,7 @@ class _IdentityEditorState extends State<_IdentityEditor> {
     } catch (_) {
       if (mounted)
         setState(
-          () => error =
-              'Could not save. Check your connection and that Premium is still active.',
+          () => error = 'Could not save. Check your connection and retry.',
         );
     } finally {
       if (mounted) setState(() => busy = false);

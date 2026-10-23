@@ -1,3 +1,9 @@
+# Pulse 0.5.9 — free core features and standalone creator purchases
+
+Read [the update notes](docs/UPGRADE_0.5.9.md). Premium subscriptions, redemption and Premium badges are retired. Core features are free; animated profiles and account Boost have separate prices. Checkout is not connected yet. Native build and device verification remain pending.
+
+## Previous releases
+
 # Pulse 0.5.6 — profile, camera and inbox update
 
 Read [upgrade/build instructions](docs/UPGRADE_0.5.6.md). Addresses the camera preview disposal error shown in the recording and updates the referenced layouts. No main.yml or SQL change. Full Flutter/native/device verification remains pending.

@@ -72,9 +72,10 @@ class SocialStore extends ChangeNotifier {
       'p_cursor': cursor?['id'],
       'p_limit': 12,
     });
-    return (data as List)
+    final rows = (data as List)
         .map((x) => Map<String, dynamic>.from(x as Map))
         .toList();
+    return rows;
   }
 
   Future<String> signed(String path, {bool renew = false}) async {
@@ -150,9 +151,7 @@ class SocialStore extends ChangeNotifier {
     final access = await uploadAccess(await file.length());
     if (access['allowed'] != true)
       throw SocialFailure(
-        access['premium'] == true
-            ? 'File exceeds the current hosting maximum.'
-            : 'Your file is over 500MB. Please upgrade to Premium to continue.',
+        'This file exceeds the current 2 GB hosting maximum.',
       );
     final safe = name.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
     final path = '$uid/$postId/${const Uuid().v4()}-$safe';
@@ -263,6 +262,21 @@ class SocialFeedController extends ChangeNotifier {
         if (disposed || generation != ownGeneration) return;
         if (page.isNotEmpty) cursor = page.last;
         hasMore = page.length == 12;
+      }
+      if (reset &&
+          author == null &&
+          tag == null &&
+          (mode == 'for_you' || mode == 'discovery')) {
+        try {
+          final promoted = await store.repo.rpc('boost_candidate', {});
+          if (disposed || generation != ownGeneration) return;
+          if (promoted is Map && (kind == 'all' || promoted['kind'] == kind)) {
+            page.removeWhere((r) => r['id'] == promoted['id']);
+            page.insert(0, Map<String, dynamic>.from(promoted));
+          }
+        } catch (_) {
+          /* Organic recommendations still load when promotion is unavailable. */
+        }
       }
       if (reset) rows = [];
       final ids = rows.map((r) => r['id']).toSet();

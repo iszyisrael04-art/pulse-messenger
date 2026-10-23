@@ -53,11 +53,10 @@ def main():
     require(rpc('send_message',{**data,'p_id':str(uuid.uuid4())},outsider)[0]>=400,'Outsider send permitted')
     require(rpc('change_message',{'p_id':mid,'p_body':'attack','p_delete':False},bob)[0]>=400,'Recipient edit permitted')
     require(rpc('mark_read',{'p_chat':cid},bob)[0]<300,'Read receipt failed')
-    require(rpc('redeem',{'p_code':'30DAYSPULSE'},alice)[0]<300,'Promo redemption failed')
-    require(rpc('redeem',{'p_code':'30DAYSPULSE'},alice)[0]>=400,'Duplicate promo accepted')
+    require(rpc('redeem',{'p_code':'30DAYSPULSE'},alice)[0]>=400,'Retired redemption still enabled')
     require(rpc('admin_overview',{},alice)[0]>=400,'Unprivileged admin access accepted')
     require(rpc('block_user',{'p_user':aid,'p_block':True},bob)[0]<300,'Block failed')
     require(rpc('send_message',{**data,'p_id':str(uuid.uuid4())},alice)[0]>=400,'Blocked send accepted')
-    print('PASS: wrong-password rejection, username login, refresh, profiles, messaging, retry idempotency, RLS isolation, ownership, read receipt, promo uniqueness, admin isolation and blocking')
+    print('PASS: wrong-password rejection, username login, refresh, profiles, messaging, retry idempotency, RLS isolation, ownership, read receipt, retired redemption, admin isolation and blocking')
 
 if __name__=='__main__':main()

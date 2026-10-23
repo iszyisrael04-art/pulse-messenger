@@ -1709,7 +1709,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final clock = time == null
         ? ''
         : '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
-    final style = repo.premiumActive ? repo.chatStyle : 'classic';
+    final style = repo.chatStyle;
     final accents = switch (style) {
       'aurora' => const [Color(0xffb9f6df), Color(0xffbfe8ff)],
       'rose' => const [Color(0xffffdce8), Color(0xffe9d9ff)],

@@ -8,7 +8,6 @@ import 'media.dart';
 import 'social_repository.dart';
 import 'social_media.dart';
 import 'social_preview.dart';
-import 'social_premium.dart';
 import 'media_picker.dart';
 import 'chat_camera.dart';
 
@@ -123,22 +122,9 @@ class _SocialComposerState extends State<SocialComposer> {
       final access = await widget.store.uploadAccess(await file.length());
       if (!mounted) return;
       if (access['allowed'] != true) {
-        if (access['premium'] != true) {
-          await Navigator.push<bool>(
-            context,
-            MaterialPageRoute(
-              builder: (_) => PulsePremiumPage(
-                store: widget.store,
-                reason: oversizePremiumMessage,
-              ),
-            ),
-          );
-        } else {
-          setState(
-            () => error = 'This file exceeds the current hosting maximum.',
-          );
-        }
-        return;
+        throw SocialFailure(
+          'This file exceeds the current 2 GB hosting maximum.',
+        );
       }
     } catch (e) {
       if (mounted) setState(() => error = socialError(e));

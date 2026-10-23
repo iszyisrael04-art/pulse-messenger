@@ -54,6 +54,9 @@ jobs:
       - name: Test streaming account export
         run: dart test/data_export_offline.dart
 
+      - name: Test creator product prices
+        run: dart test/creator_products_offline.dart
+
       - name: Run Flutter tests
         run: flutter test
 
@@ -125,6 +128,9 @@ jobs:
       - name: Test streaming account export
         run: dart test/data_export_offline.dart
 
+      - name: Test creator product prices
+        run: dart test/creator_products_offline.dart
+
       - name: Run Flutter tests
         run: flutter test
 
@@ -166,3 +172,13 @@ jobs:
             dist/*.exe
             build/windows/x64/runner/Release/
             pubspec.lock
+
+  isolated_backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm ci --prefix test/isolated_backend
+      - run: node test/isolated_backend/run.mjs

@@ -8,7 +8,7 @@ import 'repository.dart';
 import 'validation.dart';
 import 'avatar.dart';
 import 'media.dart';
-import 'social_premium.dart';
+import 'creator_access.dart';
 import 'social_repository.dart';
 import 'profile_video.dart';
 import 'video_avatar.dart';
@@ -49,13 +49,13 @@ class _ProfilePanelState extends State<ProfilePanel> {
 
   Future<void> choosePicture({bool motion = false}) async {
     if (busy) return;
-    if (motion && !widget.repo.premiumActive) {
+    if (motion && !widget.repo.motionActive) {
       await Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => PulsePremiumPage(
+          builder: (_) => PulseCreatorAccessPage(
             store: SocialStore(widget.repo),
-            reason: 'Animated profile pictures are a Premium feature.',
+            reason: 'Unlock GIF and five-second video profiles for \$1 once.',
           ),
         ),
       );
@@ -116,7 +116,7 @@ class _ProfilePanelState extends State<ProfilePanel> {
 
   Future<void> chooseVideo() async {
     if (busy) return;
-    if (!widget.repo.premiumActive) {
+    if (!widget.repo.motionActive) {
       await choosePicture(motion: true);
       return;
     }
@@ -245,7 +245,7 @@ class _ProfilePanelState extends State<ProfilePanel> {
                                               '.gif',
                                             ) ==
                                             true &&
-                                        widget.repo.premiumActive,
+                                        widget.repo.motionActive,
                                   ),
                           ),
                         ),
@@ -278,12 +278,20 @@ class _ProfilePanelState extends State<ProfilePanel> {
               OutlinedButton.icon(
                 onPressed: busy ? null : () => choosePicture(motion: true),
                 icon: const Icon(Icons.motion_photos_on_outlined),
-                label: const Text('Animated GIF · Premium'),
+                label: Text(
+                  widget.repo.motionActive
+                      ? 'Animated GIF'
+                      : 'Animated GIF · \$1 unlock',
+                ),
               ),
               OutlinedButton.icon(
                 onPressed: busy ? null : chooseVideo,
                 icon: const Icon(Icons.video_file_outlined),
-                label: const Text('Video profile · trim to 5s · Premium'),
+                label: Text(
+                  widget.repo.motionActive
+                      ? 'Video profile · trim to 5s'
+                      : 'Video profile · 5s · \$1 unlock',
+                ),
               ),
               const Text(
                 'Up to 15 MB. GIFs: 512 × 512 pixels. Video: five-second silent loop.',

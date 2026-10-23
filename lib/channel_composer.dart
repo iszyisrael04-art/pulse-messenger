@@ -8,7 +8,6 @@ import 'package:uuid/uuid.dart';
 import 'media.dart';
 import 'repository.dart' hide Row;
 import 'social_repository.dart';
-import 'social_premium.dart';
 import 'social_preview.dart';
 import 'social_upload.dart';
 import 'voice.dart';
@@ -97,21 +96,9 @@ class _ChannelComposerState extends State<ChannelComposer> {
         widget.repo,
       ).uploadAccess(await chosen!.length());
       if (access['allowed'] != true) {
-        if (!mounted) return;
-        if (access['premium'] != true) {
-          await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => PulsePremiumPage(
-                store: SocialStore(widget.repo),
-                reason: oversizePremiumMessage,
-              ),
-            ),
-          );
-        } else {
-          throw SocialFailure('File exceeds the current hosting maximum.');
-        }
-        return;
+        throw SocialFailure(
+          'This file exceeds the current 2 GB hosting maximum.',
+        );
       }
       PulseStudioResult? preview;
       if (widget.kind != 'audio') {
@@ -167,7 +154,9 @@ class _ChannelComposerState extends State<ChannelComposer> {
         widget.repo,
       ).uploadAccess(await file!.length());
       if (access['allowed'] != true)
-        throw SocialFailure(oversizePremiumMessage);
+        throw SocialFailure(
+          'This file exceeds the current 2 GB hosting maximum.',
+        );
       final mime = mimeFor(file!.path);
       if (!uploadingComplete) {
         path =

@@ -33,11 +33,12 @@ class PulseRepository extends ChangeNotifier {
   Row? incoming;
   bool Function(String)? isChatVisible;
   final _announced = <String>{};
-  DateTime? premiumUntil;
+  DateTime? motionUntil;
   String chatStyle = 'classic';
-  bool get premiumActive => premiumUntil?.isAfter(DateTime.now()) == true;
-  void applyPremium(DateTime expiry) {
-    premiumUntil = expiry;
+  bool get motionActive => motionUntil?.isAfter(DateTime.now()) == true;
+  Future<void> refreshCreatorAccess() async {
+    final access = await rpc('creator_access', {});
+    motionUntil = access['motion'] == true ? DateTime.utc(9999) : null;
     _avatarEntitlements.clear();
     notifyListeners();
   }
@@ -151,11 +152,7 @@ class PulseRepository extends ChangeNotifier {
           .select()
           .eq('id', uid)
           .single();
-      final entitlement = await db
-          .from('pulse_premium')
-          .select('expires_at')
-          .eq('user_id', uid)
-          .maybeSingle();
+      final access = await rpc('creator_access', {});
       final cs = await db
           .from('pulse_chats')
           .select('*,pulse_members(user_id,role)')
@@ -223,7 +220,7 @@ class PulseRepository extends ChangeNotifier {
       }
       if (gen != _generation) return;
       me = own;
-      premiumUntil = DateTime.tryParse(entitlement?['expires_at'] ?? '');
+      motionUntil = access['motion'] == true ? DateTime.utc(9999) : null;
       for (final p in ps) {
         profiles[p['id']] = p;
       }

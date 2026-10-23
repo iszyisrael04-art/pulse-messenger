@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'repository.dart';
 import 'social_repository.dart';
-import 'social_premium.dart';
 
 class PulseChatTools extends StatefulWidget {
   const PulseChatTools({
@@ -20,11 +19,7 @@ class PulseChatTools extends StatefulWidget {
 class _PulseChatToolsState extends State<PulseChatTools> {
   final note = TextEditingController();
   List<Map<String, dynamic>> replies = [];
-  bool busy = false,
-      paid = false,
-      noteDirty = false,
-      settingNote = false,
-      confirming = false;
+  bool busy = false, noteDirty = false, settingNote = false, confirming = false;
   String style = 'classic';
   String? error;
   @override
@@ -77,7 +72,6 @@ class _PulseChatToolsState extends State<PulseChatTools> {
           replies = (quick['items'] as List)
               .map((r) => Map<String, dynamic>.from(r))
               .toList();
-          paid = quick['premium'] == true;
           style = theme['style'] as String;
         });
     } catch (_) {
@@ -103,26 +97,14 @@ class _PulseChatToolsState extends State<PulseChatTools> {
       if (mounted)
         setState(
           () => error =
-              'Could not save. Check your connection, Premium status and the 20-reply limit.',
+              'Could not save. Check your connection and the 20-reply limit.',
         );
     } finally {
       if (mounted) setState(() => busy = false);
     }
   }
 
-  Future<void> upgrade() async {
-    await Navigator.push<bool>(
-      context,
-      MaterialPageRoute(builder: (_) => PulsePremiumPage(store: widget.store)),
-    );
-    if (mounted) await load();
-  }
-
   Future<void> editReply([Map<String, dynamic>? reply]) async {
-    if (!paid) {
-      await upgrade();
-      return;
-    }
     final title = TextEditingController(text: reply?['label'] ?? '');
     final body = TextEditingController(text: reply?['body'] ?? '');
     final form = GlobalKey<FormState>();
@@ -294,7 +276,7 @@ class _PulseChatToolsState extends State<PulseChatTools> {
                     padding: const EdgeInsets.all(24),
                     children: [
                       const Text(
-                        'Saved quick replies · Premium',
+                        'Saved quick replies',
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
@@ -304,11 +286,6 @@ class _PulseChatToolsState extends State<PulseChatTools> {
                       const Text(
                         'Keep up to 20 reusable replies. Selecting a reply inserts a draft; you choose when to send it.',
                       ),
-                      if (!paid)
-                        OutlinedButton(
-                          onPressed: upgrade,
-                          child: const Text('Unlock with Premium'),
-                        ),
                       for (final r in replies)
                         Card(
                           child: ListTile(
@@ -325,10 +302,6 @@ class _PulseChatToolsState extends State<PulseChatTools> {
                             onTap: busy
                                 ? null
                                 : () {
-                                    if (!paid) {
-                                      upgrade();
-                                      return;
-                                    }
                                     perform(() async {
                                       final value = await api(
                                         'quick_use',
@@ -376,7 +349,7 @@ class _PulseChatToolsState extends State<PulseChatTools> {
                     padding: const EdgeInsets.all(24),
                     children: [
                       const Text(
-                        'Your bubble style · Premium',
+                        'Your bubble style',
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
@@ -399,16 +372,9 @@ class _PulseChatToolsState extends State<PulseChatTools> {
                                 ? Icons.check_circle
                                 : Icons.circle_outlined,
                           ),
-                          trailing: entry.key != 'classic'
-                              ? const Icon(Icons.workspace_premium_outlined)
-                              : null,
                           onTap: busy
                               ? null
                               : () async {
-                                  if (!paid && entry.key != 'classic') {
-                                    await upgrade();
-                                    return;
-                                  }
                                   await perform(() async {
                                     await api('style_save', label: entry.key);
                                     await widget.repo.loadChatStyle(

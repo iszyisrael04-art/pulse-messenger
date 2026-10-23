@@ -599,19 +599,10 @@ class _SocialPostCardState extends State<SocialPostCard> {
                       padding: EdgeInsets.only(left: 4),
                       child: Icon(Icons.verified, color: Colors.blue, size: 17),
                     ),
-                  if (author['premium'] == true)
-                    const Padding(
-                      padding: EdgeInsets.only(left: 4),
-                      child: Icon(
-                        Icons.workspace_premium,
-                        color: Colors.amber,
-                        size: 17,
-                      ),
-                    ),
                 ],
               ),
               subtitle: Text(
-                '@${author['username'] ?? 'pulse_user'} · ${post['audience'] == 'private'
+                '${post['promoted'] == true ? 'Promoted · ' : ''}@${author['username'] ?? 'pulse_user'} · ${post['audience'] == 'private'
                     ? 'Only me'
                     : post['audience'] == 'followers'
                     ? 'Followers'

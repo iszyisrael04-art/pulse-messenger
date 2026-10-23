@@ -18,13 +18,17 @@ grant usage on schema auth,storage to authenticated,anon,service_role;
 grant select,insert,update,delete on storage.objects to authenticated;
 create function storage.foldername(text) returns text[] language sql immutable as $$select (string_to_array($1,'/'))[1:array_length(string_to_array($1,'/'),1)-1]$$;
 create publication supabase_realtime;`);
-for(const f of fs.readdirSync(root+'/supabase/schema').filter(x=>x.endsWith('.sql')).sort()){
+for(const f of fs.readdirSync(root+'/supabase/schema').filter(x=>x.endsWith('.sql') && x<'025_').sort()){
  try{await db.exec(fs.readFileSync(root+'/supabase/schema/'+f,'utf8'));console.log('SCHEMA PASS',f);}catch(e){console.log('SCHEMA FAIL',f,e.message,e.where??'');process.exit(1);}
 }
 for(const f of ['requests_privacy_premium_security.sql','profile_identity_security.sql','activity_security.sql','control_security.sql','channel_verification_security.sql','channels_security.sql','live_controls_security.sql','community_channel_updates_security.sql','live_party_security.sql','status_replies_security.sql','channel_media_security.sql','chat_forwarding_security.sql']){
  if(!fs.existsSync(root+'/test/'+f))continue;
  try{await db.exec(fs.readFileSync(root+'/test/'+f,'utf8'));console.log('TEST PASS',f);}catch(e){console.log('TEST FAIL',f,e.message,e.where??'');process.exit(1);}
 }
+await db.exec(fs.readFileSync(root+'/supabase/schema/025_creator_access.sql','utf8'));
+console.log('SCHEMA PASS 025_creator_access.sql');
+await db.exec(fs.readFileSync(root+'/test/creator_access_security.sql','utf8'));
+console.log('TEST PASS creator_access_security.sql');
 await db.close();
 await import('../live_edge_offline.mjs');
 }catch(e){console.log('BOOTSTRAP FAIL',e.message);process.exit(1);}

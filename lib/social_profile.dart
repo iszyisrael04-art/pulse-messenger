@@ -2,7 +2,7 @@ import 'dart:async';
 import 'profile_identity.dart';
 import 'communities.dart';
 import 'profile_rules.dart';
-import 'social_premium.dart';
+import 'creator_access.dart';
 import 'appearance.dart';
 
 import 'package:flutter/material.dart';
@@ -281,7 +281,7 @@ class _SocialProfileState extends State<SocialProfile> {
                   children: [
                     OutlinedButton.icon(
                       icon: const Icon(Icons.palette_outlined),
-                      label: const Text('Background & Signal · Premium'),
+                      label: const Text('Background & Signal'),
                       onPressed: busy
                           ? null
                           : () async {
@@ -366,12 +366,12 @@ class _SocialProfileState extends State<SocialProfile> {
                           context,
                           MaterialPageRoute(
                             builder: (_) =>
-                                PulsePremiumPage(store: widget.store),
+                                PulseCreatorAccessPage(store: widget.store),
                           ),
                         );
                         if (changed == true && mounted) await load();
                       },
-                      child: const Text('Redeem code / Premium'),
+                      child: const Text('Animated profile & Boost'),
                     ),
                     if (admin)
                       OutlinedButton(
@@ -386,11 +386,6 @@ class _SocialProfileState extends State<SocialProfile> {
                       ),
                   ],
                 ),
-                if (mine)
-                  const Text(
-                    'Premium: \$3/month planned. No paid billing is enabled. Existing entitlements and one-time 30DAYSPULSE redemption are preserved.',
-                    style: TextStyle(fontSize: 11),
-                  ),
               ],
             ),
           ),
@@ -530,15 +525,6 @@ class _SocialProfileState extends State<SocialProfile> {
                         child: Icon(
                           Icons.verified,
                           color: Colors.blue,
-                          size: 21,
-                        ),
-                      ),
-                    if (p['premium'] == true)
-                      const Padding(
-                        padding: EdgeInsets.only(left: 6),
-                        child: Icon(
-                          Icons.workspace_premium,
-                          color: Colors.amber,
                           size: 21,
                         ),
                       ),

@@ -27,11 +27,11 @@ class _PulseAvatarState extends State<PulseAvatar> {
   DateTime? expiry;
   Timer? refresh;
   int generation = 0;
-  DateTime? observedPremium;
+  DateTime? observedMotion;
   @override
   void initState() {
     super.initState();
-    observedPremium = widget.repo.premiumUntil;
+    observedMotion = widget.repo.motionUntil;
     load();
   }
 
@@ -39,10 +39,10 @@ class _PulseAvatarState extends State<PulseAvatar> {
   void didUpdateWidget(PulseAvatar old) {
     super.didUpdateWidget(old);
     if (old.path != widget.path || old.repo != widget.repo) {
-      observedPremium = widget.repo.premiumUntil;
+      observedMotion = widget.repo.motionUntil;
       load();
-    } else if (observedPremium != widget.repo.premiumUntil) {
-      observedPremium = widget.repo.premiumUntil;
+    } else if (observedMotion != widget.repo.motionUntil) {
+      observedMotion = widget.repo.motionUntil;
       load(motionOnly: true);
     }
   }
@@ -154,7 +154,7 @@ class PulsePhotoPlaceholder extends StatelessWidget {
 }
 
 /// Keeps exactly one decoded frame when animation is unavailable or disabled.
-/// This also prevents animated WebP/PNG from bypassing the GIF-only Premium UI.
+/// This also prevents animated WebP/PNG from bypassing the paid motion-profile UI.
 class PulsePortrait extends StatefulWidget {
   const PulsePortrait({
     super.key,

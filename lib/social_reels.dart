@@ -426,7 +426,7 @@ class _PulseReelsState extends State<PulseReels> with WidgetsBindingObserver {
                                       ),
                                     Flexible(
                                       child: Text(
-                                        '@${author['username'] ?? 'pulse_user'}',
+                                        '${post['promoted'] == true ? 'Promoted · ' : ''}@${author['username'] ?? 'pulse_user'}',
                                         style: const TextStyle(
                                           color: Colors.white,
                                           fontWeight: FontWeight.bold,

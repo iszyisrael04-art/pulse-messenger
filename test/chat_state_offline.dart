@@ -1,5 +1,4 @@
 import '../lib/chat_state.dart';
-import '../lib/premium_result.dart';
 
 void require(bool result, String reason) {
   if (!result) throw StateError(reason);
@@ -63,46 +62,5 @@ void main() {
     {'emoji': '👍'},
   ]);
   require(reactions['❤️'] == 2 && reactions['👍'] == 1, 'Reaction grouping');
-  final redeemed = PulsePremiumResult.parse({
-    'expires_at': '2030-01-10T00:00:00Z',
-    'already_redeemed': false,
-  });
-  require(
-    !redeemed.alreadyRedeemed && redeemed.message.contains('activated'),
-    'First redemption',
-  );
-  final retry = PulsePremiumResult.parse(
-    '{"expires_at":"2030-01-10T00:00:00Z","already_redeemed":true}',
-  );
-  require(
-    retry.alreadyRedeemed && retry.expiresAt == redeemed.expiresAt,
-    'Retry response',
-  );
-  require(
-    pulsePremiumError(
-      'PGRST202',
-      'missing function',
-    ).contains('needs an update'),
-    'No raw schema code',
-  );
-  require(
-    pulsePremiumError('P0001', 'Code unavailable').contains('invalid'),
-    'Invalid-code message',
-  );
-  require(
-    pulsePremiumError(
-      'P0001',
-      'This account already used this one-time code. Its Premium period has ended',
-    ).contains('already used'),
-    'Expired one-time redemption',
-  );
-  try {
-    PulsePremiumResult.parse({'expires_at': 'not a date'});
-    throw StateError('Malformed response accepted');
-  } on FormatException {
-    /* Expected. */
-  }
-  print(
-    'PASS: receipt states, notification truth table, reaction counts, redemption response parsing and readable error mapping',
-  );
+  print('PASS: receipt states, notification truth table and reaction counts');
 }

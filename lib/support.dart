@@ -140,7 +140,7 @@ class _PulseHelpPageState extends State<PulseHelpPage> {
                   for (final c in [
                     'App issue',
                     'Account & login',
-                    'Premium & codes',
+                    'Purchases & boosts',
                     'Safety & privacy',
                     'Feedback',
                   ])

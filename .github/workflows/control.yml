@@ -30,8 +30,10 @@ jobs:
       - run: python -m unittest discover -s test -p "test_*.py"
       - name: Test streaming account export
         run: dart test/data_export_offline.dart
-      - name: Test chat marks and Premium results
+      - name: Test chat marks
         run: dart test/chat_state_offline.dart
+      - name: Test creator product prices
+        run: dart test/creator_products_offline.dart
       - name: Test profile rules
         run: dart test/profile_rules_offline.dart
       - name: Test support email encoding
@@ -82,8 +84,10 @@ jobs:
       - run: python -m unittest discover -s test -p "test_*.py"
       - name: Test streaming account export
         run: dart test/data_export_offline.dart
-      - name: Test chat marks and Premium results
+      - name: Test chat marks
         run: dart test/chat_state_offline.dart
+      - name: Test creator product prices
+        run: dart test/creator_products_offline.dart
       - name: Test profile rules
         run: dart test/profile_rules_offline.dart
       - name: Test support email encoding
