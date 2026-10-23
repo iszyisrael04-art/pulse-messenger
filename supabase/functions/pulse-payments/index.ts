@@ -1,8 +1,18 @@
+import { checkout } from './checkout.ts';
+import { liveEnabled, webhookValid } from './live.mjs';
 import { createClient } from 'npm:@supabase/supabase-js@2.99.1';
 import { sandboxBase, testAmount, sandboxKey, ownsReference, checkoutUrl, verifiedTest } from './rules.mjs';
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
 Deno.serve(async (req: Request) => {
   if (req.method !== 'POST') return json({error:'POST required'},405);
+  const key = Deno.env.get('SQUAD_SECRET_KEY') ?? ''; 
+  const live = liveEnabled(key, (name: string) => Deno.env.get(name));
+  if (req.headers.has('x-squad-encrypted-body')) {
+    if (!live) return json({error:'Live payments disabled'},503);
+    const raw = await req.text();
+    if (raw.length>20000 || !await webhookValid(raw,req.headers.get('x-squad-encrypted-body'),key)) return json({error:'Invalid webhook'},401);
+    try { return await checkout(req,raw,key,null,null); } catch { return json({error:'Webhook processing unavailable'},503); }
+  }
   const authorization = req.headers.get('Authorization') ?? '';
   if (!authorization.startsWith('Bearer ')) return json({error:'Sign in required'},401);
   const client = createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_ANON_KEY')!,{global:{headers:{Authorization:authorization}},auth:{persistSession:false}});
@@ -10,16 +20,21 @@ Deno.serve(async (req: Request) => {
   if (error || !user) return json({error:'Sign in required'},401);
   const {data:account,error:accountError}=await client.rpc('pulse_account_status');
   if(accountError || account?.active !== true) return json({error:'Active account required'},403);
-  const key = Deno.env.get('SQUAD_SECRET_KEY');
-  // This deployment can never access the live API or grant entitlements.
-  if (!sandboxKey(key)) return json({error:'Save a Squad sandbox secret key. Live keys are disabled for this test.',code:'sandbox_key_required'},503);
+
   try {
     if (Number(req.headers.get('content-length') ?? 0)>4096) return json({error:'Request too large'},413);
     const raw=await req.text();
     if(raw.length>4096)return json({error:'Request too large'},413);
     let body;
     try {body=JSON.parse(raw);}catch{return json({error:'Invalid JSON'},400);}
-    if(body.action==='health')return json({sandbox:true,configured:true,provider_verified:false,purchases_enabled:false});
+    if(body.action==='health')return json({sandbox:sandboxKey(key),configured:sandboxKey(key)||live,provider_verified:false,purchases_enabled:live});
+    if (body.action === 'checkout' || body.action === 'verify') {
+      if (!live) return json({error:'Live checkout is not enabled. No payment was started.'},503);
+      const {error:limited}=await client.rpc('pulse_live_probe');
+      if (limited) return json({error:'Please wait before trying again.'},429);
+      return await checkout(req,raw,key,client,user);
+    }
+    if (!sandboxKey(key)) return json({error:'Save a sandbox secret to run simulated tests. Live keys cannot run sandbox tests.'},503);
     if(!['start-test','verify-test'].includes(body.action))return json({error:'Unknown action'},400);
     // Shared database rate limiter: no per-instance in-memory bypass.
     const {error:rateError}=await client.rpc('pulse_live_probe');

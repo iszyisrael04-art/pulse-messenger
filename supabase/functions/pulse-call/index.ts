@@ -29,6 +29,14 @@ Deno.serve(async req => {
       const {data,error} = await db.rpc('pulse_call_start',{p_chat:body.chat_id,p_kind:body.kind});
       if (error) return json({error:error.message},403);
       id = data;
+      // No caller or contact details leave the server in push payloads.
+      const service = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+      if (service) {
+        const send = fetch(Deno.env.get('SUPABASE_URL')!+'/functions/v1/pulse-call-push', {
+          method:'POST',headers:{Authorization:`Bearer ${service}`},signal:AbortSignal.timeout(12000),
+        }).then(async r=>{await r.body?.cancel();}).catch(()=>{});
+        EdgeRuntime.waitUntil(send);
+      }
     } else {
       id = body.call_id;
       if (typeof id !== 'string' || !/^[0-9a-f-]{36}$/i.test(id)) return json({error:'Invalid call'},400);

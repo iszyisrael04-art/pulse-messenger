@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'creator_products.dart';
 import 'payment_test.dart';
+import 'purchase.dart';
 import 'social_repository.dart';
 
 class PulseCreatorAccessPage extends StatefulWidget {
@@ -14,7 +15,7 @@ class PulseCreatorAccessPage extends StatefulWidget {
 class _PulseCreatorAccessPageState extends State<PulseCreatorAccessPage> {
   Map<String, dynamic>? access;
   String? error;
-  bool loading = false;
+  bool loading = false, paymentsEnabled = false;
   @override
   void initState() {
     super.initState();
@@ -30,6 +31,16 @@ class _PulseCreatorAccessPageState extends State<PulseCreatorAccessPage> {
     try {
       final result = await widget.store.repo.rpc('creator_access', {});
       await widget.store.repo.refreshCreatorAccess();
+      try {
+        final status = await widget.store.repo.db.functions.invoke(
+          'pulse-payments',
+          body: {'action': 'health'},
+        );
+        paymentsEnabled =
+            status.data is Map && status.data['purchases_enabled'] == true;
+      } catch (_) {
+        paymentsEnabled = false;
+      }
       if (mounted)
         setState(() => access = Map<String, dynamic>.from(result as Map));
     } catch (e) {
@@ -92,12 +103,18 @@ class _PulseCreatorAccessPageState extends State<PulseCreatorAccessPage> {
               productCard(product),
             if (data != null) ...[
               const SizedBox(height: 12),
-              const ListTile(
-                leading: Icon(Icons.info_outline),
+              ListTile(
+                leading: const Icon(Icons.info_outline),
                 contentPadding: EdgeInsets.zero,
-                title: Text('Purchases are not available yet'),
+                title: Text(
+                  paymentsEnabled
+                      ? 'Secure Squad checkout'
+                      : 'Payment setup pending',
+                ),
                 subtitle: Text(
-                  'Checkout must be connected before you can pay. No payment or subscription starts on this screen.',
+                  paymentsEnabled
+                      ? 'Check the USD total on checkout. Boost plans do not automatically renew.'
+                      : 'Real purchases are disabled until the live payment provider is configured and tested.',
                 ),
               ),
             ],
@@ -180,8 +197,29 @@ class _PulseCreatorAccessPageState extends State<PulseCreatorAccessPage> {
               ),
             const SizedBox(height: 12),
             FilledButton(
-              onPressed: null,
-              child: Text(owned ? 'Unlocked' : 'Checkout not connected'),
+              onPressed: owned || !paymentsEnabled
+                  ? null
+                  : () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => PulsePurchasePage(
+                            repo: widget.store.repo,
+                            sku: product['sku'] as String,
+                            title: product['title'] as String,
+                            usdCents: product['usd_cents'] as int,
+                          ),
+                        ),
+                      );
+                      await load();
+                    },
+              child: Text(
+                owned
+                    ? 'Unlocked'
+                    : paymentsEnabled
+                    ? 'Continue to checkout'
+                    : 'Payment setup pending',
+              ),
             ),
           ],
         ),

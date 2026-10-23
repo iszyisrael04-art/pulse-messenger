@@ -6,6 +6,8 @@ import 'package:livekit_client/livekit_client.dart' as lk;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'avatar.dart';
+import 'call_tone.dart';
+import 'call_signal.dart';
 import 'notifications.dart';
 import 'repository.dart' hide Row;
 
@@ -33,6 +35,8 @@ class PulseCalls extends ChangeNotifier {
   Timer? timer;
   RealtimeChannel? realtime;
   final notified = <String>{};
+  final received = <String>{};
+  final incomingTone = PulseCallTone();
 
   void start() {
     refresh();
@@ -96,6 +100,20 @@ class PulseCalls extends ChangeNotifier {
       history = rows;
       error = null;
       final call = incoming;
+      if (call != null && !received.contains(call['id'])) {
+        final acknowledged = await repo.rpc('call_received', {
+          'p_call': call['id'],
+        });
+        if (acknowledged == true) received.add(call['id']);
+      }
+      if (disposed) return;
+      unawaited(
+        incomingTone.play(
+          call != null && PulseNotifications.instance.enabled
+              ? 'incoming'
+              : null,
+        ),
+      );
       if (call != null && notified.add(call['id'])) {
         if (notified.length > 200) notified.remove(notified.first);
         unawaited(
@@ -106,6 +124,7 @@ class PulseCalls extends ChangeNotifier {
         );
       }
     } catch (_) {
+      unawaited(incomingTone.play(null));
       if (!disposed) error = 'Call history is offline. Reconnect to refresh.';
     } finally {
       busy = false;
@@ -143,6 +162,7 @@ class PulseCalls extends ChangeNotifier {
   @override
   void dispose() {
     disposed = true;
+    incomingTone.dispose();
     timer?.cancel();
     if (realtime != null) unawaited(repo.db.removeChannel(realtime!));
     super.dispose();
@@ -177,7 +197,7 @@ class CallsList extends StatelessWidget {
       const Padding(
         padding: EdgeInsets.symmetric(horizontal: 20),
         child: Text(
-          'Start a voice or video call from a chat. Calls support up to 8 chat members. Both devices need Pulse open for incoming calls in this beta.',
+          'Start a voice or video call from a chat. Calls support up to 8 chat members. Incoming calls appear when your device receives the invitation. Closed-app alerts require configured Android push notifications.',
         ),
       ),
       if (calls.error != null)
@@ -240,6 +260,7 @@ class _PulseCallScreenState extends State<PulseCallScreen>
     roomOptions: const lk.RoomOptions(adaptiveStream: true, dynacast: true),
   );
   late CallRow state;
+  final outboundTone = PulseCallTone();
   Timer? timer;
   bool connected = false,
       muted = false,
@@ -263,7 +284,27 @@ class _PulseCallScreenState extends State<PulseCallScreen>
   }
 
   void changed() {
+    syncTone();
     if (mounted) setState(() {});
+  }
+
+  void syncTone() {
+    final label = pulseCallSignal(state, repo.uid, DateTime.now());
+    unawaited(
+      outboundTone.play(
+        !ending &&
+                connected &&
+                state['caller_id'] == repo.uid &&
+                room.remoteParticipants.isEmpty &&
+                state['status'] == 'ringing'
+            ? (label == 'Ringing…'
+                  ? 'ringback'
+                  : label == 'Calling…'
+                  ? 'calling'
+                  : null)
+            : null,
+      ),
+    );
   }
 
   Future<void> connect(CallRow credentials) async {
@@ -290,6 +331,7 @@ class _PulseCallScreenState extends State<PulseCallScreen>
       });
       timer = Timer.periodic(const Duration(seconds: 4), (_) => poll());
       await poll();
+      syncTone();
     } catch (e) {
       await room.disconnect();
       try {
@@ -331,6 +373,7 @@ class _PulseCallScreenState extends State<PulseCallScreen>
         await leave();
     } finally {
       polling = false;
+      syncTone();
     }
   }
 
@@ -354,6 +397,7 @@ class _PulseCallScreenState extends State<PulseCallScreen>
   Future<void> leave() async {
     if (ending) return;
     ending = true;
+    unawaited(outboundTone.play(null));
     timer?.cancel();
     await room.disconnect();
     try {
@@ -376,6 +420,7 @@ class _PulseCallScreenState extends State<PulseCallScreen>
 
   @override
   void dispose() {
+    outboundTone.dispose();
     WidgetsBinding.instance.removeObserver(this);
     timer?.cancel();
     room.removeListener(changed);
@@ -485,7 +530,7 @@ class _PulseCallScreenState extends State<PulseCallScreen>
                   : room.connectionState == lk.ConnectionState.reconnecting
                   ? 'Reconnecting…'
                   : state['status'] == 'ringing'
-                  ? 'Ringing…'
+                  ? pulseCallSignal(state, repo.uid, DateTime.now())
                   : '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')} · ${room.remoteParticipants.length + 1} connected',
             ),
             if (error != null)

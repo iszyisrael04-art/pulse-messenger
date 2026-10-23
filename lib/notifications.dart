@@ -42,11 +42,31 @@ class PulseNotifications {
 
   Future<void> clearAll() async {
     _pendingActivityTap = false;
+    _pendingCallTap = null;
     _seen.clear();
     _chatCounts.clear();
     try {
       await _plugin.cancelAll();
     } catch (_) {}
+  }
+
+  void Function(String)? _callTap;
+  String? _pendingCallTap;
+  void setCallTap(void Function(String)? handler) {
+    _callTap = handler;
+    final id = _pendingCallTap;
+    if (handler != null && id != null) {
+      _pendingCallTap = null;
+      handler(id);
+    }
+  }
+
+  void callTapped(String id) {
+    if (_callTap == null) {
+      _pendingCallTap = id;
+    } else {
+      _callTap!(id);
+    }
   }
 
   void Function()? _activityTap;
@@ -96,6 +116,8 @@ class PulseNotifications {
         ),
         onDidReceiveNotificationResponse: (response) {
           if (response.payload == 'pulse:activity') activityTapped();
+          if (response.payload?.startsWith('pulse:call:') == true)
+            callTapped(response.payload!.substring(11));
         },
       );
       if (Platform.isAndroid) {
@@ -118,6 +140,10 @@ class PulseNotifications {
         if (launch?.didNotificationLaunchApp == true &&
             launch?.notificationResponse?.payload == 'pulse:activity')
           _pendingActivityTap = true;
+        final payload = launch?.notificationResponse?.payload;
+        if (launch?.didNotificationLaunchApp == true &&
+            payload?.startsWith('pulse:call:') == true)
+          _pendingCallTap = payload!.substring(11);
       } catch (_) {
         /* Some Windows hosts do not supply launch metadata. */
       }
@@ -151,6 +177,7 @@ class PulseNotifications {
     int? number,
     String? payload,
     bool activityAlert = false,
+    bool callAlert = false,
   }) async {
     if (!enabled || !_ready) return false;
     try {
@@ -160,17 +187,30 @@ class PulseNotifications {
         body,
         NotificationDetails(
           android: AndroidNotificationDetails(
-            activityAlert ? 'pulse_activity' : 'pulse_messages',
-            activityAlert ? 'Pulse activity' : 'Pulse messages',
+            callAlert
+                ? 'pulse_calls'
+                : activityAlert
+                ? 'pulse_activity'
+                : 'pulse_messages',
+            callAlert
+                ? 'Pulse calls'
+                : activityAlert
+                ? 'Pulse activity'
+                : 'Pulse messages',
             channelDescription: activityAlert
                 ? 'Likes, comments, follows and mentions'
                 : 'New private and group messages',
+            category: callAlert ? AndroidNotificationCategory.call : null,
             importance: Importance.high,
             priority: Priority.high,
             visibility: NotificationVisibility.private,
             icon: 'ic_pulse_notification',
             number: number,
-            groupKey: activityAlert ? 'pulse_activity' : 'pulse_messages',
+            groupKey: callAlert
+                ? 'pulse_calls'
+                : activityAlert
+                ? 'pulse_activity'
+                : 'pulse_messages',
             onlyAlertOnce: true,
           ),
           windows: const WindowsNotificationDetails(),
@@ -222,6 +262,8 @@ class PulseNotifications {
     video
         ? 'Incoming video call. Open Pulse to answer.'
         : 'Incoming voice call. Open Pulse to answer.',
+    callAlert: true,
+    payload: 'pulse:call:$id',
   );
 
   Future<bool> test() =>

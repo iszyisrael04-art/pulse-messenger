@@ -32,6 +32,9 @@ jobs:
         run: dart test/data_export_offline.dart
       - name: Test chat marks
         run: dart test/chat_state_offline.dart
+      - name: Test call delivery states
+        run: dart test/call_signal_offline.dart
+
       - name: Test creator product prices
         run: dart test/creator_products_offline.dart
       - name: Test profile rules
@@ -86,6 +89,9 @@ jobs:
         run: dart test/data_export_offline.dart
       - name: Test chat marks
         run: dart test/chat_state_offline.dart
+      - name: Test call delivery states
+        run: dart test/call_signal_offline.dart
+
       - name: Test creator product prices
         run: dart test/creator_products_offline.dart
       - name: Test profile rules
@@ -137,3 +143,5 @@ jobs:
       - run: npm ci --prefix test/isolated_backend
       - run: node test/isolated_backend/run.mjs
       - run: node test/squad_sandbox_test.mjs
+      - run: node test/payment_live_test.mjs
+      - run: node test/call_push_offline.mjs

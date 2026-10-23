@@ -2,6 +2,8 @@ name: Pulse native beta builds
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
 
 permissions:
   contents: read
@@ -30,6 +32,11 @@ jobs:
       - name: Generate native runners
         run: python3 scripts/bootstrap.py
 
+      - name: Configure optional Firebase client
+        env:
+          FIREBASE_CLIENT_JSON: ${{ secrets.FIREBASE_CLIENT_JSON }}
+        run: python scripts/configure_firebase.py
+
       - name: Check public configuration
         run: python3 scripts/check_config.py config.example.json
 
@@ -53,6 +60,9 @@ jobs:
 
       - name: Test streaming account export
         run: dart test/data_export_offline.dart
+
+      - name: Test call delivery states
+        run: dart test/call_signal_offline.dart
 
       - name: Test creator product prices
         run: dart test/creator_products_offline.dart
@@ -107,6 +117,11 @@ jobs:
       - name: Generate native runners
         run: python scripts/bootstrap.py
 
+      - name: Configure optional Firebase client
+        env:
+          FIREBASE_CLIENT_JSON: ${{ secrets.FIREBASE_CLIENT_JSON }}
+        run: python scripts/configure_firebase.py
+
       - name: Check public configuration
         run: python scripts/check_config.py config.example.json
 
@@ -127,6 +142,9 @@ jobs:
 
       - name: Test streaming account export
         run: dart test/data_export_offline.dart
+
+      - name: Test call delivery states
+        run: dart test/call_signal_offline.dart
 
       - name: Test creator product prices
         run: dart test/creator_products_offline.dart
@@ -183,3 +201,5 @@ jobs:
       - run: npm ci --prefix test/isolated_backend
       - run: node test/isolated_backend/run.mjs
       - run: node test/squad_sandbox_test.mjs
+      - run: node test/payment_live_test.mjs
+      - run: node test/call_push_offline.mjs

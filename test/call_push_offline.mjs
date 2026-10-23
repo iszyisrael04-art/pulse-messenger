@@ -1,0 +1,25 @@
+import fs from 'node:fs';
+import vm from 'node:vm';
+import assert from 'node:assert/strict';
+import {stripTypeScriptTypes} from 'node:module';
+import {webcrypto} from 'node:crypto';
+const pair=await webcrypto.subtle.generateKey({name:'RSASSA-PKCS1-v1_5',modulusLength:2048,publicExponent:new Uint8Array([1,0,1]),hash:'SHA-256'},true,['sign','verify']);
+const privateKey=Buffer.from(await webcrypto.subtle.exportKey('pkcs8',pair.privateKey)).toString('base64');
+let configured=false,handler,sends=0,last;
+const job={call_id:'fixture-call',recipient_id:'fixture-recipient',kind:'voice',expires_at:new Date(Date.now()+30000).toISOString(),tokens:['fixture-token']};
+const client={rpc:async(name)=>({data:name==='pulse_call_push_jobs'?[job]:null,error:null})};
+const env={SUPABASE_SERVICE_ROLE_KEY:'fixture-service-key',SUPABASE_URL:'https://example.invalid'};
+const source=fs.readFileSync(new URL('../supabase/functions/pulse-call-push/index.ts',import.meta.url),'utf8').replace(/^import .*\n/,'');
+const context=vm.createContext({createClient:()=>client,Deno:{serve:f=>handler=f,env:{get:k=>k==='FIREBASE_SERVICE_ACCOUNT_JSON'?(configured?JSON.stringify({project_id:'pulse-fixture',client_email:'fixture@example.invalid',private_key:`-----BEGIN PRIVATE KEY-----\n${privateKey}\n-----END PRIVATE KEY-----`}):undefined):env[k]}},crypto:webcrypto,TextEncoder,Uint8Array,Response,Request,URLSearchParams,AbortSignal,btoa,atob,fetch:async(url,options)=>{
+ if(url==='https://oauth2.googleapis.com/token')return new Response(JSON.stringify({access_token:'fixture-access'}));
+ assert(url.startsWith('https://fcm.googleapis.com/v1/projects/pulse-fixture/'));
+ sends++;last=JSON.parse(options.body);return new Response('{}');
+}});
+vm.runInContext(stripTypeScriptTypes(source,{mode:'strip'}),context);
+let response=await handler(new Request('https://example.invalid',{method:'POST'}));assert.equal(response.status,401);assert.equal(sends,0);
+response=await handler(new Request('https://example.invalid',{method:'POST',headers:{Authorization:'Bearer fixture-service-key'}}));assert.equal(response.status,503);assert.equal(sends,0);
+configured=true;
+response=await handler(new Request('https://example.invalid',{method:'POST',headers:{Authorization:'Bearer fixture-service-key'}}));assert.equal(response.status,200);assert.equal(sends,1);
+assert.equal(last.message.data.type,'call');assert.equal(last.message.android.priority,'high');assert(parseInt(last.message.android.ttl)<=30);assert.equal(last.message.notification,undefined);
+assert.equal(last.message.data.caller_name,undefined);
+console.log('PASS call push authorization, server configuration, short TTL and private payload');

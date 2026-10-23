@@ -1,4 +1,5 @@
 import 'activity.dart';
+import 'shop.dart';
 import 'interest_picker.dart';
 import 'social_context.dart';
 import 'brand.dart';
@@ -315,6 +316,16 @@ class _SocialFeedState extends State<SocialFeed> {
                 tooltip: 'Search videos, hashtags and profiles',
                 onPressed: () => openPulseSearch(context, widget.store),
                 icon: const Icon(Icons.search),
+              ),
+              IconButton(
+                tooltip: 'Shop · coins & Boost',
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => PulseShopPage(repo: widget.store.repo),
+                  ),
+                ),
+                icon: const Icon(Icons.storefront_outlined),
               ),
               PopupMenuButton<String>(
                 tooltip: 'Feed options',

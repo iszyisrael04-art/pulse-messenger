@@ -1,3 +1,7 @@
+# Pulse 0.1.0 — combined release candidate
+
+Read [release status and setup](docs/UPGRADE_0.1.0.md). Call delivery states, LIVE gifts/battles, shop wallets and verified payment orders are implemented. Firebase setup, live payment validation, bank payouts and native/device checks remain required before production.
+
 # Pulse 0.5.12 — Squad sandbox checkout
 
 Read [the test setup](docs/UPGRADE_0.5.12.md). A separate simulated checkout and server verification are available from Animated profile & Boost after installing a new build. Real purchases remain disabled.

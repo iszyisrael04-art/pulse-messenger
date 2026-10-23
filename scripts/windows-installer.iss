@@ -1,12 +1,12 @@
 [Setup]
 AppId={{30F995AC-7AEE-4CB1-8CC4-5F046026F024}
 AppName=Pulse
-AppVersion=0.5.12
+AppVersion=0.1.0
 DefaultDirName={localappdata}\Programs\Pulse
 DefaultGroupName=Pulse
 PrivilegesRequired=lowest
 OutputDir=..\dist
-OutputBaseFilename=Pulse-0.5.12-Windows-Setup
+OutputBaseFilename=Pulse-0.1.0-Windows-Setup
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern

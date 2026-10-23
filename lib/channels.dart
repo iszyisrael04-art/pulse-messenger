@@ -1,4 +1,5 @@
 import 'live_party.dart';
+import 'live_gifts.dart';
 import 'channel_composer.dart';
 import 'channel_media.dart';
 import 'media.dart';
@@ -168,7 +169,9 @@ class _ChannelsScreenState extends State<ChannelsScreen> {
                               ),
                             const SizedBox(width: 8),
                             Icon(
-                              followed ? Icons.check_circle : Icons.chevron_right,
+                              followed
+                                  ? Icons.check_circle
+                                  : Icons.chevron_right,
                               color: Theme.of(context).colorScheme.primary,
                             ),
                           ],
@@ -1501,6 +1504,12 @@ class _LiveScreenState extends State<LiveScreen> {
               ),
             ),
             if (error != null && track != null) Text(error!),
+            if (connected)
+              PulseLiveGifts(
+                repo: widget.repo,
+                session: widget.sessionId,
+                host: widget.host,
+              ),
             if (connected)
               Wrap(
                 spacing: 12,

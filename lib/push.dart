@@ -8,6 +8,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import 'notifications.dart';
+import 'security.dart';
+import 'package:flutter/widgets.dart';
 
 /// Optional Android FCM. Public Firebase app options are compile-time configuration.
 /// Service account credentials exist only in the server dispatcher.
@@ -17,6 +19,7 @@ class PulsePush {
   static const vault = FlutterSecureStorage();
   bool configured = false;
   void Function(String)? onMessage;
+  void Function()? onCall;
   String? status;
   StreamSubscription<String>? _refresh;
   Future<void> initialize() async {
@@ -38,12 +41,20 @@ class PulsePush {
           projectId: project,
         ),
       );
+      FirebaseMessaging.onBackgroundMessage(pulseBackgroundPush);
       // Start opted out. FCM auto-init is disabled until user enables notifications.
       await FirebaseMessaging.instance.setAutoInitEnabled(false);
       configured = true;
       FirebaseMessaging.onMessage.listen((message) {
+        if (message.data['type'] == 'call') {
+          onCall?.call();
+          return;
+        }
         final id = message.data['message_id'];
         if (id != null) onMessage?.call(id);
+      });
+      FirebaseMessaging.onMessageOpenedApp.listen((message) {
+        if (message.data['type'] == 'call') onCall?.call();
       });
       _refresh = FirebaseMessaging.instance.onTokenRefresh.listen((token) {
         if (PulseNotifications.instance.enabled) unawaited(_register(token));
@@ -110,5 +121,43 @@ class PulsePush {
     }
     await FirebaseMessaging.instance.setAutoInitEnabled(false);
     await FirebaseMessaging.instance.deleteToken();
+  }
+}
+
+@pragma('vm:entry-point')
+Future<void> pulseBackgroundPush(RemoteMessage message) async {
+  if (message.data['type'] != 'call') return;
+  final deadline = DateTime.tryParse(message.data['expires_at'] ?? '');
+  if (deadline == null || !deadline.isAfter(DateTime.now().toUtc())) return;
+  final id = message.data['call_id'];
+  if (id == null) return;
+  WidgetsFlutterBinding.ensureInitialized();
+  try {
+    const url = String.fromEnvironment('SUPABASE_URL');
+    const key = String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY');
+    if (url.isEmpty || key.isEmpty) return;
+    await Supabase.initialize(
+      url: url,
+      publishableKey: key,
+      authOptions: const FlutterAuthClientOptions(
+        localStorage: SecureSessionStorage(),
+      ),
+    );
+    final client = Supabase.instance.client;
+    if (client.auth.currentUser?.id != message.data['recipient_id']) return;
+    await PulseNotifications.instance.initialize();
+    if (!PulseNotifications.instance.enabled) return;
+    final acknowledged = await client.rpc(
+      'pulse_call_received',
+      params: {'p_call': id},
+    );
+    if (acknowledged == true) {
+      await PulseNotifications.instance.incomingCall(
+        id,
+        message.data['kind'] == 'video',
+      );
+    }
+  } catch (_) {
+    // Expired sessions, OS restrictions and offline delivery must not crash startup.
   }
 }

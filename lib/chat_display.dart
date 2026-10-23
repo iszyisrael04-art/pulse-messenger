@@ -1,4 +1,4 @@
-String pulseChatPreview(Map? message, String owner) {
+String pulseChatPreview(Map? message, String owner, {String? senderName}) {
   if (message == null ||
       message['body'] == null && message['created_at'] == null)
     return 'Start the conversation';
@@ -18,7 +18,11 @@ String pulseChatPreview(Map? message, String owner) {
       : message['status_reply'] == true
       ? 'Status reply'
       : '';
-  return '${message['sender_id'] == owner ? 'You: ' : ''}${label.isEmpty ? '' : '$label${body.isEmpty ? '' : ' · '}'}$body';
+  return '${message['sender_id'] == owner
+      ? 'You: '
+      : senderName != null && senderName.trim().isNotEmpty
+      ? '${senderName.trim()}: '
+      : ''}${label.isEmpty ? '' : '$label${body.isEmpty ? '' : ' · '}'}$body';
 }
 
 String pulseChatTime(DateTime? time, DateTime now) {

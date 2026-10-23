@@ -98,6 +98,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     });
     calls = PulseCalls(repo)..addListener(changed);
     calls.start();
+    PulsePush.instance.onCall = () => calls.refresh();
+    PulseNotifications.instance.setCallTap((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() {
+          socialSection = 3;
+          section = 1;
+        });
+        calls.refresh();
+      });
+    });
   }
 
   void channelUpdatesChanged() {
@@ -383,6 +394,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     toastTimer?.cancel();
     messageToast?.remove();
     calls.removeListener(changed);
+    PulsePush.instance.onCall = null;
+    PulseNotifications.instance.setCallTap(null);
     calls.dispose();
     WidgetsBinding.instance.removeObserver(this);
     repo.removeListener(changed);
@@ -688,6 +701,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     await PulseMedia.pauseAll();
     openingCall = true;
     try {
+      await calls.incomingTone.play(null);
       final action = calls.ownMember(call)?['state'] == 'ringing'
           ? 'accept'
           : 'join';
@@ -1240,6 +1254,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           pulseChatPreview(
                             repo.chatSummaries[c['id']],
                             repo.uid,
+                            senderName:
+                                repo.profiles[repo
+                                    .chatSummaries[c['id']]?['sender_id']]?['display_name'] ??
+                                'Pulse user',
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,

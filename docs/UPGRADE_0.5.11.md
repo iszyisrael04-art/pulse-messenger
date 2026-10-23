@@ -11,3 +11,6 @@
 Isolated SQL security tests cover device isolation, multi-device activity, stale leases, out-of-order heartbeats, pending-request privacy, blocked users, hidden status and anonymous/direct-table denial. Offline Dart tests and analysis cover lease bounds and last-seen labels. Lifecycle/privacy race tests are added for Flutter CI. Full Flutter analysis, widget tests, Android/Windows builds and two-device foreground/background smoke tests remain pending.
 
 027_active_status.sql is ready; applying it to the connected backend is pending migration approval. Existing account/chat/post records are preserved.
+
+
+Deployment update: schema 027 is now installed with release 0.1.0. Native/device verification remains pending.

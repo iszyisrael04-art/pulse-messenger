@@ -37,6 +37,14 @@ await db.exec(fs.readFileSync(root+'/supabase/schema/027_active_status.sql','utf
 console.log('SCHEMA PASS 027_active_status.sql');
 await db.exec(fs.readFileSync(root+'/test/presence_security.sql','utf8'));
 console.log('TEST PASS presence_security.sql');
+await db.exec(fs.readFileSync(root+'/supabase/schema/028_gifts_calls_shop.sql','utf8'));
+console.log('SCHEMA PASS 028_gifts_calls_shop.sql');
+await db.exec(fs.readFileSync(root+'/test/gifts_calls_security.sql','utf8'));
+console.log('TEST PASS gifts_calls_security.sql');
+await db.exec(fs.readFileSync(root+'/supabase/schema/029_payment_orders.sql','utf8'));
+console.log('SCHEMA PASS 029_payment_orders.sql');
+await db.exec(fs.readFileSync(root+'/test/payment_orders_security.sql','utf8'));
+console.log('TEST PASS payment_orders_security.sql');
 await db.close();
 await import('../live_edge_offline.mjs');
 }catch(e){console.log('BOOTSTRAP FAIL',e.message);process.exit(1);}

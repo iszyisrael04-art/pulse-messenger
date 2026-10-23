@@ -41,6 +41,15 @@ void main() {
     pulseChatPreview({'body': '', 'has_attachment': true}, 'a') == 'Attachment',
     'Legacy file preview',
   );
+  check(
+    pulseChatPreview(
+          {'body': 'Hi', 'sender_id': 'b'},
+          'a',
+          senderName: 'Danny',
+        ) ==
+        'Danny: Hi',
+    'Incoming sender name',
+  );
   final now = DateTime(2026, 1, 1, 12);
   check(
     pulseChatDay(DateTime(2025, 12, 31, 23), now) == 'Yesterday',

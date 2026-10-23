@@ -110,7 +110,7 @@ class _AdminScreenState extends State<AdminScreen> {
                   ),
                 ),
                 icon: const Icon(Icons.campaign_outlined),
-                label: const Text('Manage channel verification'),
+                label: const Text('Channels & LIVE follower minimum'),
               ),
               const SizedBox(height: 12),
               OutlinedButton.icon(
@@ -122,6 +122,14 @@ class _AdminScreenState extends State<AdminScreen> {
                 ),
                 icon: const Icon(Icons.groups_outlined),
                 label: const Text('Manage community verification'),
+              ),
+              const SizedBox(height: 12),
+              const ListTile(
+                leading: Icon(Icons.live_tv_outlined),
+                title: Text('LIVE follower requirement'),
+                subtitle: Text(
+                  'Open Channels & LIVE follower minimum, then tap the LIVE icon to set the number of channel followers required. Use 0 to remove the requirement.',
+                ),
               ),
               const SizedBox(height: 24),
               Wrap(

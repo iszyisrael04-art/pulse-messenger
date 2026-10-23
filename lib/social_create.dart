@@ -11,6 +11,7 @@ import 'social_preview.dart';
 import 'media_picker.dart';
 import 'chat_camera.dart';
 import 'composer_clip.dart';
+import 'channels.dart';
 
 class SocialComposer extends StatefulWidget {
   const SocialComposer({
@@ -852,6 +853,23 @@ class _SocialComposerState extends State<SocialComposer> {
           ],
         ),
         actions: [
+          IconButton(
+            tooltip: 'Go LIVE',
+            onPressed: busy
+                ? null
+                : () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => Scaffold(
+                        appBar: AppBar(
+                          title: const Text('Choose a channel for LIVE'),
+                        ),
+                        body: ChannelsScreen(repo: widget.store.repo),
+                      ),
+                    ),
+                  ),
+            icon: const Icon(Icons.live_tv_rounded),
+          ),
           TextButton(
             onPressed: busy ? null : () => submit(true),
             child: const Text('Save draft'),
