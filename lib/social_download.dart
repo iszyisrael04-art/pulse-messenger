@@ -5,18 +5,29 @@ import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 import 'download_watermark.dart';
+import 'package:share_plus/share_plus.dart';
 import 'native_editor.dart';
 import 'social_repository.dart';
 
 Future<void> downloadPulsePost(
   BuildContext context,
   SocialStore store,
-  String id,
-) async {
+  String id, {
+  bool external = false,
+}) async {
   final fresh = await store.post(id);
   if (fresh == null) throw SocialFailure('This post is no longer available.');
   final media = (fresh['media'] as List).cast<Map>();
-  if (media.isEmpty) throw SocialFailure('This is a text-only post.');
+  final author = fresh['author'];
+  final username = author is Map ? author['username']?.toString() : null;
+  final text =
+      '${fresh['body'] ?? ''}\n${username == null ? 'Shared from Pulse' : 'Shared from @$username on Pulse'}'
+          .trim();
+  if (media.isEmpty) {
+    if (!external) throw SocialFailure('This is a text-only post.');
+    await SharePlus.instance.share(ShareParams(text: text));
+    return;
+  }
   int selected = 0;
   if (media.length > 1) {
     if (!context.mounted) return;
@@ -26,7 +37,7 @@ Future<void> downloadPulsePost(
         child: ListView(
           shrinkWrap: true,
           children: [
-            const ListTile(title: Text('Choose media to download')),
+            const ListTile(title: Text('Choose media to export')),
             for (var i = 0; i < media.length; i++)
               ListTile(
                 leading: Icon(
@@ -46,11 +57,11 @@ Future<void> downloadPulsePost(
     if (index == null) return;
     selected = index;
   }
-  final author = fresh['author'];
   await downloadPulseMedia(
     context,
     media[selected],
-    username: author is Map ? author['username']?.toString() : null,
+    username: username,
+    externalText: external ? text : null,
     signedUrl: () => store.signed(media[selected]['path'], renew: true),
     stillAllowed: () async => await store.post(id) != null,
   );
@@ -61,12 +72,13 @@ Future<void> downloadPulseMedia(
   BuildContext context,
   Map item, {
   String? username,
+  String? externalText,
   required Future<String> Function() signedUrl,
   required Future<bool> Function() stillAllowed,
 }) async {
   final video = itemIsVideo(item);
   String? directory;
-  if (Platform.isWindows) {
+  if (Platform.isWindows && externalText == null) {
     directory = await FilePicker.getDirectoryPath(
       dialogTitle: 'Save Pulse media',
     );
@@ -182,6 +194,35 @@ Future<void> downloadPulseMedia(
     if (!await stillAllowed())
       throw SocialFailure('Access to this post changed.');
     if (cancel) throw SocialFailure('Download cancelled.');
+    if (externalText != null) {
+      final shares = Directory('${temp.path}/pulse-shares');
+      await shares.create(recursive: true);
+      // Keep shared files alive for receiving apps; reclaim old exports later.
+      await for (final entry in shares.list()) {
+        if (entry is File &&
+            DateTime.now().difference(await entry.lastModified()) >
+                const Duration(days: 1)) {
+          await entry.delete();
+        }
+      }
+      final shared = await ready.copy('${shares.path}/$token-$safe');
+      if (route.isActive) navigator.removeRoute(route);
+      await dialog;
+      await SharePlus.instance.share(
+        ShareParams(
+          text: externalText,
+          files: [
+            XFile(
+              shared.path,
+              mimeType: video
+                  ? 'video/mp4'
+                  : (item['mime'] ?? 'image/jpeg').toString(),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
     stage.value = 'Saving';
     if (Platform.isAndroid) {
       await NativePulseEditor.saveDownload(

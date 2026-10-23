@@ -23,10 +23,12 @@ class StatusUpdates extends StatefulWidget {
     required this.repo,
     this.onChat,
     this.updates,
+    this.initialPostType,
   });
   final Future<void> Function(String)? onChat;
   final PulseChannelUpdates? updates;
   final PulseRepository repo;
+  final String? initialPostType;
   @override
   State<StatusUpdates> createState() => _StatusUpdatesState();
 }
@@ -34,6 +36,16 @@ class StatusUpdates extends StatefulWidget {
 class _StatusUpdatesState extends State<StatusUpdates> {
   bool busy = false;
   String? error;
+
+  @override
+  void initState() {
+    super.initState();
+    final type = widget.initialPostType;
+    if (type != null)
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) post(type);
+      });
+  }
 
   Future<String?> caption({required bool textOnly}) => showPulseTextPrompt(
     context,

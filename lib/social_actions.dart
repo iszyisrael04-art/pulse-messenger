@@ -52,6 +52,23 @@ class _SocialActionsState extends State<SocialActions> {
     if (mounted) await perform(() async {});
   }
 
+  Widget recipientAvatar(SocialRow chat) {
+    final repo = widget.store.repo;
+    if (chat['kind'] == 'group')
+      return const CircleAvatar(child: Icon(Icons.group_outlined));
+    final members = (chat['pulse_members'] as List? ?? []).where(
+      (m) => m['user_id'] != repo.uid,
+    );
+    final profile = members.isEmpty
+        ? null
+        : repo.profiles[members.first['user_id']];
+    return PulseAvatar(
+      repo: repo,
+      path: profile?['avatar_path'],
+      name: repo.chatName(chat),
+    );
+  }
+
   Future<void> share() async {
     await showModalBottomSheet<void>(
       context: context,
@@ -61,10 +78,28 @@ class _SocialActionsState extends State<SocialActions> {
         child: Column(
           children: [
             const ListTile(
-              title: Text('Share in Pulse'),
+              title: Text('Share post'),
               subtitle: Text(
                 'Recipients can open the post if its privacy permits.',
               ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.ios_share),
+              title: const Text('Share outside Pulse'),
+              subtitle: const Text(
+                'Send a photo, watermarked video or caption to another app',
+              ),
+              onTap: () {
+                Navigator.pop(c);
+                perform(
+                  () => downloadPulsePost(
+                    context,
+                    widget.store,
+                    widget.post['id'],
+                    external: true,
+                  ),
+                );
+              },
             ),
             ListTile(
               leading: const Icon(Icons.copy),
@@ -79,7 +114,7 @@ class _SocialActionsState extends State<SocialActions> {
                 children: widget.store.repo.chats
                     .map(
                       (chat) => ListTile(
-                        leading: const Icon(Icons.chat_bubble_outline),
+                        leading: recipientAvatar(chat),
                         title: Text(widget.store.repo.chatName(chat)),
                         onTap: () {
                           Navigator.pop(c);

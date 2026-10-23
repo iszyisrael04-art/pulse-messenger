@@ -8,6 +8,7 @@ import 'appearance.dart';
 import 'package:flutter/material.dart';
 
 import 'avatar.dart';
+import 'statuses.dart';
 import 'profile.dart';
 import 'social_repository.dart';
 import 'social_feed.dart';
@@ -37,6 +38,39 @@ class _SocialProfileState extends State<SocialProfile> {
   String profileStyle = 'classic';
   Map features = {};
   Timer? featureRefresh;
+  Future<void> addStory() async {
+    final type = await showModalBottomSheet<String>(
+      context: context,
+      builder: (c) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const ListTile(title: Text('Add story')),
+            for (final item in [
+              ('image', 'Photo story', Icons.photo_outlined),
+              ('video', 'Video story', Icons.videocam_outlined),
+              ('text', 'Text story', Icons.text_fields),
+            ])
+              ListTile(
+                leading: Icon(item.$3),
+                title: Text(item.$2),
+                onTap: () => Navigator.pop(c, item.$1),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (type == null || !mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => Scaffold(
+          appBar: AppBar(title: const Text('Your story')),
+          body: StatusUpdates(repo: widget.store.repo, initialPostType: type),
+        ),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     featureRefresh?.cancel();
@@ -415,13 +449,11 @@ class _SocialProfileState extends State<SocialProfile> {
                 ),
                 Center(
                   child: Tooltip(
-                    message: mine
-                        ? 'Change profile photo'
-                        : 'View profile photo',
+                    message: mine ? 'Add story' : 'View profile photo',
                     child: InkWell(
                       customBorder: const CircleBorder(),
                       onTap: mine
-                          ? editProfile
+                          ? addStory
                           : () => showDialog<void>(
                               context: context,
                               builder: (c) => AlertDialog(
@@ -464,9 +496,10 @@ class _SocialProfileState extends State<SocialProfile> {
                                     ).colorScheme.surface,
                                     shape: BoxShape.circle,
                                   ),
-                                  child: const CircleAvatar(
-                                    radius: 16,
-                                    child: Icon(Icons.add, size: 23),
+                                  child: IconButton.filled(
+                                    tooltip: 'Add story',
+                                    onPressed: addStory,
+                                    icon: const Icon(Icons.add, size: 23),
                                   ),
                                 ),
                               ),
