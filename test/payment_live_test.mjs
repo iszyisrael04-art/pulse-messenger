@@ -17,3 +17,13 @@ assert(await webhookValid(raw,hash,key));
 assert(!await webhookValid(raw+' ',hash,key));
 assert(!await webhookValid(raw,'bad',key));
 console.log('PASS live mode gate, allowlisted URLs, signed webhooks and exact receipt matching');
+
+const {checkoutFailure}=await import('../supabase/functions/pulse-payments/errors.mjs');
+assert.equal(checkoutFailure(401,false,null).code,'squad_key_rejected');
+assert.equal(checkoutFailure(403,false,null).code,'squad_access_denied');
+assert.equal(checkoutFailure(429,false,null).code,'squad_rate_limit');
+assert.equal(checkoutFailure(502,false,null).code,'squad_unavailable');
+assert.equal(checkoutFailure(400,false,null).code,'squad_checkout_rejected');
+assert.equal(checkoutFailure(200,true,null).code,'squad_checkout_address');
+assert.equal(checkoutFailure(200,true,'https://pay.squadco.com/abc'),null);
+console.log('PASS safe checkout error classification without exposing provider payloads');

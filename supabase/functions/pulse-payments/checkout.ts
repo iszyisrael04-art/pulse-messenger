@@ -1,5 +1,6 @@
 import {createClient} from 'npm:@supabase/supabase-js@2.99.1';
 import {liveCheckoutUrl,liveMatches,webhookValid} from './live.mjs';
+import {checkoutFailure} from './errors.mjs';
 const json=(data:unknown,status=200)=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json','Cache-Control':'no-store'}});
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // Only invoked after the main handler has checked mode and authenticated a user,
@@ -14,9 +15,10 @@ export async function checkout(req:Request, raw:string, key:string, userClient:a
   if(error)return json({error:'Order unavailable. Check the product and retry.'},400);
   if(order.state==='paid')return json({paid:true,reference:order.id});
   const r=await fetch('https://api-d.squadco.com/transaction/initiate',{method:'POST',headers:{Authorization:`Bearer ${key}`,'Content-Type':'application/json'},body:JSON.stringify({email:body.email,amount:order.usd_cents,currency:'USD',initiate_type:'inline',transaction_ref:order.id,pass_charge:false,webhook_url:Deno.env.get('SUPABASE_URL')!+'/functions/v1/pulse-payments'}),signal:AbortSignal.timeout(15000)});
-  const data=await r.json();
+  const data=await r.json().catch(()=>({}));
   const url=liveCheckoutUrl(data.data?.checkout_url);
-  if(!r.ok||data.success!==true||!url)return json({error:'Squad checkout unavailable. USD merchant approval may be required. No entitlement was granted.'},502);
+  const failure=checkoutFailure(r.status,data.success,url);
+  if(failure)return json(failure,502);
   return json({sandbox:false,reference:order.id,checkout_url:url,currency:'USD',amount:order.usd_cents});
  }
  const webhook=body.Event==='charge_successful';
