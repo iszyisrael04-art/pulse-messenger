@@ -94,9 +94,9 @@ Migration 031 is now installed after explicit owner approval. This supersedes th
 
 
 ### Build 33: personal LIVE and channel LIVE
-- Profile Go LIVE starts or resumes the user's own broadcast without creating or selecting a channel.
+- Upload Studio Go LIVE / Resume starts or resumes the user's own broadcast without creating or selecting a channel.
 - Personal broadcasts use profile follower eligibility and separate `pulse-user-` LiveKit rooms. Channel broadcasts retain channel follower eligibility and `pulse-channel-` rooms.
-- Profiles show a LIVE / Watch now badge only for an active personal broadcast, refreshed every 10 seconds. The badge clears when ended or its server lease expires.
+- Profiles keep a LIVE status badge (Watch now for viewers), with no host start/resume action. Profiles show the badge only for an active personal broadcast, refreshed every 10 seconds. The badge clears when ended or its server lease expires.
 - Personal hosts moderate chat and approve guests; accepted profile followers can comment and request seats. Private profile and block checks protect sessions, chat, gifts and media access.
 - Install ordered schema 036 and redeploy pulse-live before using build 33. Existing channel sessions are preserved.
 - Payment sandbox screenshot is an unstarted checkout, not proof of a verified payment. Sandbox requires a sandbox credential; real purchase enablement remains separate.

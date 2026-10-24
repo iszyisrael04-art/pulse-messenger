@@ -139,67 +139,21 @@ class _SocialProfileState extends State<SocialProfile> {
     }
   }
 
-  Future<void> openPersonalLive() async {
-    if (busy) return;
-    setState(() => busy = true);
-    try {
-      await refreshPersonalLive();
-      if (!mounted) return;
-      String? session = (personalLive['session'] as Map?)?['id']?.toString();
-      Map<String, dynamic>? initial;
-      if (session == null) {
-        if (!mine) return;
-        if (personalLive['eligible'] != true) {
-          await showDialog<void>(
-            context: context,
-            builder: (c) => AlertDialog(
-              title: const Text('Unlock personal LIVE'),
-              content: Text(
-                'Your profile needs ${personalLive['minimum'] ?? 'more'} followers. Current followers: ${personalLive['followers'] ?? 0}. Channel followers are separate.',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(c),
-                  child: const Text('Got it'),
-                ),
-              ],
-            ),
-          );
-          return;
-        }
-        final title = await channelPrompt(context, 'Your LIVE title', max: 100);
-        if (title == null || !mounted) return;
-        final response = await widget.store.repo.db.functions.invoke(
-          'pulse-live',
-          body: {
-            'action': 'start',
-            'kind': 'personal',
-            'party_version': 1,
-            'title': title,
-          },
-        );
-        initial = Map<String, dynamic>.from(response.data as Map);
-        session = initial['session_id']?.toString();
-        if (session == null) throw StateError('Personal LIVE could not start.');
-      }
-      if (!mounted) return;
-      await Navigator.push(
-        context,
-        MaterialPageRoute<void>(
-          builder: (_) => LiveScreen(
-            repo: widget.store.repo,
-            sessionId: session!,
-            host: mine,
-            initial: initial,
-          ),
+  Future<void> watchPersonalLive() async {
+    await refreshPersonalLive();
+    final session = (personalLive['session'] as Map?)?['id']?.toString();
+    if (!mounted || session == null || mine) return;
+    await Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => LiveScreen(
+          repo: widget.store.repo,
+          sessionId: session,
+          host: false,
         ),
-      );
-      await refreshPersonalLive();
-    } catch (e) {
-      if (mounted) socialNotice(context, e);
-    } finally {
-      if (mounted) setState(() => busy = false);
-    }
+      ),
+    );
+    await refreshPersonalLive();
   }
 
   Future<void> load() async {
@@ -645,27 +599,23 @@ class _SocialProfileState extends State<SocialProfile> {
                 ),
                 if (personalLive['session'] is Map)
                   Center(
-                    child: FilledButton.icon(
-                      style: FilledButton.styleFrom(
-                        backgroundColor: Colors.redAccent,
-                        foregroundColor: Colors.white,
-                      ),
-                      onPressed: busy ? null : openPersonalLive,
-                      icon: const Icon(Icons.sensors_rounded),
-                      label: Text(
-                        mine
-                            ? 'LIVE · Resume your broadcast'
-                            : 'LIVE · Watch now',
-                      ),
-                    ),
-                  )
-                else if (mine)
-                  Center(
-                    child: TextButton.icon(
-                      onPressed: busy ? null : openPersonalLive,
-                      icon: const Icon(Icons.live_tv_rounded),
-                      label: const Text('Go LIVE'),
-                    ),
+                    child: mine
+                        ? const Chip(
+                            avatar: Icon(
+                              Icons.sensors_rounded,
+                              color: Colors.redAccent,
+                            ),
+                            label: Text('LIVE'),
+                          )
+                        : FilledButton.icon(
+                            style: FilledButton.styleFrom(
+                              backgroundColor: Colors.redAccent,
+                              foregroundColor: Colors.white,
+                            ),
+                            onPressed: watchPersonalLive,
+                            icon: const Icon(Icons.sensors_rounded),
+                            label: const Text('LIVE · Watch now'),
+                          ),
                   ),
                 const SizedBox(height: 6),
                 Center(
