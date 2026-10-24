@@ -1,4 +1,5 @@
 import 'text_prompt.dart';
+import 'withdrawals.dart';
 import 'control.dart';
 import 'control_channels.dart';
 import 'control_communities.dart';
@@ -130,6 +131,17 @@ class _AdminScreenState extends State<AdminScreen> {
                 subtitle: Text(
                   'Open Channels & LIVE follower minimum, then tap the LIVE icon to set the number of channel followers required. Use 0 to remove the requirement.',
                 ),
+              ),
+              OutlinedButton.icon(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        PulseWithdrawalsPage(repo: widget.repo, admin: true),
+                  ),
+                ),
+                icon: const Icon(Icons.payments_outlined),
+                label: const Text('Review creator payouts'),
               ),
               const SizedBox(height: 24),
               Wrap(

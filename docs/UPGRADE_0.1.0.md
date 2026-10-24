@@ -1,6 +1,6 @@
-# Pulse 0.1.0+28: combined release candidate
+# Pulse 0.1.0+29: combined release candidate
 
-The requested visible version is 0.1.0. Android build number increases to 28 so an existing Android installation can update without deleting its data PROVIDED the signing key is the same. The current workflow produces debug APKs; a stable existing signing key must be configured before reliable public upgrades. A build-number increase alone cannot fix a signing-key mismatch. Windows installer IDs are unchanged.
+The requested visible version is 0.1.0. Android build number increases to 29 so an existing Android installation can update without deleting its data PROVIDED the signing key is the same. The current workflow produces debug APKs; a stable existing signing key must be configured before reliable public upgrades. A build-number increase alone cannot fix a signing-key mismatch. Windows installer IDs are unchanged.
 
 ## Implemented
 - Calling stays Calling until a recipient device acknowledges the current call. A pending server invitation or online dot never counts as ringing.
@@ -8,7 +8,7 @@ The requested visible version is 0.1.0. Android build number increases to 28 so 
 - Server-authorized, short-lived Android call push invitations, foreground/background receivers and recipient acknowledgements. An expired call cannot ring after the device reconnects.
 - Shop icon in Home and LIVE, normal coin and P-coin balances, ten gift tiers, gift history, a server-priced gift catalog and protected credit boundary.
 - Rose: 5 normal coins spends 5 and credits exactly 2 P-coins to the recipient. Normal coins cannot be withdrawn or converted directly to P-coins. Gift recipient must be the active host or an approved guest; self-gifting is rejected.
-- 100 P-coins = USD 3, as confirmed by the owner after the initial USD 30 proposal was corrected. This is an earnings valuation, not an enabled payout service.
+- Latest owner rates: 100 normal coins = USD 1, 200 = USD 2, 500 = USD 5, 1000 = USD 10. 100 P-coins = USD 30. A Rose costs 10 normal coins and credits 0.5 P-coins. This pays USD 0.15 against USD 0.10 purchase revenue, before fees; the owner must fund this subsidy. Live purchases/payouts remain disabled pending KYC, provider testing and sustainable funding.
 - Same-room three-minute LIVE battles: host invites an approved guest, guest accepts/declines, gift costs determine scores during the battle window. Either participant can end; guest removal or stream expiry ends scoring. No betting or cash prize for winning.
 - LIVE entry from Studio opens channel selection. Channel follower minimum remains enforced on the server; admin dashboard now points directly to Channels & LIVE follower minimum.
 - Chat preview shows the latest visible message and sender name (or You). Empty chats retain Start the conversation.
@@ -48,3 +48,15 @@ These are build-time app identifiers, not the private service account JSON. App 
 
 ## Temporary limitations
 Payment verification still shares the existing 3/minute LIVE diagnostic limiter; replace with a dedicated payment limiter before scale. Call push is dispatched immediately from call start; transient dispatch failures need an external scheduler retry before the short invitation deadline. Existing local incoming polling remains a fallback while Pulse is open. No automatic payout claims or fabricated earnings exist.
+
+## Latest update
+
+- Channels use a conversation layout with follower subtitle, locally persisted per-account mute, reactions, administrator quoted announcements, external text sharing and inline media download progress. Followers cannot post administrator announcements.
+- New registrations ask for age and send it as private Auth metadata. It is self-declared, is not age verification, and is never used for payment authorization.
+- Reels prefetch one next clip, capped at 24 MiB, while the current clip plays. Only complete clips enter the temporary cache. Larger clips stream normally. Navigation/backgrounding cancels speculative downloads; current authorization is rechecked before cached playback. Prefetch uses mobile data.
+- Post and channel exports no longer open a blocking progress dialog. Progress/cancel appears under the description, while current export permissions and watermark requirements remain enforced.
+- Withdrawal code supports reviewed NGN quotes and reserved earnings. It remains disabled: no live key, KYC approval, funded provider account or real transaction has been confirmed. Fractional earnings accumulate exactly; withdrawal requests use whole P-coins with a minimum of 100.
+
+### Deployment status
+
+Schemas 030 (disabled withdrawals) and 032 (channel quotes) were installed. Schema 031 is a reviewed draft, **not installed**: automatic approval blocked the production money change. It now changes only the Rose catalog entry, introduces exact decimal P-coin columns without rewriting historical amounts, changes new coin pack quotes, and sets the P-coin valuation to USD 30 per 100. Other gifts remain unchanged. Shop displays must continue to use the live server catalog until this migration is explicitly approved.

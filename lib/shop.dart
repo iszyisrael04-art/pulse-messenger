@@ -5,6 +5,7 @@ import 'creator_access.dart';
 import 'creator_products.dart';
 import 'payment_test.dart';
 import 'purchase.dart';
+import 'withdrawals.dart';
 
 class PulseShopPage extends StatefulWidget {
   const PulseShopPage({super.key, required this.repo});
@@ -103,16 +104,24 @@ class _PulseShopPageState extends State<PulseShopPage> {
                     ),
                   ),
                   const Text(
-                    'Earned when someone sends you a gift. A Rose costs 5 coins and earns you 2 P-coins. 100 P-coins = \$3.',
+                    'Earn P-coins from gifts. Current gift prices and rewards are listed below. New pricing is pending approval.',
                   ),
                   const SizedBox(height: 12),
-                  const OutlinedButton(
-                    onPressed: null,
-                    child: Text('Withdraw · payout setup pending'),
+                  OutlinedButton(
+                    onPressed: () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              PulseWithdrawalsPage(repo: widget.repo),
+                        ),
+                      );
+                      await load();
+                    },
+                    child: const Text('Withdraw P-coins'),
                   ),
-                  Text(
-                    wallet?['cashout_message']?.toString() ??
-                        '100 P-coins = \$3. A verified payout service is needed before withdrawals open.',
+                  const Text(
+                    'Open Withdraw P-coins to see available earnings and bank payout status. Withdrawals are disabled while payment setup is pending.',
                   ),
                 ],
               ),

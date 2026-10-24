@@ -1,3 +1,5 @@
+import 'notifications.dart';
+import 'package:share_plus/share_plus.dart';
 import 'live_party.dart';
 import 'live_gifts.dart';
 import 'channel_composer.dart';
@@ -248,6 +250,7 @@ class _ChannelDetailState extends State<ChannelDetail> {
   Map<String, dynamic>? channel, live;
   List<Map<String, dynamic>> posts = [], reactions = [];
   bool admin = false, followed = false, loading = true, busy = false;
+  bool channelMuted = false;
   final announcement = TextEditingController();
   String postQuery = '';
   bool mediaOnly = false, hasMore = true, reloadRequested = false;
@@ -267,6 +270,9 @@ class _ChannelDetailState extends State<ChannelDetail> {
   @override
   void initState() {
     super.initState();
+    PulseNotifications.instance.channelMuted(widget.channelId).then((value) {
+      if (mounted) setState(() => channelMuted = value);
+    });
     previousChannel = widget.updates?.activeChannel;
     previousVisible = widget.updates?.activeChannelVisible;
     widget.updates?.activeChannel = widget.channelId;
@@ -783,21 +789,35 @@ class _ChannelDetailState extends State<ChannelDetail> {
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Flexible(
-                    child: Text(
-                      channel?['name'] ?? 'Channel',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 17),
-                    ),
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          channel?['name'] ?? 'Channel',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 17),
+                        ),
+                      ),
+                      if (channel?['verified'] == true)
+                        const Padding(
+                          padding: EdgeInsets.only(left: 5),
+                          child: Icon(
+                            Icons.verified,
+                            size: 18,
+                            color: Colors.blue,
+                          ),
+                        ),
+                    ],
                   ),
-                  if (channel?['verified'] == true)
-                    const Padding(
-                      padding: EdgeInsets.only(left: 5),
-                      child: Icon(Icons.verified, size: 18, color: Colors.blue),
-                    ),
+                  Text(
+                    "${channel?['followers'] ?? 0} followers",
+                    style: Theme.of(context).textTheme.labelSmall,
+                  ),
                 ],
               ),
             ),
@@ -805,6 +825,26 @@ class _ChannelDetailState extends State<ChannelDetail> {
         ),
       ),
       actions: [
+        IconButton(
+          tooltip: channelMuted ? 'Unmute channel' : 'Mute channel',
+          icon: Icon(
+            channelMuted
+                ? Icons.notifications_off_outlined
+                : Icons.notifications_outlined,
+          ),
+          onPressed: () async {
+            final next = !channelMuted;
+            try {
+              await PulseNotifications.instance.muteChannel(
+                widget.channelId,
+                next,
+              );
+              if (mounted) setState(() => channelMuted = next);
+            } catch (e) {
+              if (mounted) channelError(context, e);
+            }
+          },
+        ),
         IconButton(
           tooltip: 'Search announcements',
           onPressed: () async {
@@ -895,7 +935,8 @@ class _ChannelDetailState extends State<ChannelDetail> {
                   child: ListView.builder(
                     controller: historyScroll,
                     physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.all(16),
+                    reverse: true,
+                    padding: const EdgeInsets.all(12),
                     itemCount: posts.length + 1,
                     itemBuilder: (_, i) {
                       if (i == posts.length)
@@ -943,6 +984,35 @@ class _ChannelDetailState extends State<ChannelDetail> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
+                                      if (post['quoted_body'] != null)
+                                        Container(
+                                          width: double.infinity,
+                                          margin: const EdgeInsets.only(
+                                            bottom: 10,
+                                          ),
+                                          padding: const EdgeInsets.all(10),
+                                          decoration: BoxDecoration(
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .surfaceContainerHighest,
+                                            border: Border(
+                                              left: BorderSide(
+                                                width: 4,
+                                                color: Theme.of(
+                                                  context,
+                                                ).colorScheme.primary,
+                                              ),
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            post['quoted_body'],
+                                            maxLines: 3,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
                                       if (post['attachment_path'] != null)
                                         ChannelPostMedia(
                                           key: ValueKey(post['id']),
@@ -974,31 +1044,70 @@ class _ChannelDetailState extends State<ChannelDetail> {
                                   ),
                                 ),
                                 Wrap(
-                                  children: ['❤️', '🔥', '👏', '👍', '🎉'].map((
-                                    emoji,
-                                  ) {
-                                    final own = all.any(
-                                      (r) =>
-                                          r['user_id'] == widget.repo.uid &&
-                                          r['emoji'] == emoji,
-                                    );
-                                    return TextButton(
-                                      onPressed: () => action(() async {
-                                        await widget.repo.rpc('post_react', {
-                                          'p_post': post['id'],
-                                          'p_emoji': own ? null : emoji,
-                                        });
-                                      }),
-                                      child: Text(
-                                        '$emoji ${all.where((r) => r['emoji'] == emoji).length}',
-                                        style: TextStyle(
-                                          fontWeight: own
-                                              ? FontWeight.bold
-                                              : FontWeight.normal,
+                                  children: [
+                                    IconButton(
+                                      tooltip: 'Share announcement',
+                                      icon: const Icon(
+                                        Icons.ios_share,
+                                        size: 19,
+                                      ),
+                                      onPressed: () => SharePlus.instance.share(
+                                        ShareParams(
+                                          text:
+                                              "${channel?['name'] ?? 'Pulse channel'}\n${post['body']}",
                                         ),
                                       ),
-                                    );
-                                  }).toList(),
+                                    ),
+                                    if (admin)
+                                      IconButton(
+                                        tooltip: 'Quote announcement',
+                                        icon: const Icon(
+                                          Icons.format_quote,
+                                          size: 19,
+                                        ),
+                                        onPressed: () async {
+                                          final body = await channelPrompt(
+                                            context,
+                                            'Reply to announcement',
+                                            max: 4000,
+                                          );
+                                          if (body == null) return;
+                                          await action(() async {
+                                            await widget.repo
+                                                .rpc('channel_quote', {
+                                                  'p_channel': widget.channelId,
+                                                  'p_post': post['id'],
+                                                  'p_body': body,
+                                                });
+                                          });
+                                        },
+                                      ),
+                                    ...['❤️', '🔥', '👏', '👍', '🎉'].map((
+                                      emoji,
+                                    ) {
+                                      final own = all.any(
+                                        (r) =>
+                                            r['user_id'] == widget.repo.uid &&
+                                            r['emoji'] == emoji,
+                                      );
+                                      return TextButton(
+                                        onPressed: () => action(() async {
+                                          await widget.repo.rpc('post_react', {
+                                            'p_post': post['id'],
+                                            'p_emoji': own ? null : emoji,
+                                          });
+                                        }),
+                                        child: Text(
+                                          '$emoji ${all.where((r) => r['emoji'] == emoji).length}',
+                                          style: TextStyle(
+                                            fontWeight: own
+                                                ? FontWeight.bold
+                                                : FontWeight.normal,
+                                          ),
+                                        ),
+                                      );
+                                    }).toList(),
+                                  ],
                                 ),
                               ],
                             ),

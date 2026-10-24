@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'push.dart';
 import 'activity_alerts.dart';
@@ -245,7 +246,17 @@ class PulseNotifications {
     } catch (_) {}
   }
 
+  String _channelMuteKey(String channel) =>
+      'channel-muted:${Supabase.instance.client.auth.currentUser?.id}:$channel';
+  Future<bool> channelMuted(String channel) async =>
+      await _vault.read(key: _channelMuteKey(channel)) == 'true';
+  Future<void> muteChannel(String channel, bool muted) async {
+    await _vault.write(key: _channelMuteKey(channel), value: '$muted');
+    if (muted) await clearChannel(channel);
+  }
+
   Future<void> channelUpdate(String channel, String post, int count) async {
+    if (await channelMuted(channel)) return;
     if (count <= 0 || !_seen.add('channel:$post')) return;
     if (_seen.length > 500) _seen.remove(_seen.first);
     await _show(

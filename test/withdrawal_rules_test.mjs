@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {payoutsEnabled,payoutMatches,successfulDescription,quoteRate} from '../supabase/functions/pulse-withdrawals/rules.mjs';
+assert(!payoutsEnabled(()=>undefined));
+const env={SQUAD_MODE:'live',SQUAD_PAYOUTS_ENABLED:'true',SQUAD_SECRET_KEY:'sk_fixture',SQUAD_MERCHANT_ID:'FIXTURE'};
+assert(payoutsEnabled(k=>env[k]));assert(!payoutsEnabled(k=>k==='SQUAD_SECRET_KEY'?'sandbox_sk_fixture':env[k]));
+const q={provider_reference:'fixture-1',net_kobo:450000,account_number:'0123456789'};
+const r={transaction_reference:'fixture-1',amount:'450000',currency_id:'NGN',account_number:'0123456789',nip_transaction_reference:'fixture-nip',response_description:'Transaction Success'};
+assert(payoutMatches(r,q));assert(successfulDescription(r));
+for(const p of [{amount:'1'},{currency_id:'USD'},{account_number:'0000000000'},{transaction_reference:'other'},{nip_transaction_reference:''}])assert(!payoutMatches({...r,...p},q));
+assert(!successfulDescription({response_description:'Pending'}));
+const now=Date.now();const fx={result:'success',base_code:'USD',rates:{NGN:1500},time_last_update_unix:Math.floor(now/1000)};
+assert.equal(quoteRate(fx,now).rate_kobo_per_usd,150000);
+assert.throws(()=>quoteRate({...fx,time_last_update_unix:0},now));assert.throws(()=>quoteRate({...fx,rates:{NGN:-1}},now));
+console.log('PASS payout mode, immutable reference/account/amount matching and fresh FX quotes');

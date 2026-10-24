@@ -43,8 +43,6 @@ class _ChannelPostMediaState extends State<ChannelPostMedia> {
       if (fresh == null)
         throw SocialFailure('This announcement is unavailable.');
       if (!mounted) return;
-      await PulseMedia.pauseAll();
-      if (!mounted) return;
       await downloadPulseMedia(
         context,
         {
@@ -54,6 +52,7 @@ class _ChannelPostMediaState extends State<ChannelPostMedia> {
           'name':
               'Pulse-channel.${fresh['attachment_path'].toString().split('.').last}',
         },
+        postId: widget.post['id'],
         username: fresh['username'],
         signedUrl: () => widget.repo.db.storage
             .from('pulse-channel-media')
@@ -115,22 +114,14 @@ class _ChannelPostMediaState extends State<ChannelPostMedia> {
           channel: true,
           autoplay: opened,
         ),
-      Align(
-        alignment: Alignment.centerRight,
-        child: PopupMenuButton<String>(
-          tooltip: 'Media options',
-          enabled: !downloading,
-          onSelected: (_) => download(),
-          itemBuilder: (_) => const [
-            PopupMenuItem(
-              value: 'download',
-              child: ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: Icon(Icons.download_outlined),
-                title: Text('Download'),
-              ),
-            ),
-          ],
+      PulseDownloadProgress(postId: widget.post['id']),
+      TextButton.icon(
+        onPressed: downloading ? null : download,
+        icon: const Icon(Icons.download_rounded, size: 18),
+        label: Text(
+          downloading
+              ? 'Downloading…'
+              : 'Download${widget.post['media_bytes'] == null ? '' : ' · ${((widget.post['media_bytes'] as num) / 1024).ceil()} KB'}',
         ),
       ),
     ],

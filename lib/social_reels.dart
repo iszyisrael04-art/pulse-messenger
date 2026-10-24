@@ -1,3 +1,6 @@
+import 'dart:io';
+import 'reel_prefetch.dart';
+import 'social_download.dart';
 import 'activity.dart';
 import 'social_context.dart';
 import 'appearance.dart';
@@ -27,6 +30,8 @@ class PulseReels extends StatefulWidget {
 class _PulseReelsState extends State<PulseReels> with WidgetsBindingObserver {
   late final SocialFeedController feed;
   final pages = PageController();
+  final prefetch = PulseReelPrefetch();
+  File? activeCache;
   Player? player;
   VideoController? video;
   final subscriptions = <StreamSubscription<dynamic>>[];
@@ -56,6 +61,7 @@ class _PulseReelsState extends State<PulseReels> with WidgetsBindingObserver {
   }
 
   Future<void> refresh() async {
+    await prefetch.clear();
     desired = null;
     loaded = null;
     index = 0;
@@ -108,6 +114,7 @@ class _PulseReelsState extends State<PulseReels> with WidgetsBindingObserver {
         if (match.isEmpty) break;
         final row = match.first;
         try {
+          final mediaPath = (row['media'] as List).first['path'] as String;
           final url = await widget.store
               .signed((row['media'] as List).first['path'], renew: true)
               .timeout(const Duration(seconds: 12));
@@ -195,12 +202,20 @@ class _PulseReelsState extends State<PulseReels> with WidgetsBindingObserver {
             );
           }
           await player!.stop();
+          final oldCache = activeCache;
+          activeCache = null;
+          if (oldCache != null) {
+            try {
+              if (await oldCache.exists()) await oldCache.delete();
+            } catch (_) {}
+          }
           if (!mounted) return;
           if (desired != wanted) continue;
           await player!.setVolume(muted ? 0 : 100);
           await player!.setPlaylistMode(PlaylistMode.single);
+          activeCache = prefetch.take(mediaPath);
           await player!
-              .open(Media(url), play: false)
+              .open(Media(activeCache?.path ?? url), play: false)
               .timeout(const Duration(seconds: 18));
           if (!mounted) return;
           if (desired != wanted) continue;
@@ -208,6 +223,16 @@ class _PulseReelsState extends State<PulseReels> with WidgetsBindingObserver {
           error = null;
           await PulseMedia.activate(player!);
           await player!.play();
+          if (index + 1 < feed.rows.length) {
+            final nextPath =
+                (feed.rows[index + 1]['media'] as List).first['path'] as String;
+            unawaited(
+              prefetch.warm(
+                nextPath,
+                () => widget.store.signed(nextPath, renew: true),
+              ),
+            );
+          }
           if (mounted) setState(() {});
         } catch (e) {
           if (!mounted) return;
@@ -224,7 +249,10 @@ class _PulseReelsState extends State<PulseReels> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed) player?.pause();
+    if (state != AppLifecycleState.resumed) {
+      player?.pause();
+      unawaited(prefetch.clear());
+    }
   }
 
   @override
@@ -232,6 +260,7 @@ class _PulseReelsState extends State<PulseReels> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     playbackErrorTimer?.cancel();
     startupDeadline?.cancel();
+    unawaited(prefetch.clear());
     desired = null;
     feed.removeListener(changed);
     feed.dispose();
@@ -243,7 +272,14 @@ class _PulseReelsState extends State<PulseReels> with WidgetsBindingObserver {
     final current = player;
     if (current != null)
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        current.dispose();
+        current.dispose().then((_) async {
+          final cached = activeCache;
+          if (cached != null) {
+            try {
+              if (await cached.exists()) await cached.delete();
+            } catch (_) {}
+          }
+        });
       });
     super.dispose();
   }
@@ -517,6 +553,7 @@ class _PulseReelsState extends State<PulseReels> with WidgetsBindingObserver {
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(color: Colors.white),
                               ),
+                              PulseDownloadProgress(postId: post['id']),
                               SocialHashtags(
                                 store: widget.store,
                                 body: post['body'],

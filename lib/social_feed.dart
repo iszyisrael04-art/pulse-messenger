@@ -1,3 +1,4 @@
+import 'social_download.dart';
 import 'activity.dart';
 import 'shop.dart';
 import 'interest_picker.dart';
@@ -669,6 +670,10 @@ class _SocialPostCardState extends State<SocialPostCard> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: SocialHashtags(store: widget.store, body: post['body']),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: PulseDownloadProgress(postId: post['id']),
             ),
             SocialActions(
               store: widget.store,

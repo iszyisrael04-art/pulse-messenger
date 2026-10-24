@@ -24,6 +24,7 @@ class _AuthScreenState extends State<AuthScreen> {
       code = TextEditingController();
   Country country = Country.parse('NG');
   String? requestedPhone;
+  int? signupAge;
   String get loginIdentity => method == 2
       ? (requestedPhone ??
             pulsePhoneNumber(identity.text, country.countryCode) ??
@@ -43,7 +44,11 @@ class _AuthScreenState extends State<AuthScreen> {
     codeSent: codeSent,
   );
   Map<String, dynamic>? get signupData => register
-      ? {'privacy_version': pulsePrivacyVersion, 'privacy_accepted': true}
+      ? {
+          'privacy_version': pulsePrivacyVersion,
+          'privacy_accepted': true,
+          'signup_age': signupAge,
+        }
       : null;
   Timer? resendTimer;
   DateTime? resendAt;
@@ -381,6 +386,24 @@ class _AuthScreenState extends State<AuthScreen> {
                       validator: (v) => RegExp(r'^\d{6,8}$').hasMatch(v ?? '')
                           ? null
                           : 'Enter the code you received',
+                    ),
+                  ],
+                  if (needsAgreement) ...[
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Your age',
+                        helperText:
+                            'Your age is private and is not shown on your profile.',
+                      ),
+                      onChanged: (v) => signupAge = int.tryParse(v.trim()),
+                      validator: (v) {
+                        final age = int.tryParse((v ?? '').trim());
+                        return age == null || age < 1 || age > 120
+                            ? 'Enter your age in years (1–120).'
+                            : null;
+                      },
                     ),
                   ],
                   if (needsAgreement)

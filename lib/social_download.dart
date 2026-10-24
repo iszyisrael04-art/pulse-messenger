@@ -60,6 +60,7 @@ Future<void> downloadPulsePost(
   await downloadPulseMedia(
     context,
     media[selected],
+    postId: id,
     username: username,
     externalText: external ? text : null,
     signedUrl: () => store.signed(media[selected]['path'], renew: true),
@@ -73,6 +74,7 @@ Future<void> downloadPulseMedia(
   BuildContext context,
   Map item, {
   String? username,
+  String? postId,
   String? externalText,
   required Future<String> Function() signedUrl,
   required Future<bool> Function() stillAllowed,
@@ -106,45 +108,28 @@ Future<void> downloadPulseMedia(
     stage.dispose();
     return;
   }
-  final navigator = Navigator.of(context, rootNavigator: true);
-  final route = DialogRoute<void>(
-    context: context,
-    barrierDismissible: false,
-    builder: (_) => PopScope(
-      canPop: false,
-      child: ValueListenableBuilder<String>(
-        valueListenable: stage,
-        builder: (_, label, __) => AlertDialog(
-          title: Text(label),
-          content: ValueListenableBuilder<double?>(
-            valueListenable: progress,
-            builder: (_, value, __) => Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                LinearProgressIndicator(value: value),
-                const SizedBox(height: 12),
-                Text(
-                  value == null ? 'Preparing…' : '${(value * 100).round()}%',
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                cancel = true;
-                client.close(force: true);
-                if (watermarking)
-                  unawaited(NativePulseEditor.cancel().catchError((_) {}));
-              },
-              child: const Text('Cancel'),
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
-  final dialog = navigator.push(route);
+  final jobKey = postId ?? token;
+  if (pulseDownloads.value.containsKey(jobKey)) {
+    client.close(force: true);
+    progress.dispose();
+    stage.dispose();
+    return;
+  }
+  void publishProgress() {
+    pulseDownloads.value = {
+      ...pulseDownloads.value,
+      jobKey: PulseDownloadState(stage.value, progress.value, () {
+        cancel = true;
+        client.close(force: true);
+        if (watermarking)
+          unawaited(NativePulseEditor.cancel().catchError((_) {}));
+      }),
+    };
+  }
+
+  progress.addListener(publishProgress);
+  stage.addListener(publishProgress);
+  publishProgress();
   try {
     final url = Uri.parse(await signedUrl());
     final request = await client.getUrl(url);
@@ -207,8 +192,6 @@ Future<void> downloadPulseMedia(
         }
       }
       final shared = await ready.copy('${shares.path}/$token-$safe');
-      if (route.isActive) navigator.removeRoute(route);
-      await dialog;
       await SharePlus.instance.share(
         ShareParams(
           text: externalText,
@@ -256,11 +239,65 @@ Future<void> downloadPulseMedia(
     for (final file in [target, output, badge]) {
       if (await file.exists()) await file.delete();
     }
-    if (route.isActive) navigator.removeRoute(route);
-    await dialog;
+    pulseDownloads.value = {...pulseDownloads.value}..remove(jobKey);
+    progress.removeListener(publishProgress);
+    stage.removeListener(publishProgress);
     progress.dispose();
     stage.dispose();
   }
 }
 
 bool itemIsVideo(Map item) => item['kind'] == 'video';
+
+class PulseDownloadState {
+  const PulseDownloadState(this.label, this.progress, this.cancel);
+  final String label;
+  final double? progress;
+  final VoidCallback cancel;
+}
+
+final pulseDownloads = ValueNotifier<Map<String, PulseDownloadState>>({});
+
+/// Inline progress keeps navigation and the video unobstructed.
+class PulseDownloadProgress extends StatelessWidget {
+  const PulseDownloadProgress({super.key, required this.postId});
+  final String postId;
+  @override
+  Widget build(
+    BuildContext context,
+  ) => ValueListenableBuilder<Map<String, PulseDownloadState>>(
+    valueListenable: pulseDownloads,
+    builder: (context, jobs, _) {
+      final job = jobs[postId];
+      if (job == null) return const SizedBox.shrink();
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(
+          children: [
+            const Icon(Icons.downloading_rounded, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '${job.label}${job.progress == null ? '' : ' · ${(job.progress! * 100).round()}%'}',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                  const SizedBox(height: 4),
+                  LinearProgressIndicator(value: job.progress),
+                ],
+              ),
+            ),
+            IconButton(
+              tooltip: 'Cancel download',
+              onPressed: job.cancel,
+              icon: const Icon(Icons.close, size: 18),
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
