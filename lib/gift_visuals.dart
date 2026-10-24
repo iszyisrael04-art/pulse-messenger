@@ -172,24 +172,58 @@ class GiftMesh {
           );
         }
       case 'star':
-        for (var i = 0; i < 5; i++) {
-          final a = i * 2 * math.pi / 5;
-          m.gem(
-            .4 * math.sin(a),
-            .4 * math.cos(a),
-            0,
-            .32,
+        for (var i = 0; i < 10; i++) {
+          GiftVertex rim(int j, double z) {
+            final angle = j * math.pi / 5, r = j.isEven ? .95 : .43;
+            return GiftVertex(math.sin(angle) * r, math.cos(angle) * r, z);
+          }
+
+          m.triangle(
+            const GiftVertex(0, 0, .28),
+            rim(i, .1),
+            rim(i + 1, .1),
             gold,
-            tall: 1.7,
-            sides: 4,
           );
+          m.triangle(
+            const GiftVertex(0, 0, -.28),
+            rim(i + 1, -.1),
+            rim(i, -.1),
+            gold,
+          );
+          m.triangle(rim(i, .1), rim(i, -.1), rim(i + 1, .1), gold);
+          m.triangle(rim(i + 1, .1), rim(i, -.1), rim(i + 1, -.1), gold);
         }
-        m.gem(0, 0, 0, .45, gold);
       case 'fire':
-        m.cone(0, -.65, 0, .65, 1.55, const Color(0xffff661f), top: .02);
-        m.cone(0, -.65, .15, .35, 1.05, gold);
-        m.gem(-.4, .05, 0, .2, pink, tall: 2);
-        m.gem(.35, .2, 0, .2, gold, tall: 2);
+        for (var layer = 0; layer < 2; layer++) {
+          GiftVertex flame(int ring, int segment) {
+            final t = ring / 10, a = segment * 2 * math.pi / 18;
+            final radius =
+                math.sin(math.pow(1 - t, .7) * math.pi) * (.55 - layer * .2);
+            return GiftVertex(
+              .2 * math.sin(t * math.pi * 2) + radius * math.cos(a),
+              -.8 + t * (1.9 - layer * .5),
+              radius * math.sin(a) + layer * .22,
+            );
+          }
+
+          for (var ring = 0; ring < 10; ring++) {
+            for (var j = 0; j < 18; j++) {
+              final color = layer == 0 ? const Color(0xffff6424) : gold;
+              m.triangle(
+                flame(ring, j),
+                flame(ring + 1, j),
+                flame(ring + 1, j + 1),
+                color,
+              );
+              m.triangle(
+                flame(ring, j),
+                flame(ring + 1, j + 1),
+                flame(ring, j + 1),
+                color,
+              );
+            }
+          }
+        }
       case 'crown':
         m.cone(0, -.55, 0, .7, .45, gold, top: .7);
         for (var i = 0; i < 7; i++) {
@@ -277,8 +311,11 @@ class _GiftPainter extends CustomPainter {
     final angle = math.sin(phase * math.pi * 2) * .45 + .3,
         ca = math.cos(angle),
         sa = math.sin(angle);
-    GiftVertex turn(GiftVertex p) =>
-        GiftVertex(p.x * ca + p.z * sa, p.y, p.z * ca - p.x * sa);
+    GiftVertex turn(GiftVertex p) => GiftVertex(
+      p.x * ca + p.z * sa,
+      p.y * .98 + (p.z * ca - p.x * sa) * .2,
+      (p.z * ca - p.x * sa) * .98 - p.y * .2,
+    );
     Offset project(GiftVertex p) {
       final f = 4 / (4 - p.z);
       return Offset(
