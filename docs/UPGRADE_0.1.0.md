@@ -91,3 +91,12 @@ Migration 031 is now installed after explicit owner approval. This supersedes th
 - Test sends are visible with TEST labels and the same 3D viewer effects. Their ledger is separate from real gifts: no P-coins, withdrawal eligibility, battle score or public rank can result. Server-side quantity, balance, membership and replay checks still apply. Clients cannot write wallets or grant records.
 - Protected account/RPC checks now correlate signed session_id claims to active Auth sessions and the correct user, rejecting revoked, expired, malformed and foreign sessions. Legacy platform-signed tokens without this claim retain compatibility; new native Auth tokens carry it. This is not a substitute for JWT signature validation at the gateway.
 - Existing paid purchases still require verified provider receipts and exact immutable quotes. This update does not enable payments, configure Play Integrity, turn debug builds into protected release builds, or claim unbreakable anti-tamper security. Release signing, device attestation and independent penetration testing remain separate work.
+
+
+### Build 33: personal LIVE and channel LIVE
+- Upload Studio Go LIVE / Resume starts or resumes the user's own broadcast without creating or selecting a channel.
+- Personal broadcasts use profile follower eligibility and separate `pulse-user-` LiveKit rooms. Channel broadcasts retain channel follower eligibility and `pulse-channel-` rooms.
+- Profiles keep a LIVE status badge (Watch now for viewers), with no host start/resume action. Profiles show the badge only for an active personal broadcast, refreshed every 10 seconds. The badge clears when ended or its server lease expires.
+- Personal hosts moderate chat and approve guests; accepted profile followers can comment and request seats. Private profile and block checks protect sessions, chat, gifts and media access.
+- Install ordered schema 036 and redeploy pulse-live before using build 33. Existing channel sessions are preserved.
+- Payment sandbox screenshot is an unstarted checkout, not proof of a verified payment. Sandbox requires a sandbox credential; real purchase enablement remains separate.

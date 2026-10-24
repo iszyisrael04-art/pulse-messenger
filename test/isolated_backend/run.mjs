@@ -66,6 +66,10 @@ await db.exec(fs.readFileSync(root+'/test/test_coins_security.sql','utf8'));
 console.log('TEST PASS test_coins_security.sql');
 await db.exec(fs.readFileSync(root+'/test/session_revocation_security.sql','utf8'));
 console.log('TEST PASS session_revocation_security.sql');
+await db.exec(fs.readFileSync(root+'/supabase/schema/036_personal_live.sql','utf8'));
+console.log('SCHEMA PASS 036_personal_live.sql');
+await db.exec(fs.readFileSync(root+'/test/personal_live_security.sql','utf8'));
+console.log('TEST PASS personal_live_security.sql');
 await db.close();
 await import('../live_edge_offline.mjs');
 }catch(e){console.log('BOOTSTRAP FAIL',e.message);process.exit(1);}

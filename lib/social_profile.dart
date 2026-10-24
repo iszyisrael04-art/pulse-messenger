@@ -41,6 +41,9 @@ class _SocialProfileState extends State<SocialProfile> {
   String profileStyle = 'classic';
   Map features = {};
   Timer? featureRefresh;
+  Timer? liveRefresh;
+  Map personalLive = {};
+  bool refreshingLive = false;
   Future<void> addStory() async {
     final type = await showModalBottomSheet<String>(
       context: context,
@@ -77,6 +80,7 @@ class _SocialProfileState extends State<SocialProfile> {
   @override
   void dispose() {
     featureRefresh?.cancel();
+    liveRefresh?.cancel();
     widget.store.removeListener(profileChanged);
     super.dispose();
   }
@@ -87,6 +91,11 @@ class _SocialProfileState extends State<SocialProfile> {
     super.initState();
     widget.store.addListener(profileChanged);
     load();
+    refreshPersonalLive();
+    liveRefresh = Timer.periodic(
+      const Duration(seconds: 10),
+      (_) => refreshPersonalLive(),
+    );
   }
 
   bool reloadPending = false;
@@ -105,7 +114,46 @@ class _SocialProfileState extends State<SocialProfile> {
       old.store.removeListener(profileChanged);
       widget.store.addListener(profileChanged);
     }
-    if (old.user != widget.user || old.store != widget.store) profileChanged();
+    if (old.user != widget.user || old.store != widget.store) {
+      personalLive = {};
+      profileChanged();
+      refreshPersonalLive();
+    }
+  }
+
+  Future<void> refreshPersonalLive() async {
+    if (refreshingLive) return;
+    refreshingLive = true;
+    final user = widget.user;
+    try {
+      final result = await widget.store.repo.rpc('personal_live', {
+        'p_action': 'info',
+        'p_user': user,
+      });
+      if (mounted && user == widget.user)
+        setState(() => personalLive = result is Map ? result : {});
+    } catch (_) {
+      if (mounted && user == widget.user) setState(() => personalLive = {});
+    } finally {
+      refreshingLive = false;
+    }
+  }
+
+  Future<void> watchPersonalLive() async {
+    await refreshPersonalLive();
+    final session = (personalLive['session'] as Map?)?['id']?.toString();
+    if (!mounted || session == null || mine) return;
+    await Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => LiveScreen(
+          repo: widget.store.repo,
+          sessionId: session,
+          host: false,
+        ),
+      ),
+    );
+    await refreshPersonalLive();
   }
 
   Future<void> load() async {
@@ -549,23 +597,25 @@ class _SocialProfileState extends State<SocialProfile> {
                     user: widget.user,
                   ),
                 ),
-                if (mine)
+                if (personalLive['session'] is Map)
                   Center(
-                    child: TextButton.icon(
-                      onPressed: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => Scaffold(
-                            appBar: AppBar(
-                              title: const Text('Your LIVE channels'),
+                    child: mine
+                        ? const Chip(
+                            avatar: Icon(
+                              Icons.sensors_rounded,
+                              color: Colors.redAccent,
                             ),
-                            body: ChannelsScreen(repo: widget.store.repo),
+                            label: Text('LIVE'),
+                          )
+                        : FilledButton.icon(
+                            style: FilledButton.styleFrom(
+                              backgroundColor: Colors.redAccent,
+                              foregroundColor: Colors.white,
+                            ),
+                            onPressed: watchPersonalLive,
+                            icon: const Icon(Icons.sensors_rounded),
+                            label: const Text('LIVE · Watch now'),
                           ),
-                        ),
-                      ),
-                      icon: const Icon(Icons.live_tv_rounded),
-                      label: const Text('Go LIVE / Resume'),
-                    ),
                   ),
                 const SizedBox(height: 6),
                 Center(
