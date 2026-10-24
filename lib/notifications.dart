@@ -248,8 +248,14 @@ class PulseNotifications {
 
   String _channelMuteKey(String channel) =>
       'channel-muted:${Supabase.instance.client.auth.currentUser?.id}:$channel';
-  Future<bool> channelMuted(String channel) async =>
-      await _vault.read(key: _channelMuteKey(channel)) == 'true';
+  Future<bool> channelMuted(String channel) async {
+    try {
+      return await _vault.read(key: _channelMuteKey(channel)) == 'true';
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<void> muteChannel(String channel, bool muted) async {
     await _vault.write(key: _channelMuteKey(channel), value: '$muted');
     if (muted) await clearChannel(channel);

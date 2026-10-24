@@ -223,7 +223,10 @@ class _PulseReelsState extends State<PulseReels> with WidgetsBindingObserver {
           error = null;
           await PulseMedia.activate(player!);
           await player!.play();
-          if (index + 1 < feed.rows.length) {
+          if (!mounted) return;
+          if (WidgetsBinding.instance.lifecycleState ==
+                  AppLifecycleState.resumed &&
+              index + 1 < feed.rows.length) {
             final nextPath =
                 (feed.rows[index + 1]['media'] as List).first['path'] as String;
             unawaited(
