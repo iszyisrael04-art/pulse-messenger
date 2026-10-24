@@ -105,7 +105,7 @@ class _PulseShopPageState extends State<PulseShopPage> {
                     ),
                   ),
                   const Text(
-                    'Earn P-coins from gifts. Current gift prices and rewards are listed below. New pricing is pending approval.',
+                    'Earn P-coins from gifts. Current gift prices and rewards are listed below. A Rose costs 10 normal coins and earns 0.5 P-coins.',
                   ),
                   const SizedBox(height: 12),
                   OutlinedButton(

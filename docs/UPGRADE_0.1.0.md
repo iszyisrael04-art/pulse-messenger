@@ -80,3 +80,7 @@ Schema 033 adds follower responses with quoted replies, idempotent sends, blocke
 - Settings → Gifter ranks shows badges and eye controls. Exact lifetime spend defaults private; badge visibility defaults public and can be hidden independently. Public rank still discloses its threshold range. Server responses omit hidden values, including batch chat badge requests; the private gift ledger remains inaccessible.
 - The host camera fills LIVE when alone. Approved stage guests (not ordinary viewers) trigger an animated shorter split-grid region. Controls and compact chat sit over a bottom gradient; gift effects do not intercept taps.
 - Pricing migration 031 remains pending approval and has NOT been installed. Rank/feed migration 034 is independent and does not change balances, gift prices or withdrawals.
+
+## Owner-approved pricing installed — 24 October 2026
+
+Migration 031 is now installed after explicit owner approval. This supersedes the earlier pending-pricing deployment notes: packs are 100/$1, 200/$2, 500/$5 and 1000/$10; 100 P-coins are valued at $30; Rose costs 10 normal coins and earns 0.5 P-coins. Existing balances/history and other gift prices were preserved. Decimal earnings use exact numeric storage. The owner reports Squad KYC approval. Live payment credentials, checkout, webhook fulfilment and payouts still require verification; no live flags were enabled and no money transaction was made.
