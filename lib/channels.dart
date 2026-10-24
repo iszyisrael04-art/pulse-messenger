@@ -1207,7 +1207,12 @@ class _LiveScreenState extends State<LiveScreen> {
   );
   final composer = TextEditingController();
   late final party = PulseLiveParty(widget.repo, widget.sessionId);
-  bool onStage = false, joiningStage = false;
+  bool onStage = false,
+      joiningStage = false,
+      liveEnded = false,
+      paused = false,
+      connecting = false;
+  String liveOwnerLabel = 'The host';
   DateTime lastPermissionSync = DateTime.fromMillisecondsSinceEpoch(0);
   List<Map<String, dynamic>> chat = [];
   Timer? timer;
@@ -1325,6 +1330,8 @@ class _LiveScreenState extends State<LiveScreen> {
   }
 
   Future<void> connect() async {
+    if (connecting || ending || liveEnded) return;
+    connecting = true;
     try {
       final data =
           widget.initial ??
@@ -1338,6 +1345,25 @@ class _LiveScreenState extends State<LiveScreen> {
               },
             )).data,
           );
+      final sessionInfo = await widget.repo.db
+          .from('pulse_live_sessions')
+          .select('host_id,channel_id')
+          .eq('id', widget.sessionId)
+          .single();
+      final channelMatches = widget.repo.channels.where(
+        (c) => c['id'] == sessionInfo['channel_id'],
+      );
+      if (channelMatches.isNotEmpty) {
+        liveOwnerLabel =
+            channelMatches.first['name']?.toString() ?? 'The channel';
+      } else {
+        final hostProfile = await widget.repo.db
+            .from('pulse_profiles')
+            .select('display_name')
+            .eq('id', sessionInfo['host_id'])
+            .maybeSingle();
+        liveOwnerLabel = hostProfile?['display_name']?.toString() ?? 'The host';
+      }
       await room.connect(data['url'], data['token']);
       await party.refresh();
       if (widget.host) await joinStage();
@@ -1352,18 +1378,11 @@ class _LiveScreenState extends State<LiveScreen> {
       timer = Timer.periodic(const Duration(seconds: 4), (_) => poll());
       await poll();
     } catch (connectionError) {
-      if (widget.host) {
-        try {
-          await widget.repo.db.functions.invoke(
-            'pulse-live',
-            body: {'action': 'end', 'session_id': widget.sessionId},
-          );
-        } catch (_) {
-          /* lease expires if unavailable */
-        }
-      }
+      // A failed join is recoverable; never end a host's live as a side effect.
       await room.disconnect();
       if (mounted) setState(() => error = liveErrorMessage(connectionError));
+    } finally {
+      connecting = false;
     }
   }
 
@@ -1387,7 +1406,8 @@ class _LiveScreenState extends State<LiveScreen> {
         if (mounted)
           setState(() {
             connected = false;
-            error = 'This livestream has ended.';
+            liveEnded = true;
+            error = '$liveOwnerLabel has quit the live.';
           });
         return;
       }
@@ -1506,30 +1526,54 @@ class _LiveScreenState extends State<LiveScreen> {
   Future<void> end() async {
     if (ending) return;
     setState(() => ending = true);
+    timer?.cancel();
+    String? failure;
     try {
       await room.localParticipant?.setCameraEnabled(false);
       await room.localParticipant?.setMicrophoneEnabled(false);
-      if (mounted) setState(() => onStage = false);
-      if (widget.host)
-        await widget.repo.db.functions.invoke(
-          'pulse-live',
-          body: {'action': 'end', 'session_id': widget.sessionId},
-        );
-      if (!widget.host &&
+      if (widget.host && !liveEnded) {
+        await widget.repo.db.functions
+            .invoke(
+              'pulse-live',
+              body: {'action': 'end', 'session_id': widget.sessionId},
+            )
+            .timeout(const Duration(seconds: 10));
+      } else if (!widget.host &&
           (party.state == 'approved' || party.state == 'pending')) {
-        try {
-          await party.action('leave');
-        } catch (_) {
-          /* Leaving the viewer route must remain possible offline. */
-        }
+        await party.action('leave').timeout(const Duration(seconds: 6));
       }
-      await room.disconnect();
-      if (mounted) Navigator.pop(context);
-    } catch (e) {
+    } catch (_) {
+      failure = widget.host
+          ? 'You left the live. The server could not confirm the end; the broadcast will expire if it cannot reconnect.'
+          : null;
+    } finally {
+      try {
+        await room.disconnect();
+      } catch (_) {}
       if (mounted) {
-        setState(() => ending = false);
-        channelError(context, e);
+        if (failure != null)
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(failure)));
+        await WidgetsBinding.instance.endOfFrame;
+        if (mounted) Navigator.pop(context);
       }
+    }
+  }
+
+  Future<void> pauseOrResume() async {
+    if (!widget.host || !connected || liveEnded || joiningStage) return;
+    try {
+      if (paused) {
+        await joinStage();
+      } else {
+        await room.localParticipant?.setCameraEnabled(false);
+        await room.localParticipant?.setMicrophoneEnabled(false);
+        onStage = false;
+      }
+      if (mounted) setState(() => paused = !paused);
+    } catch (e) {
+      if (mounted) channelError(context, e);
     }
   }
 
@@ -1585,17 +1629,35 @@ class _LiveScreenState extends State<LiveScreen> {
       }
     }
     return PopScope(
-      canPop: !widget.host || !connected,
+      canPop: ending,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) end();
       },
       child: Scaffold(
         appBar: AppBar(
-          title: Text(widget.host ? 'Broadcasting live' : 'Channel live'),
+          title: Text(
+            liveEnded
+                ? 'Live ended'
+                : widget.host
+                ? (paused ? 'Live paused' : 'Broadcasting live')
+                : 'Channel live',
+          ),
           actions: [
+            if (widget.host && connected && !liveEnded)
+              IconButton(
+                tooltip: paused ? 'Resume live' : 'Pause live',
+                onPressed: pauseOrResume,
+                icon: Icon(paused ? Icons.play_arrow : Icons.pause),
+              ),
             TextButton(
               onPressed: ending ? null : end,
-              child: Text(widget.host ? 'End live' : 'Leave'),
+              child: Text(
+                liveEnded
+                    ? 'Close'
+                    : widget.host
+                    ? 'End live'
+                    : 'Leave',
+              ),
             ),
           ],
         ),
@@ -1626,6 +1688,15 @@ class _LiveScreenState extends State<LiveScreen> {
               ),
             ),
             if (error != null && track != null) Text(error!),
+            if (!connected && !liveEnded && !ending)
+              TextButton.icon(
+                onPressed: () {
+                  timer?.cancel();
+                  connect();
+                },
+                icon: const Icon(Icons.refresh),
+                label: const Text('Resume connection'),
+              ),
             if (connected)
               PulseLiveGifts(
                 repo: widget.repo,

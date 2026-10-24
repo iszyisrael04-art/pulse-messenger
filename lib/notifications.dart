@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -62,7 +63,19 @@ class PulseNotifications {
     }
   }
 
+  Future<void> clearCall(String id) async {
+    try {
+      await _plugin.cancel(id.hashCode & 0x7fffffff);
+    } catch (_) {}
+  }
+
   void callTapped(String id) {
+    final actual = id.startsWith('answer:')
+        ? id.substring(7)
+        : id.startsWith('decline:')
+        ? id.substring(8)
+        : id;
+    unawaited(clearCall(actual));
     if (_callTap == null) {
       _pendingCallTap = id;
     } else {
@@ -118,7 +131,9 @@ class PulseNotifications {
         onDidReceiveNotificationResponse: (response) {
           if (response.payload == 'pulse:activity') activityTapped();
           if (response.payload?.startsWith('pulse:call:') == true)
-            callTapped(response.payload!.substring(11));
+            callTapped(
+              '${(response.actionId ?? '').isEmpty ? '' : '${response.actionId}:'}${response.payload!.substring(11)}',
+            );
         },
       );
       if (Platform.isAndroid) {
@@ -144,7 +159,8 @@ class PulseNotifications {
         final payload = launch?.notificationResponse?.payload;
         if (launch?.didNotificationLaunchApp == true &&
             payload?.startsWith('pulse:call:') == true)
-          _pendingCallTap = payload!.substring(11);
+          _pendingCallTap =
+              '${(launch?.notificationResponse?.actionId ?? '').isNotEmpty ? '${launch!.notificationResponse!.actionId}:' : ''}${payload!.substring(11)}';
       } catch (_) {
         /* Some Windows hosts do not supply launch metadata. */
       }
@@ -161,6 +177,13 @@ class PulseNotifications {
           >()
           ?.requestNotificationsPermission();
       value = allowed == true;
+      if (value) {
+        await _plugin
+            .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin
+            >()
+            ?.requestFullScreenIntentPermission();
+      }
     }
     if (value) {
       await PulsePush.instance.enable();
@@ -189,7 +212,7 @@ class PulseNotifications {
         NotificationDetails(
           android: AndroidNotificationDetails(
             callAlert
-                ? 'pulse_calls'
+                ? 'pulse_calls_v2'
                 : activityAlert
                 ? 'pulse_activity'
                 : 'pulse_messages',
@@ -202,13 +225,34 @@ class PulseNotifications {
                 ? 'Likes, comments, follows and mentions'
                 : 'New private and group messages',
             category: callAlert ? AndroidNotificationCategory.call : null,
+            fullScreenIntent: callAlert,
+            ongoing: callAlert,
+            autoCancel: !callAlert,
+            timeoutAfter: callAlert ? 45000 : null,
+            sound: callAlert
+                ? const RawResourceAndroidNotificationSound('pulse_ringtone')
+                : null,
+            actions: callAlert
+                ? const [
+                    AndroidNotificationAction(
+                      'answer',
+                      'Answer',
+                      showsUserInterface: true,
+                    ),
+                    AndroidNotificationAction(
+                      'decline',
+                      'Decline',
+                      showsUserInterface: true,
+                    ),
+                  ]
+                : null,
             importance: Importance.high,
             priority: Priority.high,
             visibility: NotificationVisibility.private,
             icon: 'ic_pulse_notification',
             number: number,
             groupKey: callAlert
-                ? 'pulse_calls'
+                ? 'pulse_calls_v2'
                 : activityAlert
                 ? 'pulse_activity'
                 : 'pulse_messages',
@@ -276,9 +320,7 @@ class PulseNotifications {
   Future<bool> incomingCall(String id, bool video) => _show(
     id.hashCode & 0x7fffffff,
     'Pulse',
-    video
-        ? 'Incoming video call. Open Pulse to answer.'
-        : 'Incoming voice call. Open Pulse to answer.',
+    video ? 'Incoming video call' : 'Incoming voice call',
     callAlert: true,
     payload: 'pulse:call:$id',
   );

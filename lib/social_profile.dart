@@ -1,3 +1,4 @@
+import 'channels.dart';
 import 'dart:async';
 import 'profile_identity.dart';
 import 'communities.dart';
@@ -541,6 +542,24 @@ class _SocialProfileState extends State<SocialProfile> {
                       ),
                   ],
                 ),
+                if (mine)
+                  Center(
+                    child: TextButton.icon(
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => Scaffold(
+                            appBar: AppBar(
+                              title: const Text('Your LIVE channels'),
+                            ),
+                            body: ChannelsScreen(repo: widget.store.repo),
+                          ),
+                        ),
+                      ),
+                      icon: const Icon(Icons.live_tv_rounded),
+                      label: const Text('Go LIVE / Resume'),
+                    ),
+                  ),
                 const SizedBox(height: 6),
                 Center(
                   child: Text(

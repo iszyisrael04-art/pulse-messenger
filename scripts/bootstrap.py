@@ -9,7 +9,7 @@ if flutter is None:
 subprocess.run([flutter, 'create', '--no-pub', '--platforms=android,windows', '--org', 'com.pulsemessenger', '--project-name', 'pulse_messenger', '.'], cwd=root, check=True)
 manifest = root / 'android/app/src/main/AndroidManifest.xml'
 s = manifest.read_text(encoding='utf-8')
-for permission in ['INTERNET', 'POST_NOTIFICATIONS', 'CAMERA', 'RECORD_AUDIO', 'ACCESS_NETWORK_STATE', 'CHANGE_NETWORK_STATE', 'MODIFY_AUDIO_SETTINGS']:
+for permission in ['INTERNET', 'POST_NOTIFICATIONS', 'CAMERA', 'RECORD_AUDIO', 'ACCESS_NETWORK_STATE', 'CHANGE_NETWORK_STATE', 'MODIFY_AUDIO_SETTINGS', 'USE_FULL_SCREEN_INTENT', 'VIBRATE']:
     name = 'android.permission.' + permission
     if name not in s:
         s = s.replace('<application', f'<uses-permission android:name="{name}" />\n    <application', 1)
@@ -23,10 +23,19 @@ for attribute in ['allowBackup', 'usesCleartextTraffic']:
 if 'android:scheme="https"' not in s:
     query = '<intent><action android:name="android.intent.action.VIEW"/><data android:scheme="https"/></intent>'
     s = s.replace('</queries>', query + '</queries>', 1) if '</queries>' in s else s.replace('</manifest>', '<queries>' + query + '</queries></manifest>', 1)
+if 'com.dexterous.flutterlocalnotifications.ActionBroadcastReceiver' not in s:
+    s = s.replace('</application>', '<receiver android:name="com.dexterous.flutterlocalnotifications.ActionBroadcastReceiver" android:exported="false"/>\n</application>', 1)
 # Disable FCM auto-init until the user opts into alerts.
 if 'firebase_messaging_auto_init_enabled' not in s:
     s = s.replace('</application>', '<meta-data android:name="firebase_messaging_auto_init_enabled" android:value="false" />\n    </application>', 1)
+# Call notifications may open the answer screen over the lock screen when Android permits.
+for attribute in ['showWhenLocked', 'turnScreenOn']:
+    if 'android:' + attribute not in s:
+        s = s.replace('<activity', f'<activity android:{attribute}="true"', 1)
 manifest.write_text(s, encoding='utf-8')
+raw = root / 'android/app/src/main/res/raw'
+raw.mkdir(parents=True, exist_ok=True)
+shutil.copyfile(root / 'assets/audio/incoming.ogg', raw / 'pulse_ringtone.ogg')
 icon = root / 'android/app/src/main/res/drawable/ic_pulse_notification.xml'
 icon.parent.mkdir(parents=True, exist_ok=True)
 icon.write_text('<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24"><path android:strokeColor="#FFFFFFFF" android:strokeWidth="2.4" android:fillColor="#00000000" android:pathData="M7,21V3h7c10,0 10,12 0,12H7"/></vector>', encoding='utf-8')

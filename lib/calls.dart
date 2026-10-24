@@ -37,6 +37,7 @@ class PulseCalls extends ChangeNotifier {
   final notified = <String>{};
   final received = <String>{};
   final incomingTone = PulseCallTone();
+  String? alertingCall;
 
   void start() {
     refresh();
@@ -100,6 +101,10 @@ class PulseCalls extends ChangeNotifier {
       history = rows;
       error = null;
       final call = incoming;
+      if (alertingCall != null && alertingCall != call?['id']) {
+        unawaited(PulseNotifications.instance.clearCall(alertingCall!));
+      }
+      alertingCall = call?['id'];
       if (call != null && !received.contains(call['id'])) {
         final acknowledged = await repo.rpc('call_received', {
           'p_call': call['id'],
@@ -109,7 +114,9 @@ class PulseCalls extends ChangeNotifier {
       if (disposed) return;
       unawaited(
         incomingTone.play(
-          call != null && PulseNotifications.instance.enabled
+          call != null &&
+                  PulseNotifications.instance.enabled &&
+                  !Platform.isAndroid
               ? 'incoming'
               : null,
         ),

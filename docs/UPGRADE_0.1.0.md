@@ -1,6 +1,6 @@
-# Pulse 0.1.0+29: combined release candidate
+# Pulse 0.1.0+30: combined release candidate
 
-The requested visible version is 0.1.0. Android build number increases to 29 so an existing Android installation can update without deleting its data PROVIDED the signing key is the same. The current workflow produces debug APKs; a stable existing signing key must be configured before reliable public upgrades. A build-number increase alone cannot fix a signing-key mismatch. Windows installer IDs are unchanged.
+The requested visible version is 0.1.0. Android build number increases to 30 so an existing Android installation can update without deleting its data PROVIDED the signing key is the same. The current workflow produces debug APKs; a stable existing signing key must be configured before reliable public upgrades. A build-number increase alone cannot fix a signing-key mismatch. Windows installer IDs are unchanged.
 
 ## Implemented
 - Calling stays Calling until a recipient device acknowledges the current call. A pending server invitation or online dot never counts as ringing.
@@ -62,3 +62,12 @@ Payment verification still shares the existing 3/minute LIVE diagnostic limiter;
 Schemas 030 (disabled withdrawals) and 032 (channel quotes) were installed. Schema 031 is a reviewed draft, **not installed**: automatic approval blocked the production money change. It now changes only the Rose catalog entry, introduces exact decimal P-coin columns without rewriting historical amounts, changes new coin pack quotes, and sets the P-coin valuation to USD 30 per 100. Other gifts remain unchanged. Shop displays must continue to use the live server catalog until this migration is explicitly approved.
 
 Schema 033 adds follower responses with quoted replies, idempotent sends, blocked-user filtering and a private response table. The thread displays the latest 100 responses with a total count.
+
+## Calls and LIVE follow-up
+
+- The supplied 24-second video audio is the incoming ringtone, exported as OGG for both the Flutter call controller and Android raw sound resource. Android uses a new immutable call notification channel (`pulse_calls_v2`).
+- Android incoming notifications request full-screen presentation with Answer/Decline actions and a 45-second timeout. Lock-screen activity flags and action receiver are installed by bootstrap. Notification enablement requests Android full-screen access; the OS decides presentation. Answer/Decline launches the authenticated app and rechecks the current server call before acting; a stale invitation never auto-joins.
+- Cold/background call arrival still REQUIRES working Firebase client configuration, a valid server Firebase service account, notification permission and device delivery. No configuration or two-device delivery has been confirmed here. Force-stopped apps and OS restrictions cannot be bypassed by this UI.
+- LIVE routes always allow an explicit Leave/End operation and disconnect local media, including when the server is unreachable. Remote viewers see the channel/host name followed by “has quit the live” after a confirmed end/lease expiry.
+- Hosts can pause/resume camera and microphone while keeping the foreground live session open. Recoverable join failures no longer implicitly end a live; Resume connection retries while its server lease is valid. Background broadcasting is not implemented.
+- Your profile has a Go LIVE / Resume entry to existing channel LIVE. Broadcasting is still channel-based and follower eligibility remains enforced. This does not introduce an independent personal broadcast backend.

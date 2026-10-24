@@ -56,7 +56,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   late final PulseChannelUpdates channelUpdates;
   int seenChannelSerial = 0;
   late final PulseCalls calls;
-  bool openingCall = false;
+  bool openingCall = false, showingAnswer = false;
   bool interestPrompted = false;
   int section = 0, socialSection = 0;
   late final SocialStore social;
@@ -99,14 +99,33 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     calls = PulseCalls(repo)..addListener(changed);
     calls.start();
     PulsePush.instance.onCall = () => calls.refresh();
-    PulseNotifications.instance.setCallTap((_) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+    PulseNotifications.instance.setCallTap((value) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
         if (!mounted) return;
-        setState(() {
-          socialSection = 3;
-          section = 1;
-        });
-        calls.refresh();
+        final action = value.startsWith('answer:')
+            ? 'answer'
+            : value.startsWith('decline:')
+            ? 'decline'
+            : '';
+        final id = action.isEmpty ? value : value.substring(action.length + 1);
+        await calls.refresh();
+        if (!mounted) return;
+        final call = calls.incoming;
+        if (call == null || call['id'] != id) {
+          notice('This call is no longer ringing.');
+          return;
+        }
+        if (action == 'decline') {
+          try {
+            await calls.decline(id);
+          } catch (e) {
+            notice(callError(e));
+          }
+        } else if (action == 'answer') {
+          await openCall(call);
+        } else {
+          await showIncomingAnswerScreen(call);
+        }
       });
     });
   }
@@ -702,6 +721,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     openingCall = true;
     try {
       await calls.incomingTone.play(null);
+      await PulseNotifications.instance.clearCall(call['id']);
       final action = calls.ownMember(call)?['state'] == 'ringing'
           ? 'accept'
           : 'join';
@@ -719,6 +739,84 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     } finally {
       openingCall = false;
       await calls.refresh();
+    }
+  }
+
+  Future<void> showIncomingAnswerScreen(Map<String, dynamic> call) async {
+    if (openingCall || showingAnswer || !mounted) return;
+    showingAnswer = true;
+    final answer = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (c) => AnimatedBuilder(
+          animation: calls,
+          builder: (_, __) {
+            final current = calls.incoming;
+            final ringing = current != null && current['id'] == call['id'];
+            return Scaffold(
+              body: SafeArea(
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(28),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.account_circle_rounded, size: 112),
+                        const SizedBox(height: 24),
+                        Text(
+                          repo.profiles[call['caller_id']]?['display_name'] ??
+                              'Pulse caller',
+                          style: Theme.of(c).textTheme.headlineMedium,
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          ringing
+                              ? 'Incoming ${call['kind']} call'
+                              : 'Call ended',
+                        ),
+                        const SizedBox(height: 64),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            FilledButton.icon(
+                              style: FilledButton.styleFrom(
+                                backgroundColor: Colors.red,
+                              ),
+                              onPressed: () => Navigator.pop(c, false),
+                              icon: const Icon(Icons.call_end),
+                              label: Text(ringing ? 'Decline' : 'Close'),
+                            ),
+                            if (ringing)
+                              FilledButton.icon(
+                                onPressed: () => Navigator.pop(c, true),
+                                icon: const Icon(Icons.call),
+                                label: const Text('Answer'),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+    showingAnswer = false;
+    if (!mounted) return;
+    if (answer == true) {
+      await calls.refresh();
+      if (mounted && calls.incoming?['id'] == call['id']) await openCall(call);
+    } else if (answer == false && calls.incoming?['id'] == call['id']) {
+      try {
+        await calls.decline(call['id']);
+      } catch (e) {
+        notice(callError(e));
+      }
     }
   }
 
