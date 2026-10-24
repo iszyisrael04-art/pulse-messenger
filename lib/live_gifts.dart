@@ -28,7 +28,8 @@ class _PulseLiveGiftsState extends State<PulseLiveGifts> {
   Timer? timer;
   bool loading = false, busy = false;
   String? error, feedAfter, feedCursor;
-  bool readingFeed = false;
+  bool readingFeed = false, pendingTest = false;
+  int testCoins = 0;
   final seenGifts = <String>{};
   Map<String, dynamic>? pendingGift;
   String? get hostId => (party['host'] as Map?)?['user_id'] as String?;
@@ -63,7 +64,10 @@ class _PulseLiveGiftsState extends State<PulseLiveGifts> {
       feedCursor = result['cursor'] as String;
       for (final item in result['items'] as List) {
         final event = Map<String, dynamic>.from(item as Map);
-        if (seenGifts.add(event['id'] as String)) widget.onGift?.call(event);
+        if (seenGifts.add(
+          '${event['is_test'] == true ? 'test:' : 'real:'}${event['id']}',
+        ))
+          widget.onGift?.call(event);
       }
       if (seenGifts.length > 1000)
         seenGifts.removeAll(seenGifts.take(seenGifts.length - 1000).toList());
@@ -91,12 +95,14 @@ class _PulseLiveGiftsState extends State<PulseLiveGifts> {
           'p_action': 'info',
           'p_session': widget.session,
         }),
+        widget.repo.rpc('test_wallet', {}),
       ]);
       if (mounted)
         setState(() {
           gifts = Map<String, dynamic>.from(result[0] as Map);
           battle = Map<String, dynamic>.from(result[1] as Map);
           party = Map<String, dynamic>.from(result[2] as Map);
+          testCoins = ((result[3] as Map)['coins'] as num).toInt();
         });
     } catch (e) {
       if (mounted) setState(() => error = socialError(e));
@@ -128,7 +134,13 @@ class _PulseLiveGiftsState extends State<PulseLiveGifts> {
     if (intent == null || busy) return;
     setState(() => busy = true);
     try {
-      await widget.repo.rpc('live_gifts', intent);
+      if (pendingTest) {
+        final testIntent = Map<String, dynamic>.from(intent)
+          ..remove('p_action');
+        await widget.repo.rpc('test_live_gift', testIntent);
+      } else {
+        await widget.repo.rpc('live_gifts', intent);
+      }
       await readFeed();
       if (mounted)
         setState(() {
@@ -143,12 +155,14 @@ class _PulseLiveGiftsState extends State<PulseLiveGifts> {
     }
   }
 
-  Future<void> chooseGift() async {
+  Future<void> chooseGift({bool test = false}) async {
     if (busy || pendingGift != null || feedCursor == null) return;
     var recipient = hostId;
     if (recipient == null) return;
-    if (recipient == widget.repo.uid) {
-      final others = people.where((p) => p['user_id'] != widget.repo.uid);
+    if (!test && recipient == widget.repo.uid) {
+      final others = people.where(
+        (p) => test || p['user_id'] != widget.repo.uid,
+      );
       if (others.isEmpty) {
         setState(
           () =>
@@ -168,8 +182,8 @@ class _PulseLiveGiftsState extends State<PulseLiveGifts> {
             child: ListView(
               padding: const EdgeInsets.all(20),
               children: [
-                const Text(
-                  'Send a LIVE gift',
+                Text(
+                  test ? 'Send a TEST gift' : 'Send a LIVE gift',
                   style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                 ),
                 DropdownButtonFormField<String>(
@@ -185,8 +199,10 @@ class _PulseLiveGiftsState extends State<PulseLiveGifts> {
                       .toList(),
                   onChanged: (v) => update(() => recipient = v),
                 ),
-                const Text(
-                  'Normal coins are spent. The recipient earns the listed P-coins.',
+                Text(
+                  test
+                      ? 'Test coins only. No P-coins, cash value or rank progress.'
+                      : 'Normal coins are spent. The recipient earns the listed P-coins.',
                 ),
                 for (final gift in gifts['gifts'] as List? ?? [])
                   ListTile(
@@ -196,7 +212,11 @@ class _PulseLiveGiftsState extends State<PulseLiveGifts> {
                       child: PulseGiftModel(sku: gift['sku']),
                     ),
                     title: Text('${gift['title']} · ${gift['coins']} coins'),
-                    subtitle: Text('Recipient gets ${gift['p_coins']} P-coins'),
+                    subtitle: Text(
+                      test
+                          ? 'Test animation · no earnings'
+                          : 'Recipient gets ${gift['p_coins']} P-coins',
+                    ),
                     onTap: () => Navigator.pop(sheet, {
                       'sku': gift['sku'],
                       'recipient': recipient,
@@ -245,7 +265,9 @@ class _PulseLiveGiftsState extends State<PulseLiveGifts> {
                 builder: (_, value, __) {
                   final q = int.tryParse(value.text) ?? 0;
                   return Text(
-                    'Total: ${q * (choice['coins'] as num)} normal coins\nRecipient: ${q * (choice['p_coins'] as num)} P-coins',
+                    test
+                        ? 'Total: ${q * (choice['coins'] as num)} test coins\nNo P-coins or rank credit'
+                        : 'Total: ${q * (choice['coins'] as num)} normal coins\nRecipient: ${q * (choice['p_coins'] as num)} P-coins',
                   );
                 },
               ),
@@ -262,7 +284,7 @@ class _PulseLiveGiftsState extends State<PulseLiveGifts> {
               if (amountForm.currentState!.validate())
                 Navigator.pop(dialog, int.parse(quantityInput.text));
             },
-            child: const Text('Send gifts'),
+            child: Text(test ? 'Send TEST gifts' : 'Send gifts'),
           ),
         ],
       ),
@@ -270,6 +292,7 @@ class _PulseLiveGiftsState extends State<PulseLiveGifts> {
     // Dispose after the dialog exit animation has detached its text field.
     Future<void>.delayed(const Duration(seconds: 1), quantityInput.dispose);
     if (quantity == null || !mounted) return;
+    pendingTest = test;
     setState(
       () => pendingGift = {
         'p_action': 'send',
@@ -338,10 +361,18 @@ class _PulseLiveGiftsState extends State<PulseLiveGifts> {
             TextButton.icon(
               onPressed: busy || pendingGift != null || feedCursor == null
                   ? null
-                  : chooseGift,
+                  : () => chooseGift(),
               icon: const Icon(Icons.card_giftcard),
               label: const Text('Gift'),
             ),
+            if (testCoins > 0)
+              TextButton.icon(
+                onPressed: busy || pendingGift != null || feedCursor == null
+                    ? null
+                    : () => chooseGift(test: true),
+                icon: const Icon(Icons.science_outlined),
+                label: Text('Test gifts · $testCoins'),
+              ),
             IconButton(
               tooltip: 'Shop & wallet',
               onPressed: () => Navigator.push(

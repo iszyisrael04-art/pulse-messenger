@@ -1,6 +1,6 @@
-# Pulse 0.1.0+31: combined release candidate
+# Pulse 0.1.0+32: combined release candidate
 
-The requested visible version is 0.1.0. Android build number increases to 31 so an existing Android installation can update without deleting its data PROVIDED the signing key is the same. The current workflow produces debug APKs; a stable existing signing key must be configured before reliable public upgrades. A build-number increase alone cannot fix a signing-key mismatch. Windows installer IDs are unchanged.
+The requested visible version is 0.1.0. Android build number increases to 32 so an existing Android installation can update without deleting its data PROVIDED the signing key is the same. The current workflow produces debug APKs; a stable existing signing key must be configured before reliable public upgrades. A build-number increase alone cannot fix a signing-key mismatch. Windows installer IDs are unchanged.
 
 ## Implemented
 - Calling stays Calling until a recipient device acknowledges the current call. A pending server invitation or online dot never counts as ringing.
@@ -84,3 +84,10 @@ Schema 033 adds follower responses with quoted replies, idempotent sends, blocke
 ## Owner-approved pricing installed — 24 October 2026
 
 Migration 031 is now installed after explicit owner approval. This supersedes the earlier pending-pricing deployment notes: packs are 100/$1, 200/$2, 500/$5 and 1000/$10; 100 P-coins are valued at $30; Rose costs 10 normal coins and earns 0.5 P-coins. Existing balances/history and other gift prices were preserved. Decimal earnings use exact numeric storage. The owner reports Squad KYC approval. Live payment credentials, checkout, webhook fulfilment and payouts still require verification; no live flags were enabled and no money transaction was made.
+
+## Protected test coins and session hardening
+
+- The owner-requested 2,000,000 coins are a separate test balance for @agentfury, recorded by a one-time private grant reference. They are never represented as purchased coins. Shop shows the test wallet, and LIVE has a separate Test gifts control (including self-host previews).
+- Test sends are visible with TEST labels and the same 3D viewer effects. Their ledger is separate from real gifts: no P-coins, withdrawal eligibility, battle score or public rank can result. Server-side quantity, balance, membership and replay checks still apply. Clients cannot write wallets or grant records.
+- Protected account/RPC checks now correlate signed session_id claims to active Auth sessions and the correct user, rejecting revoked, expired, malformed and foreign sessions. Legacy platform-signed tokens without this claim retain compatibility; new native Auth tokens carry it. This is not a substitute for JWT signature validation at the gateway.
+- Existing paid purchases still require verified provider receipts and exact immutable quotes. This update does not enable payments, configure Play Integrity, turn debug builds into protected release builds, or claim unbreakable anti-tamper security. Release signing, device attestation and independent penetration testing remain separate work.

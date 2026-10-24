@@ -2051,7 +2051,9 @@ class _LiveScreenState extends State<LiveScreen> {
                         width: 360,
                         height: 400,
                         child: PulseGiftEffect(
-                          key: ValueKey(giftQueue.first['id']),
+                          key: ValueKey(
+                            '${giftQueue.first['is_test'] == true ? 'test:' : 'real:'}${giftQueue.first['id']}',
+                          ),
                           repo: widget.repo,
                           event: giftQueue.first,
                           fast: giftQueue.length > 5,

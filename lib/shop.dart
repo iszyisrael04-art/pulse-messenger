@@ -17,6 +17,7 @@ class PulseShopPage extends StatefulWidget {
 
 class _PulseShopPageState extends State<PulseShopPage> {
   Map<String, dynamic>? wallet;
+  int testCoins = 0;
   String? error;
   bool busy = false, paymentsEnabled = false;
   late final store = SocialStore(widget.repo);
@@ -34,6 +35,8 @@ class _PulseShopPageState extends State<PulseShopPage> {
     });
     try {
       final data = await widget.repo.rpc('wallet', {});
+      final testWallet = await widget.repo.rpc('test_wallet', {});
+      testCoins = (testWallet['coins'] as num).toInt();
       try {
         final status = await widget.repo.db.functions.invoke(
           'pulse-payments',
@@ -79,6 +82,16 @@ class _PulseShopPageState extends State<PulseShopPage> {
             'Your wallet',
             style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
           ),
+          if (testCoins > 0)
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.science_outlined),
+                title: Text('$testCoins test coins'),
+                subtitle: const Text(
+                  'Use Test gifts in LIVE. No cash value, P-coins, battle score or public rank credit.',
+                ),
+              ),
+            ),
           const SizedBox(height: 16),
           Card(
             child: Padding(

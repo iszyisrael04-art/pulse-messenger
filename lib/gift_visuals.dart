@@ -446,7 +446,7 @@ class _PulseGiftEffectState extends State<PulseGiftEffect>
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        '${widget.event['display_name']} sent ${widget.event['quantity']} × ${widget.event['title']}',
+                        '${widget.event['is_test'] == true ? 'TEST · ' : ''}${widget.event['display_name']} sent ${widget.event['quantity']} × ${widget.event['title'].toString().replaceFirst('TEST · ', '')}',
                         style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
