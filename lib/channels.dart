@@ -1,3 +1,4 @@
+import 'channel_responses.dart';
 import 'notifications.dart';
 import 'package:share_plus/share_plus.dart';
 import 'live_party.dart';
@@ -1082,6 +1083,18 @@ class _ChannelDetailState extends State<ChannelDetail> {
                                           });
                                         },
                                       ),
+                                    TextButton.icon(
+                                      onPressed: () => showChannelResponses(
+                                        context,
+                                        widget.repo,
+                                        post['id'],
+                                      ),
+                                      icon: const Icon(
+                                        Icons.mode_comment_outlined,
+                                        size: 17,
+                                      ),
+                                      label: const Text('Respond'),
+                                    ),
                                     ...['❤️', '🔥', '👏', '👍', '🎉'].map((
                                       emoji,
                                     ) {

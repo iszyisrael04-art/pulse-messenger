@@ -49,7 +49,7 @@ await db.exec(fs.readFileSync(root+'/supabase/schema/030_pcoin_withdrawals.sql',
 console.log('SCHEMA PASS 030_pcoin_withdrawals.sql');
 await db.exec(fs.readFileSync(root+'/test/withdrawals_security.sql','utf8'));
 console.log('TEST PASS withdrawals_security.sql');
-for(const f of ['031_decimal_gift_pricing.sql','032_channel_quotes.sql']) {
+for(const f of ['031_decimal_gift_pricing.sql','032_channel_quotes.sql','033_channel_responses.sql']) {
  await db.exec(fs.readFileSync(root+'/supabase/schema/'+f,'utf8'));
  console.log('SCHEMA PASS',f);
 }

@@ -60,3 +60,5 @@ Payment verification still shares the existing 3/minute LIVE diagnostic limiter;
 ### Deployment status
 
 Schemas 030 (disabled withdrawals) and 032 (channel quotes) were installed. Schema 031 is a reviewed draft, **not installed**: automatic approval blocked the production money change. It now changes only the Rose catalog entry, introduces exact decimal P-coin columns without rewriting historical amounts, changes new coin pack quotes, and sets the P-coin valuation to USD 30 per 100. Other gifts remain unchanged. Shop displays must continue to use the live server catalog until this migration is explicitly approved.
+
+Schema 033 adds follower responses with quoted replies, idempotent sends, blocked-user filtering and a private response table. The thread displays the latest 100 responses with a total count.
