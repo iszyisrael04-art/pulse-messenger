@@ -1,3 +1,4 @@
+import 'gifter_ranks.dart';
 import 'text_prompt.dart';
 import 'chat_display.dart';
 import 'message_selection.dart';
@@ -2332,6 +2333,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Widget settingsView() => ListView(
     children: [
       header('Settings'),
+      ListTile(
+        leading: const Icon(Icons.workspace_premium_outlined),
+        title: const Text('Gifter ranks'),
+        subtitle: const Text('10 ranks · badge and spending privacy'),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => PulseGifterRanksPage(repo: repo)),
+        ),
+      ),
       ListTile(
         leading: const Icon(Icons.mail_outline),
         title: const Text('Pulse mail & requests'),

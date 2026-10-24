@@ -1,6 +1,6 @@
-# Pulse 0.1.0+30: combined release candidate
+# Pulse 0.1.0+31: combined release candidate
 
-The requested visible version is 0.1.0. Android build number increases to 30 so an existing Android installation can update without deleting its data PROVIDED the signing key is the same. The current workflow produces debug APKs; a stable existing signing key must be configured before reliable public upgrades. A build-number increase alone cannot fix a signing-key mismatch. Windows installer IDs are unchanged.
+The requested visible version is 0.1.0. Android build number increases to 31 so an existing Android installation can update without deleting its data PROVIDED the signing key is the same. The current workflow produces debug APKs; a stable existing signing key must be configured before reliable public upgrades. A build-number increase alone cannot fix a signing-key mismatch. Windows installer IDs are unchanged.
 
 ## Implemented
 - Calling stays Calling until a recipient device acknowledges the current call. A pending server invitation or online dot never counts as ringing.
@@ -71,3 +71,12 @@ Schema 033 adds follower responses with quoted replies, idempotent sends, blocke
 - LIVE routes always allow an explicit Leave/End operation and disconnect local media, including when the server is unreachable. Remote viewers see the channel/host name followed by “has quit the live” after a confirmed end/lease expiry.
 - Hosts can pause/resume camera and microphone while keeping the foreground live session open. Recoverable join failures no longer implicitly end a live; Resume connection retries while its server lease is valid. Background broadcasting is not implemented.
 - Your profile has a Go LIVE / Resume entry to existing channel LIVE. Broadcasting is still channel-based and follower eligibility remains enforced. This does not introduce an independent personal broadcast backend.
+
+## 3D gifts, ranks and stage layout
+
+- All ten gifts use original perspective-projected 3D triangle meshes, depth sorting, lighting and animated transforms. These lightweight Flutter-native models are not emoji or imported TikTok assets. Gift banners show sender avatar, visible rank, gift title and quantity; every active viewer consumes an ordered server gift-event cursor and queues effects without replaying prior events on join.
+- Gift selection asks for 1–100 units and displays total normal-coin cost and P-coin reward before confirmation. Retry retains the original request UUID. Double-tap in LIVE or Reels sends a normal idempotent Like only; it never calls the gift endpoint or debits coins.
+- Ten ranks: Spark 1, Bronze 100, Silver 1,000, Gold 5,000, Platinum 10,000, Emerald 25,000, Diamond 50,000, Master 100,000, Legend 500,000, Sovereign 1,000,000 lifetime normal coins actually spent on LIVE gifts. Purchasing coins does not rank a user up. Rank 0 is unranked.
+- Settings → Gifter ranks shows badges and eye controls. Exact lifetime spend defaults private; badge visibility defaults public and can be hidden independently. Public rank still discloses its threshold range. Server responses omit hidden values, including batch chat badge requests; the private gift ledger remains inaccessible.
+- The host camera fills LIVE when alone. Approved stage guests (not ordinary viewers) trigger an animated shorter split-grid region. Controls and compact chat sit over a bottom gradient; gift effects do not intercept taps.
+- Pricing migration 031 remains pending approval and has NOT been installed. Rank/feed migration 034 is independent and does not change balances, gift prices or withdrawals.

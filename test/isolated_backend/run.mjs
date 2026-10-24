@@ -49,7 +49,7 @@ await db.exec(fs.readFileSync(root+'/supabase/schema/030_pcoin_withdrawals.sql',
 console.log('SCHEMA PASS 030_pcoin_withdrawals.sql');
 await db.exec(fs.readFileSync(root+'/test/withdrawals_security.sql','utf8'));
 console.log('TEST PASS withdrawals_security.sql');
-for(const f of ['031_decimal_gift_pricing.sql','032_channel_quotes.sql','033_channel_responses.sql']) {
+for(const f of ['031_decimal_gift_pricing.sql','032_channel_quotes.sql','033_channel_responses.sql','034_gifter_ranks_feed.sql']) {
  await db.exec(fs.readFileSync(root+'/supabase/schema/'+f,'utf8'));
  console.log('SCHEMA PASS',f);
 }
@@ -57,6 +57,8 @@ await db.exec(fs.readFileSync(root+'/test/decimal_gifts_security.sql','utf8'));
 console.log('TEST PASS decimal_gifts_security.sql');
 await db.exec(fs.readFileSync(root+'/test/channel_quotes_security.sql','utf8'));
 console.log('TEST PASS channel_quotes_security.sql');
+await db.exec(fs.readFileSync(root+'/test/gifter_ranks_security.sql','utf8'));
+console.log('TEST PASS gifter_ranks_security.sql');
 await db.close();
 await import('../live_edge_offline.mjs');
 }catch(e){console.log('BOOTSTRAP FAIL',e.message);process.exit(1);}

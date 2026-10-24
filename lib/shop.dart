@@ -1,3 +1,4 @@
+import 'gift_visuals.dart';
 import 'package:flutter/material.dart';
 import 'repository.dart' hide Row;
 import 'social_repository.dart';
@@ -189,9 +190,10 @@ class _PulseShopPageState extends State<PulseShopPage> {
           ),
           for (final gift in wallet?['gifts'] as List? ?? [])
             ListTile(
-              leading: Text(
-                '${gift['emoji']}',
-                style: const TextStyle(fontSize: 30),
+              leading: SizedBox(
+                width: 52,
+                height: 52,
+                child: PulseGiftModel(sku: gift['sku']),
               ),
               title: Text('${gift['title']}'),
               subtitle: Text(

@@ -32,6 +32,9 @@ class _PulseReelsState extends State<PulseReels> with WidgetsBindingObserver {
   final pages = PageController();
   final prefetch = PulseReelPrefetch();
   File? activeCache;
+  String? likedAnimationPost;
+  Timer? likeAnimationTimer;
+  final likingPosts = <String>{};
   Player? player;
   VideoController? video;
   final subscriptions = <StreamSubscription<dynamic>>[];
@@ -71,6 +74,25 @@ class _PulseReelsState extends State<PulseReels> with WidgetsBindingObserver {
     if (!mounted) return;
     if (pages.hasClients) pages.jumpToPage(0);
     await loading;
+  }
+
+  Future<void> doubleTapLike(Map<String, dynamic> post) async {
+    final id = post['id'] as String;
+    setState(() => likedAnimationPost = id);
+    likeAnimationTimer?.cancel();
+    likeAnimationTimer = Timer(const Duration(milliseconds: 750), () {
+      if (mounted) setState(() => likedAnimationPost = null);
+    });
+    if (post['liked'] == true || !likingPosts.add(id)) return;
+    try {
+      await widget.store.action(id, 'like', true);
+      final updated = await widget.store.post(id);
+      if (mounted) feed.change(updated, id);
+    } catch (e) {
+      if (mounted) setState(() => error = socialError(e));
+    } finally {
+      likingPosts.remove(id);
+    }
   }
 
   Future<void> select(int next) async {
@@ -262,6 +284,7 @@ class _PulseReelsState extends State<PulseReels> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     playbackErrorTimer?.cancel();
+    likeAnimationTimer?.cancel();
     startupDeadline?.cancel();
     unawaited(prefetch.clear());
     desired = null;
@@ -432,6 +455,7 @@ class _PulseReelsState extends State<PulseReels> with WidgetsBindingObserver {
                                   (updated) => feed.change(updated, post['id']),
                                 ),
                             onTap: () => player?.playOrPause(),
+                            onDoubleTap: () => doubleTapLike(post),
                             child: Video(
                               controller: video!,
                               fit: BoxFit.contain,
@@ -480,6 +504,16 @@ class _PulseReelsState extends State<PulseReels> with WidgetsBindingObserver {
                                 Icons.play_circle_outline,
                                 color: Colors.white,
                                 size: 72,
+                              ),
+                            ),
+                          ),
+                        if (likedAnimationPost == post['id'])
+                          const Center(
+                            child: IgnorePointer(
+                              child: Icon(
+                                Icons.favorite,
+                                size: 110,
+                                color: Colors.pinkAccent,
                               ),
                             ),
                           ),

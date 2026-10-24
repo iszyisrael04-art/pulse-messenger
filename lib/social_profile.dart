@@ -1,3 +1,4 @@
+import 'gifter_ranks.dart';
 import 'channels.dart';
 import 'dart:async';
 import 'profile_identity.dart';
@@ -541,6 +542,12 @@ class _SocialProfileState extends State<SocialProfile> {
                         ),
                       ),
                   ],
+                ),
+                Center(
+                  child: PulseGifterIdentity(
+                    repo: widget.store.repo,
+                    user: widget.user,
+                  ),
                 ),
                 if (mine)
                   Center(

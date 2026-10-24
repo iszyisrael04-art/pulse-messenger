@@ -1,3 +1,4 @@
+import 'gift_visuals.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
@@ -12,10 +13,12 @@ class PulseLiveGifts extends StatefulWidget {
     required this.repo,
     required this.session,
     required this.host,
+    this.onGift,
   });
   final PulseRepository repo;
   final String session;
   final bool host;
+  final ValueChanged<Map<String, dynamic>>? onGift;
   @override
   State<PulseLiveGifts> createState() => _PulseLiveGiftsState();
 }
@@ -24,7 +27,9 @@ class _PulseLiveGiftsState extends State<PulseLiveGifts> {
   Map<String, dynamic> gifts = {}, battle = {}, party = {};
   Timer? timer;
   bool loading = false, busy = false;
-  String? error;
+  String? error, feedAfter, feedCursor;
+  bool readingFeed = false;
+  final seenGifts = <String>{};
   Map<String, dynamic>? pendingGift;
   String? get hostId => (party['host'] as Map?)?['user_id'] as String?;
   List<Map> get people => [
@@ -34,8 +39,39 @@ class _PulseLiveGiftsState extends State<PulseLiveGifts> {
   @override
   void initState() {
     super.initState();
+    readFeed();
     load();
-    timer = Timer.periodic(const Duration(seconds: 4), (_) => load());
+    timer = Timer.periodic(const Duration(seconds: 2), (_) {
+      readFeed();
+      load();
+    });
+  }
+
+  Future<void> readFeed() async {
+    if (readingFeed) return;
+    readingFeed = true;
+    try {
+      final result =
+          await widget.repo.rpc('gift_feed', {
+                'p_session': widget.session,
+                if (feedAfter != null) 'p_after': feedAfter,
+                if (feedCursor != null) 'p_cursor': feedCursor,
+              })
+              as Map;
+      if (!mounted) return;
+      feedAfter = result['after'] as String;
+      feedCursor = result['cursor'] as String;
+      for (final item in result['items'] as List) {
+        final event = Map<String, dynamic>.from(item as Map);
+        if (seenGifts.add(event['id'] as String)) widget.onGift?.call(event);
+      }
+      if (seenGifts.length > 1000)
+        seenGifts.removeAll(seenGifts.take(seenGifts.length - 1000).toList());
+    } catch (_) {
+      /* Keep the last cursor and retry without replaying gifts. */
+    } finally {
+      readingFeed = false;
+    }
   }
 
   Future<void> load() async {
@@ -93,6 +129,7 @@ class _PulseLiveGiftsState extends State<PulseLiveGifts> {
     setState(() => busy = true);
     try {
       await widget.repo.rpc('live_gifts', intent);
+      await readFeed();
       if (mounted)
         setState(() {
           pendingGift = null;
@@ -107,7 +144,7 @@ class _PulseLiveGiftsState extends State<PulseLiveGifts> {
   }
 
   Future<void> chooseGift() async {
-    if (busy || pendingGift != null) return;
+    if (busy || pendingGift != null || feedCursor == null) return;
     var recipient = hostId;
     if (recipient == null) return;
     if (recipient == widget.repo.uid) {
@@ -153,15 +190,19 @@ class _PulseLiveGiftsState extends State<PulseLiveGifts> {
                 ),
                 for (final gift in gifts['gifts'] as List? ?? [])
                   ListTile(
-                    leading: Text(
-                      '${gift['emoji']}',
-                      style: const TextStyle(fontSize: 30),
+                    leading: SizedBox(
+                      width: 52,
+                      height: 52,
+                      child: PulseGiftModel(sku: gift['sku']),
                     ),
                     title: Text('${gift['title']} · ${gift['coins']} coins'),
                     subtitle: Text('Recipient gets ${gift['p_coins']} P-coins'),
                     onTap: () => Navigator.pop(sheet, {
                       'sku': gift['sku'],
                       'recipient': recipient,
+                      'title': gift['title'],
+                      'coins': gift['coins'],
+                      'p_coins': gift['p_coins'],
                     }),
                   ),
               ],
@@ -171,13 +212,71 @@ class _PulseLiveGiftsState extends State<PulseLiveGifts> {
       ),
     );
     if (choice == null || !mounted) return;
+    final quantityInput = TextEditingController(text: '1');
+    final amountForm = GlobalKey<FormState>();
+    final quantity = await showDialog<int>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        title: Text('How many ${choice['title']} gifts?'),
+        content: Form(
+          key: amountForm,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                height: 120,
+                width: 160,
+                child: PulseGiftModel(sku: choice['sku']),
+              ),
+              TextFormField(
+                controller: quantityInput,
+                keyboardType: TextInputType.number,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  labelText: 'Quantity · 1–100',
+                ),
+                validator: (v) {
+                  final q = int.tryParse(v ?? '');
+                  return q == null || q < 1 || q > 100 ? 'Enter 1–100' : null;
+                },
+              ),
+              ValueListenableBuilder(
+                valueListenable: quantityInput,
+                builder: (_, value, __) {
+                  final q = int.tryParse(value.text) ?? 0;
+                  return Text(
+                    'Total: ${q * (choice['coins'] as num)} normal coins\nRecipient: ${q * (choice['p_coins'] as num)} P-coins',
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialog),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (amountForm.currentState!.validate())
+                Navigator.pop(dialog, int.parse(quantityInput.text));
+            },
+            child: const Text('Send gifts'),
+          ),
+        ],
+      ),
+    );
+    // Dispose after the dialog exit animation has detached its text field.
+    Future<void>.delayed(const Duration(seconds: 1), quantityInput.dispose);
+    if (quantity == null || !mounted) return;
     setState(
       () => pendingGift = {
         'p_action': 'send',
         'p_session': widget.session,
         'p_recipient': choice['recipient'],
         'p_sku': choice['sku'],
-        'p_quantity': 1,
+        'p_quantity': quantity,
         'p_id': const Uuid().v4(),
       },
     );
@@ -237,7 +336,9 @@ class _PulseLiveGiftsState extends State<PulseLiveGifts> {
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             TextButton.icon(
-              onPressed: busy || pendingGift != null ? null : chooseGift,
+              onPressed: busy || pendingGift != null || feedCursor == null
+                  ? null
+                  : chooseGift,
               icon: const Icon(Icons.card_giftcard),
               label: const Text('Gift'),
             ),

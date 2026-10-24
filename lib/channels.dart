@@ -1,3 +1,5 @@
+import 'gift_visuals.dart';
+import 'gifter_ranks.dart';
 import 'channel_responses.dart';
 import 'notifications.dart';
 import 'package:share_plus/share_plus.dart';
@@ -1212,6 +1214,10 @@ class _LiveScreenState extends State<LiveScreen> {
       liveEnded = false,
       paused = false,
       connecting = false;
+  final giftQueue = <Map<String, dynamic>>[];
+  Map<String, Map> chatRanks = {};
+  bool likeBurst = false;
+  Timer? likeTimer;
   String liveOwnerLabel = 'The host';
   DateTime lastPermissionSync = DateTime.fromMillisecondsSinceEpoch(0);
   List<Map<String, dynamic>> chat = [];
@@ -1432,8 +1438,17 @@ class _LiveScreenState extends State<LiveScreen> {
           .eq('session_id', widget.sessionId)
           .order('created_at', ascending: false)
           .limit(100);
+      final rankData =
+          await widget.repo.rpc('gifter_ranks', {
+                'p_users': rows.map((r) => r['user_id']).toSet().toList(),
+              })
+              as List;
       if (mounted)
         setState(() {
+          chatRanks = {
+            for (final r in rankData.whereType<Map>())
+              r['user_id'] as String: r,
+          };
           chat = rows.reversed.toList();
           tools = Map<String, dynamic>.from(info as Map);
           if (error == 'Live chat is reconnecting…') error = null;
@@ -1577,6 +1592,17 @@ class _LiveScreenState extends State<LiveScreen> {
     }
   }
 
+  Future<void> likeLive() async {
+    if (!connected || liveEnded) return;
+    setState(() => likeBurst = true);
+    likeTimer?.cancel();
+    likeTimer = Timer(const Duration(milliseconds: 700), () {
+      if (mounted) setState(() => likeBurst = false);
+    });
+    if (tools['liked'] == true || liveActionBusy) return;
+    await liveAction('like', data: {'enabled': true});
+  }
+
   Future<void> send() async {
     if (!canChat || sending || composer.text.trim().isEmpty) return;
     setState(() => sending = true);
@@ -1598,6 +1624,7 @@ class _LiveScreenState extends State<LiveScreen> {
   @override
   void dispose() {
     timer?.cancel();
+    likeTimer?.cancel();
     party.removeListener(changed);
     party.dispose();
     room.removeListener(changed);
@@ -1635,6 +1662,9 @@ class _LiveScreenState extends State<LiveScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          foregroundColor: Colors.white,
+          elevation: 0,
           title: Text(
             liveEnded
                 ? 'Live ended'
@@ -1661,261 +1691,380 @@ class _LiveScreenState extends State<LiveScreen> {
             ),
           ],
         ),
-        body: Column(
-          children: [
-            Expanded(
-              flex: 3,
-              child: Container(
-                color: Colors.black,
-                width: double.infinity,
-                child: !connected || party.members.isEmpty
-                    ? Center(
-                        child: Text(
-                          error ??
-                              (connected
-                                  ? 'Waiting for host video…'
-                                  : 'Connecting…'),
-                          style: const TextStyle(color: Colors.white),
-                        ),
-                      )
-                    : PulsePartyGrid(room: room, party: party),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(8),
-              child: Text(
-                '${room.connectionState.name} · ${room.remoteParticipants.length} other connected participants',
-              ),
-            ),
-            if (error != null && track != null) Text(error!),
-            if (!connected && !liveEnded && !ending)
-              TextButton.icon(
-                onPressed: () {
-                  timer?.cancel();
-                  connect();
-                },
-                icon: const Icon(Icons.refresh),
-                label: const Text('Resume connection'),
-              ),
-            if (connected)
-              PulseLiveGifts(
-                repo: widget.repo,
-                session: widget.sessionId,
-                host: widget.host,
-              ),
-            if (connected)
-              Wrap(
-                spacing: 12,
-                runSpacing: 8,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  IconButton(
-                    tooltip: '${tools['likes'] ?? 0} likes',
-                    onPressed: liveActionBusy
-                        ? null
-                        : () => liveAction(
-                            'like',
-                            data: {'enabled': tools['liked'] != true},
+        extendBodyBehindAppBar: true,
+        body: LayoutBuilder(
+          builder: (context, bounds) => Stack(
+            fit: StackFit.expand,
+            children: [
+              const ColoredBox(color: Colors.black),
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 350),
+                curve: Curves.easeOutCubic,
+                left: 0,
+                right: 0,
+                top: party.members.length > 1
+                    ? MediaQuery.paddingOf(context).top + 56
+                    : 0,
+                height: party.members.length > 1
+                    ? bounds.maxHeight * .52
+                    : bounds.maxHeight,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onDoubleTap: likeLive,
+                  child: !connected || party.members.isEmpty
+                      ? Center(
+                          child: Text(
+                            error ?? 'Connecting…',
+                            style: const TextStyle(color: Colors.white),
                           ),
-                    icon: Icon(
-                      tools['liked'] == true
-                          ? Icons.favorite
-                          : Icons.favorite_border,
+                        )
+                      : PulsePartyGrid(room: room, party: party),
+                ),
+              ),
+              if (likeBurst)
+                const Center(
+                  child: IgnorePointer(
+                    child: Icon(
+                      Icons.favorite,
                       color: Colors.pinkAccent,
+                      size: 96,
                     ),
                   ),
-                  Text('${tools['likes'] ?? 0}'),
-                  if (canModerate)
-                    IconButton(
-                      tooltip: 'Party requests (${party.requests.length})',
-                      onPressed: () => showPulsePartyRequests(context, party),
-                      icon: Badge(
-                        isLabelVisible: party.requests.isNotEmpty,
-                        label: Text('${party.requests.length}'),
-                        child: const Icon(Icons.groups_outlined),
+                ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: bounds.maxHeight * .46,
+                  ),
+                  child: DecoratedBox(
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [Colors.transparent, Color(0xf0111722)],
                       ),
                     ),
-                  if (!widget.host)
-                    TextButton.icon(
-                      onPressed: party.busy || joiningStage
-                          ? null
-                          : guestAction,
-                      icon: Icon(
-                        onStage ? Icons.logout : Icons.person_add_outlined,
+                    child: Theme(
+                      data: Theme.of(context).copyWith(
+                        textTheme: Theme.of(context).textTheme.apply(
+                          bodyColor: Colors.white,
+                          displayColor: Colors.white,
+                        ),
+                        iconTheme: const IconThemeData(color: Colors.white),
                       ),
-                      label: Text(
-                        onStage
-                            ? 'Leave stage'
-                            : party.state == 'pending'
-                            ? 'Cancel request'
-                            : party.state == 'approved'
-                            ? 'Join stage'
-                            : 'Request seat',
-                      ),
-                    ),
+                      child: SingleChildScrollView(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (error != null && track != null) Text(error!),
+                            if (!connected && !liveEnded && !ending)
+                              TextButton.icon(
+                                onPressed: () {
+                                  timer?.cancel();
+                                  connect();
+                                },
+                                icon: const Icon(Icons.refresh),
+                                label: const Text('Resume connection'),
+                              ),
+                            if (connected)
+                              PulseLiveGifts(
+                                repo: widget.repo,
+                                session: widget.sessionId,
+                                host: widget.host,
+                                onGift: (event) {
+                                  if (mounted)
+                                    setState(() => giftQueue.add(event));
+                                },
+                              ),
+                            if (connected)
+                              Wrap(
+                                spacing: 12,
+                                runSpacing: 8,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [
+                                  IconButton(
+                                    tooltip: '${tools['likes'] ?? 0} likes',
+                                    onPressed: liveActionBusy
+                                        ? null
+                                        : () => liveAction(
+                                            'like',
+                                            data: {
+                                              'enabled': tools['liked'] != true,
+                                            },
+                                          ),
+                                    icon: Icon(
+                                      tools['liked'] == true
+                                          ? Icons.favorite
+                                          : Icons.favorite_border,
+                                      color: Colors.pinkAccent,
+                                    ),
+                                  ),
+                                  Text('${tools['likes'] ?? 0}'),
+                                  if (canModerate)
+                                    IconButton(
+                                      tooltip:
+                                          'Party requests (${party.requests.length})',
+                                      onPressed: () => showPulsePartyRequests(
+                                        context,
+                                        party,
+                                      ),
+                                      icon: Badge(
+                                        isLabelVisible:
+                                            party.requests.isNotEmpty,
+                                        label: Text('${party.requests.length}'),
+                                        child: const Icon(
+                                          Icons.groups_outlined,
+                                        ),
+                                      ),
+                                    ),
+                                  if (!widget.host)
+                                    TextButton.icon(
+                                      onPressed: party.busy || joiningStage
+                                          ? null
+                                          : guestAction,
+                                      icon: Icon(
+                                        onStage
+                                            ? Icons.logout
+                                            : Icons.person_add_outlined,
+                                      ),
+                                      label: Text(
+                                        onStage
+                                            ? 'Leave stage'
+                                            : party.state == 'pending'
+                                            ? 'Cancel request'
+                                            : party.state == 'approved'
+                                            ? 'Join stage'
+                                            : 'Request seat',
+                                      ),
+                                    ),
 
-                  if (!widget.host && canModerate)
-                    IconButton(
-                      tooltip: 'Chat controls',
-                      onPressed: !canModerate || liveActionBusy
-                          ? null
-                          : liveSettings,
-                      icon: const Icon(Icons.tune),
-                    ),
-                  if (onStage) ...[
-                    if (widget.host || party.mode != 'audio')
-                      IconButton(
-                        tooltip: camera ? 'Turn camera off' : 'Turn camera on',
-                        onPressed: () async {
-                          try {
-                            await room.localParticipant?.setCameraEnabled(
-                              !camera,
-                            );
-                            if (mounted) setState(() => camera = !camera);
-                          } catch (e) {
-                            if (mounted) channelError(context, e);
-                          }
-                        },
-                        icon: Icon(
-                          camera ? Icons.videocam : Icons.videocam_off,
+                                  if (!widget.host && canModerate)
+                                    IconButton(
+                                      tooltip: 'Chat controls',
+                                      onPressed: !canModerate || liveActionBusy
+                                          ? null
+                                          : liveSettings,
+                                      icon: const Icon(Icons.tune),
+                                    ),
+                                  if (onStage) ...[
+                                    if (widget.host || party.mode != 'audio')
+                                      IconButton(
+                                        tooltip: camera
+                                            ? 'Turn camera off'
+                                            : 'Turn camera on',
+                                        onPressed: () async {
+                                          try {
+                                            await room.localParticipant
+                                                ?.setCameraEnabled(!camera);
+                                            if (mounted)
+                                              setState(() => camera = !camera);
+                                          } catch (e) {
+                                            if (mounted)
+                                              channelError(context, e);
+                                          }
+                                        },
+                                        icon: Icon(
+                                          camera
+                                              ? Icons.videocam
+                                              : Icons.videocam_off,
+                                        ),
+                                      ),
+                                    IconButton(
+                                      tooltip: 'Chat controls',
+                                      onPressed: !canModerate || liveActionBusy
+                                          ? null
+                                          : liveSettings,
+                                      icon: const Icon(Icons.tune),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            if (tools['pinned'] is Map)
+                              ListTile(
+                                dense: true,
+                                leading: const Icon(Icons.push_pin_outlined),
+                                title: Text(
+                                  tools['pinned']['body'],
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                trailing: canModerate
+                                    ? IconButton(
+                                        tooltip: 'Unpin comment',
+                                        icon: const Icon(Icons.close),
+                                        onPressed: () => liveAction(
+                                          'pin',
+                                          data: {'message': null},
+                                        ),
+                                      )
+                                    : null,
+                              ),
+                            if (onStage && connected)
+                              IconButton(
+                                onPressed: () async {
+                                  try {
+                                    await room.localParticipant
+                                        ?.setMicrophoneEnabled(muted);
+                                    if (mounted) setState(() => muted = !muted);
+                                  } catch (e) {
+                                    if (mounted) channelError(context, e);
+                                  }
+                                },
+                                icon: Icon(muted ? Icons.mic_off : Icons.mic),
+                              ),
+                            SizedBox(
+                              height: 110,
+                              child: ListView.builder(
+                                itemCount: chat.length,
+                                itemBuilder: (_, i) {
+                                  final m = chat[i];
+                                  return ListTile(
+                                    dense: true,
+                                    title: Text(m['body']),
+                                    subtitle: Row(
+                                      children: [
+                                        PulseRankBadge(
+                                          rank:
+                                              (chatRanks[m['user_id']]?['rank']
+                                                          as num? ??
+                                                      0)
+                                                  .toInt(),
+                                          size: 24,
+                                        ),
+                                        const SizedBox(width: 5),
+                                        Flexible(
+                                          child: Text(
+                                            m['pulse_profiles']?['display_name'] ??
+                                                'Pulse fan',
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    trailing: canModerate
+                                        ? PopupMenuButton<String>(
+                                            enabled: !liveActionBusy,
+                                            onSelected: (value) async {
+                                              if (value == 'hide') {
+                                                try {
+                                                  await widget.repo.rpc(
+                                                    'live_chat_hide',
+                                                    {'p_message': m['id']},
+                                                  );
+                                                  await poll();
+                                                } catch (e) {
+                                                  if (mounted)
+                                                    channelError(context, e);
+                                                }
+                                              } else if (value == 'pin') {
+                                                await liveAction(
+                                                  'pin',
+                                                  data: {'message': m['id']},
+                                                );
+                                              } else {
+                                                await liveAction(
+                                                  value,
+                                                  user: m['user_id'],
+                                                  data: {'minutes': 10},
+                                                );
+                                              }
+                                            },
+                                            itemBuilder: (_) => const [
+                                              PopupMenuItem(
+                                                value: 'pin',
+                                                child: Text('Pin comment'),
+                                              ),
+                                              PopupMenuItem(
+                                                value: 'hide',
+                                                child: Text('Hide comment'),
+                                              ),
+                                              PopupMenuItem(
+                                                value: 'mute',
+                                                child: Text(
+                                                  'Mute fan for 10 minutes',
+                                                ),
+                                              ),
+                                              PopupMenuItem(
+                                                value: 'unmute',
+                                                child: Text('Unmute fan'),
+                                              ),
+                                            ],
+                                          )
+                                        : null,
+                                  );
+                                },
+                              ),
+                            ),
+                            if (connected && !canChat)
+                              const Padding(
+                                padding: EdgeInsets.all(8),
+                                child: Text(
+                                  'Fan chat is paused or you are temporarily muted.',
+                                ),
+                              ),
+                            if (connected)
+                              SafeArea(
+                                top: false,
+                                child: Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: TextField(
+                                          controller: composer,
+                                          enabled: canChat,
+                                          textInputAction: TextInputAction.send,
+                                          onSubmitted: (_) => send(),
+                                          maxLength: 500,
+                                          decoration: const InputDecoration(
+                                            hintText:
+                                                'Fan chat · followers only',
+                                            counterText: '',
+                                          ),
+                                        ),
+                                      ),
+                                      IconButton(
+                                        onPressed: sending || !canChat
+                                            ? null
+                                            : send,
+                                        icon: const Icon(Icons.send),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
                       ),
-                    IconButton(
-                      tooltip: 'Chat controls',
-                      onPressed: !canModerate || liveActionBusy
-                          ? null
-                          : liveSettings,
-                      icon: const Icon(Icons.tune),
                     ),
-                  ],
-                ],
-              ),
-            if (tools['pinned'] is Map)
-              ListTile(
-                dense: true,
-                leading: const Icon(Icons.push_pin_outlined),
-                title: Text(
-                  tools['pinned']['body'],
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                trailing: canModerate
-                    ? IconButton(
-                        tooltip: 'Unpin comment',
-                        icon: const Icon(Icons.close),
-                        onPressed: () =>
-                            liveAction('pin', data: {'message': null}),
-                      )
-                    : null,
-              ),
-            if (onStage && connected)
-              IconButton(
-                onPressed: () async {
-                  try {
-                    await room.localParticipant?.setMicrophoneEnabled(muted);
-                    if (mounted) setState(() => muted = !muted);
-                  } catch (e) {
-                    if (mounted) channelError(context, e);
-                  }
-                },
-                icon: Icon(muted ? Icons.mic_off : Icons.mic),
-              ),
-            Expanded(
-              flex: 2,
-              child: ListView.builder(
-                itemCount: chat.length,
-                itemBuilder: (_, i) {
-                  final m = chat[i];
-                  return ListTile(
-                    dense: true,
-                    title: Text(m['body']),
-                    subtitle: Text(
-                      m['pulse_profiles']?['display_name'] ?? 'Pulse fan',
-                    ),
-                    trailing: canModerate
-                        ? PopupMenuButton<String>(
-                            enabled: !liveActionBusy,
-                            onSelected: (value) async {
-                              if (value == 'hide') {
-                                try {
-                                  await widget.repo.rpc('live_chat_hide', {
-                                    'p_message': m['id'],
-                                  });
-                                  await poll();
-                                } catch (e) {
-                                  if (mounted) channelError(context, e);
-                                }
-                              } else if (value == 'pin') {
-                                await liveAction(
-                                  'pin',
-                                  data: {'message': m['id']},
-                                );
-                              } else {
-                                await liveAction(
-                                  value,
-                                  user: m['user_id'],
-                                  data: {'minutes': 10},
-                                );
-                              }
-                            },
-                            itemBuilder: (_) => const [
-                              PopupMenuItem(
-                                value: 'pin',
-                                child: Text('Pin comment'),
-                              ),
-                              PopupMenuItem(
-                                value: 'hide',
-                                child: Text('Hide comment'),
-                              ),
-                              PopupMenuItem(
-                                value: 'mute',
-                                child: Text('Mute fan for 10 minutes'),
-                              ),
-                              PopupMenuItem(
-                                value: 'unmute',
-                                child: Text('Unmute fan'),
-                              ),
-                            ],
-                          )
-                        : null,
-                  );
-                },
-              ),
-            ),
-            if (connected && !canChat)
-              const Padding(
-                padding: EdgeInsets.all(8),
-                child: Text('Fan chat is paused or you are temporarily muted.'),
-              ),
-            if (connected)
-              SafeArea(
-                top: false,
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: composer,
-                          enabled: canChat,
-                          textInputAction: TextInputAction.send,
-                          onSubmitted: (_) => send(),
-                          maxLength: 500,
-                          decoration: const InputDecoration(
-                            hintText: 'Fan chat · followers only',
-                            counterText: '',
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: sending || !canChat ? null : send,
-                        icon: const Icon(Icons.send),
-                      ),
-                    ],
                   ),
                 ),
               ),
-          ],
+              if (giftQueue.isNotEmpty)
+                Positioned.fill(
+                  child: Center(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: SizedBox(
+                        width: 360,
+                        height: 400,
+                        child: PulseGiftEffect(
+                          key: ValueKey(giftQueue.first['id']),
+                          repo: widget.repo,
+                          event: giftQueue.first,
+                          fast: giftQueue.length > 5,
+                          onComplete: () {
+                            if (mounted) setState(() => giftQueue.removeAt(0));
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
