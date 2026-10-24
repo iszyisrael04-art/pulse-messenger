@@ -48,7 +48,13 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(const MaterialApp(home: PulseRankBadge(rank: 0)));
-    expect(find.byType(CustomPaint), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byType(PulseRankBadge),
+        matching: find.byType(CustomPaint),
+      ),
+      findsNothing,
+    );
     for (var rank = 1; rank <= 10; rank++) {
       await tester.pumpWidget(
         MaterialApp(

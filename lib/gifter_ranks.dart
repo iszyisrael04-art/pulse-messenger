@@ -339,7 +339,7 @@ class _PulseGifterRanksPageState extends State<PulseGifterRanksPage> {
           ),
         ],
         const Text(
-          'Ranks count normal coins actually spent on LIVE gifts across all broadcasts. Buying coins and tapping Like do not increase rank. A visible rank reveals its spending range, even when your exact total is private.',
+          'Ranks count normal coins actually spent on LIVE gifts across all broadcasts. Buying coins and tapping Like do not increase rank. A visible rank reveals its spending range, even when your exact total is private. Gift sends and quantities remain visible during LIVE.',
         ),
         const SizedBox(height: 16),
         for (var i = 1; i <= 10; i++)
