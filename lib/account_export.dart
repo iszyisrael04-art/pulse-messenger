@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:share_plus/share_plus.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
@@ -42,10 +43,10 @@ class _AccountExportPageState extends State<AccountExportPage> {
           dialogTitle: 'Save your Pulse data',
         );
         if (folder == null || stopped()) return;
-      } else if (Platform.isAndroid) {
+      } else if (Platform.isAndroid || Platform.isIOS) {
         folder = (await getTemporaryDirectory()).path;
       } else {
-        throw UnsupportedError('Export supports Android and Windows.');
+        throw UnsupportedError('Export supports Android, iOS and Windows.');
       }
       final name = 'Pulse-data-${const Uuid().v4()}.json';
       output = File('$folder/$name');
@@ -128,11 +129,23 @@ class _AccountExportPageState extends State<AccountExportPage> {
       if (Platform.isAndroid) {
         await NativePulseEditor.saveDownload(output, name, 'application/json');
         await output.delete();
+      } else if (Platform.isIOS && mounted) {
+        final box = context.findRenderObject() as RenderBox?;
+        await SharePlus.instance.share(
+          ShareParams(
+            files: [XFile(output.path, mimeType: 'application/json')],
+            sharePositionOrigin: box == null
+                ? const Rect.fromLTWH(0, 0, 1, 1)
+                : box.localToGlobal(Offset.zero) & box.size,
+          ),
+        );
       }
       if (mounted)
         setState(
           () => status = Platform.isAndroid
               ? 'Saved to Downloads/Pulse/$name'
+              : Platform.isIOS
+              ? 'Export ready. Choose Save to Files in the share sheet.'
               : 'Saved to $folder/$name',
         );
     } on ExportCancelled {

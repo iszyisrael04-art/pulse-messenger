@@ -219,7 +219,7 @@ Future<void> downloadPulseMedia(
       return;
     }
     stage.value = 'Saving';
-    if (Platform.isAndroid) {
+    if (Platform.isAndroid || Platform.isIOS) {
       await NativePulseEditor.saveDownload(
         ready,
         safe,
@@ -229,7 +229,7 @@ Future<void> downloadPulseMedia(
       published = File('$directory/$token-$safe');
       await ready.copy(published.path);
     } else {
-      throw UnsupportedError('Downloads support Android and Windows.');
+      throw UnsupportedError('Downloads support Android, iOS and Windows.');
     }
     if (video) {
       final owner = Supabase.instance.client.auth.currentUser?.id;
@@ -248,6 +248,8 @@ Future<void> downloadPulseMedia(
           content: Text(
             Platform.isAndroid
                 ? 'Saved to Downloads/Pulse'
+                : Platform.isIOS
+                ? 'Saved to Photos'
                 : 'Saved to $directory',
           ),
         ),
