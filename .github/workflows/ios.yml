@@ -35,7 +35,9 @@ jobs:
       - run: flutter test
       - name: Build iOS without distribution signing
         run: flutter build ios --release --no-codesign --dart-define-from-file=config.example.json
+      - name: Package unsigned app with executable permissions
+        run: tar -czf Pulse-iOS-Unsigned.tar.gz -C build/ios/iphoneos Runner.app
       - uses: actions/upload-artifact@v4
         with:
           name: Pulse-iOS-Unsigned
-          path: build/ios/iphoneos/Runner.app
+          path: Pulse-iOS-Unsigned.tar.gz

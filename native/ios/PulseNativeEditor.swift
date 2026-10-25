@@ -44,7 +44,7 @@ final class PulseIOSNativeEditor: NSObject, FlutterPlugin {
     if !mute {
       for audio in asset.tracks(withMediaType: .audio) {
         if let track = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid) {
-          let overlap = CMTimeRangeGetIntersection(range, audio.timeRange)
+          let overlap = CMTimeRangeGetIntersection(range, otherRange: audio.timeRange)
           if CMTimeCompare(overlap.duration, .zero) > 0 {
             try track.insertTimeRange(overlap, of: audio, at: CMTimeSubtract(overlap.start, range.start))
           }
