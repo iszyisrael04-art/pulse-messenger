@@ -266,130 +266,143 @@ class _SocialProfileState extends State<SocialProfile> {
       showDragHandle: true,
       isScrollControlled: true,
       builder: (_) => SafeArea(
-        child: SizedBox(
-          height: MediaQuery.sizeOf(context).height * .65,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Profile tools',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 16),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 4,
-                  children: [
-                    OutlinedButton.icon(
-                      icon: const Icon(Icons.palette_outlined),
-                      label: const Text('Background & Signal'),
-                      onPressed: busy
-                          ? null
-                          : () async {
-                              final changed = await editPulseIdentity(
-                                context,
-                                widget.store,
-                                features,
-                              );
-                              if (changed == true && mounted) await load();
-                            },
-                    ),
-                    OutlinedButton.icon(
-                      icon: const Icon(Icons.add_a_photo_outlined),
-                      label: const Text('Edit photo & profile'),
-                      onPressed: busy ? null : editProfile,
-                    ),
-                    OutlinedButton(
-                      onPressed: busy
-                          ? null
-                          : () => perform(() async {
-                              await widget.store.repo
-                                  .rpc('profile_features_save', {
-                                    'p_background': 'classic',
-                                    'p_signal': '',
-                                    'p_mode': 'creating',
-                                  });
-                            }),
-                      child: const Text('Clear background & Signal'),
-                    ),
-                    OutlinedButton(
-                      onPressed: busy ? null : requests,
-                      child: const Text('Follow requests'),
-                    ),
-                    OutlinedButton(
-                      onPressed: busy
-                          ? null
-                          : () => perform(() async {
-                              await widget.store.rpc('account', {
-                                'p_private': p['is_private'] != true,
-                                'p_cover': null,
-                              });
-                            }),
-                      child: Text(
-                        p['is_private'] == true
-                            ? 'Make public'
-                            : 'Make private',
+        child: FilledButtonTheme(
+          data: FilledButtonThemeData(
+            style: FilledButton.styleFrom(
+              alignment: Alignment.centerLeft,
+              minimumSize: const Size.fromHeight(58),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+          ),
+          child: SizedBox(
+            height: MediaQuery.sizeOf(context).height * .8,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Profile tools',
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 6),
+                  const Text('Your identity, audience and creator controls.'),
+                  const SizedBox(height: 20),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      FilledButton.tonal.icon(
+                        icon: const Icon(Icons.palette_outlined),
+                        label: const Text('Background & Signal'),
+                        onPressed: busy
+                            ? null
+                            : () async {
+                                final changed = await editPulseIdentity(
+                                  context,
+                                  widget.store,
+                                  features,
+                                );
+                                if (changed == true && mounted) await load();
+                              },
                       ),
-                    ),
-                    OutlinedButton(
-                      onPressed: () => showDialog<void>(
-                        context: context,
-                        builder: (c) => AlertDialog(
-                          title: const Text('Creator Studio'),
-                          content: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              for (final entry
-                                  in (p['analytics'] as Map).entries)
-                                Padding(
-                                  padding: const EdgeInsets.all(8),
-                                  child: Text('${entry.key}: ${entry.value}'),
+                      FilledButton.tonal.icon(
+                        icon: const Icon(Icons.add_a_photo_outlined),
+                        label: const Text('Edit photo & profile'),
+                        onPressed: busy ? null : editProfile,
+                      ),
+                      FilledButton.tonal(
+                        onPressed: busy
+                            ? null
+                            : () => perform(() async {
+                                await widget.store.repo
+                                    .rpc('profile_features_save', {
+                                      'p_background': 'classic',
+                                      'p_signal': '',
+                                      'p_mode': 'creating',
+                                    });
+                              }),
+                        child: const Text('Clear background & Signal'),
+                      ),
+                      FilledButton.tonal(
+                        onPressed: busy ? null : requests,
+                        child: const Text('Follow requests'),
+                      ),
+                      FilledButton.tonal(
+                        onPressed: busy
+                            ? null
+                            : () => perform(() async {
+                                await widget.store.rpc('account', {
+                                  'p_private': p['is_private'] != true,
+                                  'p_cover': null,
+                                });
+                              }),
+                        child: Text(
+                          p['is_private'] == true
+                              ? 'Make public'
+                              : 'Make private',
+                        ),
+                      ),
+                      FilledButton.tonal(
+                        onPressed: () => showDialog<void>(
+                          context: context,
+                          builder: (c) => AlertDialog(
+                            title: const Text('Creator Studio'),
+                            content: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                for (final entry
+                                    in (p['analytics'] as Map).entries)
+                                  Padding(
+                                    padding: const EdgeInsets.all(8),
+                                    child: Text('${entry.key}: ${entry.value}'),
+                                  ),
+                                const Text(
+                                  'Views count unique signed-in viewers opening a post or watching 3 seconds of video. These self-reported beta metrics are not audited advertising metrics.',
                                 ),
-                              const Text(
-                                'Views count unique signed-in viewers opening a post or watching 3 seconds of video. These self-reported beta metrics are not audited advertising metrics.',
+                              ],
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(c),
+                                child: const Text('Close'),
                               ),
                             ],
                           ),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(c),
-                              child: const Text('Close'),
+                        ),
+                        child: const Text('Creator Studio'),
+                      ),
+                      FilledButton.tonal(
+                        onPressed: () async {
+                          final changed = await Navigator.push<bool>(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  PulseCreatorAccessPage(store: widget.store),
                             ),
-                          ],
-                        ),
+                          );
+                          if (changed == true && mounted) await load();
+                        },
+                        child: const Text('Animated profile & Boost'),
                       ),
-                      child: const Text('Creator Studio'),
-                    ),
-                    OutlinedButton(
-                      onPressed: () async {
-                        final changed = await Navigator.push<bool>(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                PulseCreatorAccessPage(store: widget.store),
+                      if (admin)
+                        FilledButton.tonal(
+                          onPressed: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  SocialModeration(store: widget.store),
+                            ),
                           ),
-                        );
-                        if (changed == true && mounted) await load();
-                      },
-                      child: const Text('Animated profile & Boost'),
-                    ),
-                    if (admin)
-                      OutlinedButton(
-                        onPressed: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                SocialModeration(store: widget.store),
-                          ),
+                          child: const Text('Social moderation'),
                         ),
-                        child: const Text('Social moderation'),
-                      ),
-                  ],
-                ),
-              ],
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -549,24 +562,6 @@ class _SocialProfileState extends State<SocialProfile> {
                     user: widget.user,
                   ),
                 ),
-                if (mine)
-                  Center(
-                    child: TextButton.icon(
-                      onPressed: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => Scaffold(
-                            appBar: AppBar(
-                              title: const Text('Your LIVE channels'),
-                            ),
-                            body: ChannelsScreen(repo: widget.store.repo),
-                          ),
-                        ),
-                      ),
-                      icon: const Icon(Icons.live_tv_rounded),
-                      label: const Text('Go LIVE / Resume'),
-                    ),
-                  ),
                 const SizedBox(height: 6),
                 Center(
                   child: Text(

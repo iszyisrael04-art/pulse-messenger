@@ -214,303 +214,324 @@ class _AuthScreenState extends State<AuthScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    body: SafeArea(
-      child: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(28),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 440),
-            child: Form(
-              key: form,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Row(
-                    children: [
-                      PulseMark(size: 32),
-                      SizedBox(width: 10),
-                      PulseWordmark(size: 30),
-                    ],
-                  ),
-                  const SizedBox(height: 44),
-                  Text(
-                    codeSent
-                        ? 'Check your code'
-                        : reset
-                        ? 'Recover your account'
-                        : register
-                        ? 'Create your account'
-                        : 'Welcome back',
-                    style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -.8,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    codeSent
-                        ? 'Enter the verification code to continue.'
-                        : reset
-                        ? 'We’ll help you get back into Pulse.'
-                        : 'Your conversations, videos and people — together.',
-                    style: TextStyle(
-                      fontSize: 14,
-                      height: 1.5,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 28),
-                  if (!codeSent && !reset)
-                    SegmentedButton<int>(
-                      segments: const [
-                        ButtonSegment(value: 0, label: Text('Email')),
-                        ButtonSegment(value: 1, label: Text('Pulse')),
-                        ButtonSegment(value: 2, label: Text('Phone')),
+    body: Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Theme.of(context).colorScheme.primary.withValues(alpha: .12),
+            Theme.of(context).colorScheme.surface,
+            Theme.of(context).colorScheme.secondary.withValues(alpha: .08),
+          ],
+        ),
+      ),
+      child: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(28),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 440),
+              child: Form(
+                key: form,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Row(
+                      children: [
+                        PulseMark(size: 32),
+                        SizedBox(width: 10),
+                        PulseWordmark(size: 30),
                       ],
-                      selected: {method},
-                      onSelectionChanged: busy
-                          ? null
-                          : (s) {
-                              setState(() {
-                                method = s.first;
-                                register = false;
-                                privacyAccepted = false;
-                                privacyError = null;
-                                notice = null;
-                              });
-                            },
                     ),
-                  const SizedBox(height: 24),
-                  TextFormField(
-                    controller: identity,
-                    autofillHints: [
-                      method == 0
-                          ? AutofillHints.email
-                          : method == 2
-                          ? AutofillHints.telephoneNumber
-                          : AutofillHints.username,
-                    ],
-                    textInputAction: TextInputAction.next,
-                    enabled: !busy && !codeSent,
-                    keyboardType: method == 2
-                        ? TextInputType.phone
-                        : method == 0
-                        ? TextInputType.emailAddress
-                        : TextInputType.text,
-                    decoration: InputDecoration(
-                      prefixIcon: method == 2
-                          ? TextButton(
-                              onPressed: busy || codeSent
-                                  ? null
-                                  : () => showCountryPicker(
-                                      context: context,
-                                      showPhoneCode: true,
-                                      favorite: const ['NG'],
-                                      onSelect: (value) => setState(() {
-                                        country = value;
-                                        requestedPhone = null;
-                                      }),
-                                    ),
-                              child: Text(
-                                '${country.countryCode} +${country.phoneCode}',
-                              ),
-                            )
-                          : null,
-                      labelText: method == 2
-                          ? 'Phone number'
-                          : method == 1
-                          ? 'Pulse username'
-                          : 'Email address',
-                    ),
-                    validator: (v) {
-                      if (method == 1)
-                        return validateUsername(v?.toLowerCase());
-                      if (method == 2)
-                        return pulsePhoneNumber(v ?? '', country.countryCode) !=
-                                null
-                            ? null
-                            : 'Enter a valid number for ${country.name}, or paste a full +country-code number.';
-                      return RegExp(
-                            r'^[^\s@]+@[^\s@]+\.[^\s@]+$',
-                          ).hasMatch(v ?? '')
-                          ? null
-                          : 'Enter a valid email address';
-                    },
-                  ),
-                  if (method != 2 && (!codeSent || reset)) ...[
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: password,
-                      enabled: !busy,
-                      autofillHints: [
-                        register || reset
-                            ? AutofillHints.newPassword
-                            : AutofillHints.password,
-                      ],
-                      obscureText: obscure,
-                      enableSuggestions: false,
-                      autocorrect: false,
-                      decoration: InputDecoration(
-                        labelText: reset && codeSent
-                            ? 'New password'
-                            : 'Password',
-                        suffixIcon: IconButton(
-                          tooltip: obscure ? 'Show password' : 'Hide password',
-                          onPressed: () {
-                            setState(() => obscure = !obscure);
-                          },
-                          icon: Icon(
-                            obscure
-                                ? Icons.visibility_outlined
-                                : Icons.visibility_off_outlined,
+                    const SizedBox(height: 32),
+                    Text(
+                      codeSent
+                          ? 'Check your code'
+                          : reset
+                          ? 'Recover your account'
+                          : register
+                          ? 'Create your account'
+                          : 'Welcome back',
+                      style: Theme.of(context).textTheme.headlineLarge
+                          ?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: -.8,
                           ),
-                        ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      codeSent
+                          ? 'Enter the verification code to continue.'
+                          : reset
+                          ? 'We’ll help you get back into Pulse.'
+                          : 'Your conversations, videos and people — together.',
+                      style: TextStyle(
+                        fontSize: 14,
+                        height: 1.5,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
-                      validator: (v) => reset && !codeSent
-                          ? null
-                          : (register || reset)
-                          ? validatePassword(v)
-                          : (v ?? '').isEmpty
-                          ? 'Enter your password'
-                          : null,
                     ),
-                  ],
-                  if (codeSent) ...[
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: code,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'Verification code',
-                      ),
-                      validator: (v) => RegExp(r'^\d{6,8}$').hasMatch(v ?? '')
-                          ? null
-                          : 'Enter the code you received',
-                    ),
-                  ],
-                  if (needsAgreement) ...[
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'Your age',
-                        helperText:
-                            'Your age is private and is not shown on your profile.',
-                      ),
-                      onChanged: (v) => signupAge = int.tryParse(v.trim()),
-                      validator: (v) {
-                        final age = int.tryParse((v ?? '').trim());
-                        return age == null || age < 1 || age > 120
-                            ? 'Enter your age in years (1–120).'
-                            : null;
-                      },
-                    ),
-                  ],
-                  if (needsAgreement)
-                    PulsePrivacyAgreement(
-                      accepted: privacyAccepted,
-                      error: privacyError,
-                      onChanged: busy
-                          ? null
-                          : (v) => setState(() {
-                              privacyAccepted = v;
-                              privacyError = null;
-                            }),
-                    ),
-                  const SizedBox(height: 24),
-                  FilledButton(
-                    onPressed: busy ? null : submit,
-                    child: busy
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: PulseLoader(size: 22),
-                          )
-                        : Text(
-                            codeSent
-                                ? 'Verify and continue'
-                                : reset
-                                ? 'Send recovery code'
-                                : method == 2
-                                ? 'Send SMS code'
-                                : register
-                                ? 'Create account'
-                                : 'Sign in',
-                          ),
-                  ),
-                  if ((method == 0 || method == 2) && !codeSent && !reset) ...[
-                    if (widget.allowRegistration)
-                      TextButton(
-                        onPressed: busy
+                    const SizedBox(height: 28),
+                    if (!codeSent && !reset)
+                      SegmentedButton<int>(
+                        segments: const [
+                          ButtonSegment(value: 0, label: Text('Email')),
+                          ButtonSegment(value: 1, label: Text('Pulse')),
+                          ButtonSegment(value: 2, label: Text('Phone')),
+                        ],
+                        selected: {method},
+                        onSelectionChanged: busy
                             ? null
-                            : () {
+                            : (s) {
                                 setState(() {
-                                  register = !register;
+                                  method = s.first;
+                                  register = false;
                                   privacyAccepted = false;
                                   privacyError = null;
                                   notice = null;
                                 });
                               },
+                      ),
+                    const SizedBox(height: 24),
+                    TextFormField(
+                      controller: identity,
+                      autofillHints: [
+                        method == 0
+                            ? AutofillHints.email
+                            : method == 2
+                            ? AutofillHints.telephoneNumber
+                            : AutofillHints.username,
+                      ],
+                      textInputAction: TextInputAction.next,
+                      enabled: !busy && !codeSent,
+                      keyboardType: method == 2
+                          ? TextInputType.phone
+                          : method == 0
+                          ? TextInputType.emailAddress
+                          : TextInputType.text,
+                      decoration: InputDecoration(
+                        prefixIcon: method == 2
+                            ? TextButton(
+                                onPressed: busy || codeSent
+                                    ? null
+                                    : () => showCountryPicker(
+                                        context: context,
+                                        showPhoneCode: true,
+                                        favorite: const ['NG'],
+                                        onSelect: (value) => setState(() {
+                                          country = value;
+                                          requestedPhone = null;
+                                        }),
+                                      ),
+                                child: Text(
+                                  '${country.countryCode} +${country.phoneCode}',
+                                ),
+                              )
+                            : null,
+                        labelText: method == 2
+                            ? 'Phone number'
+                            : method == 1
+                            ? 'Pulse username'
+                            : 'Email address',
+                      ),
+                      validator: (v) {
+                        if (method == 1)
+                          return validateUsername(v?.toLowerCase());
+                        if (method == 2)
+                          return pulsePhoneNumber(
+                                    v ?? '',
+                                    country.countryCode,
+                                  ) !=
+                                  null
+                              ? null
+                              : 'Enter a valid number for ${country.name}, or paste a full +country-code number.';
+                        return RegExp(
+                              r'^[^\s@]+@[^\s@]+\.[^\s@]+$',
+                            ).hasMatch(v ?? '')
+                            ? null
+                            : 'Enter a valid email address';
+                      },
+                    ),
+                    if (method != 2 && (!codeSent || reset)) ...[
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: password,
+                        enabled: !busy,
+                        autofillHints: [
+                          register || reset
+                              ? AutofillHints.newPassword
+                              : AutofillHints.password,
+                        ],
+                        obscureText: obscure,
+                        enableSuggestions: false,
+                        autocorrect: false,
+                        decoration: InputDecoration(
+                          labelText: reset && codeSent
+                              ? 'New password'
+                              : 'Password',
+                          suffixIcon: IconButton(
+                            tooltip: obscure
+                                ? 'Show password'
+                                : 'Hide password',
+                            onPressed: () {
+                              setState(() => obscure = !obscure);
+                            },
+                            icon: Icon(
+                              obscure
+                                  ? Icons.visibility_outlined
+                                  : Icons.visibility_off_outlined,
+                            ),
+                          ),
+                        ),
+                        validator: (v) => reset && !codeSent
+                            ? null
+                            : (register || reset)
+                            ? validatePassword(v)
+                            : (v ?? '').isEmpty
+                            ? 'Enter your password'
+                            : null,
+                      ),
+                    ],
+                    if (codeSent) ...[
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: code,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Verification code',
+                        ),
+                        validator: (v) => RegExp(r'^\d{6,8}$').hasMatch(v ?? '')
+                            ? null
+                            : 'Enter the code you received',
+                      ),
+                    ],
+                    if (needsAgreement) ...[
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Your age',
+                          helperText:
+                              'Your age is private and is not shown on your profile.',
+                        ),
+                        onChanged: (v) => signupAge = int.tryParse(v.trim()),
+                        validator: (v) {
+                          final age = int.tryParse((v ?? '').trim());
+                          return age == null || age < 1 || age > 120
+                              ? 'Enter your age in years (1–120).'
+                              : null;
+                        },
+                      ),
+                    ],
+                    if (needsAgreement)
+                      PulsePrivacyAgreement(
+                        accepted: privacyAccepted,
+                        error: privacyError,
+                        onChanged: busy
+                            ? null
+                            : (v) => setState(() {
+                                privacyAccepted = v;
+                                privacyError = null;
+                              }),
+                      ),
+                    const SizedBox(height: 24),
+                    FilledButton(
+                      onPressed: busy ? null : submit,
+                      child: busy
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: PulseLoader(size: 22),
+                            )
+                          : Text(
+                              codeSent
+                                  ? 'Verify and continue'
+                                  : reset
+                                  ? 'Send recovery code'
+                                  : method == 2
+                                  ? 'Send SMS code'
+                                  : register
+                                  ? 'Create account'
+                                  : 'Sign in',
+                            ),
+                    ),
+                    if ((method == 0 || method == 2) &&
+                        !codeSent &&
+                        !reset) ...[
+                      if (widget.allowRegistration)
+                        TextButton(
+                          onPressed: busy
+                              ? null
+                              : () {
+                                  setState(() {
+                                    register = !register;
+                                    privacyAccepted = false;
+                                    privacyError = null;
+                                    notice = null;
+                                  });
+                                },
+                          child: Text(
+                            register
+                                ? 'Already have an account? Sign in'
+                                : 'New to Pulse? Create an account',
+                          ),
+                        ),
+                      if (method == 0)
+                        TextButton(
+                          onPressed: busy
+                              ? null
+                              : () {
+                                  setState(() => reset = true);
+                                },
+                          child: const Text('Forgot password?'),
+                        ),
+                    ],
+                    if (codeSent)
+                      TextButton(
+                        onPressed: busy || resendWait > 0 ? null : resend,
                         child: Text(
-                          register
-                              ? 'Already have an account? Sign in'
-                              : 'New to Pulse? Create an account',
+                          resendWait > 0
+                              ? 'Resend code in ${resendWait}s'
+                              : 'Resend verification code',
                         ),
                       ),
-                    if (method == 0)
+                    if (codeSent || reset)
                       TextButton(
                         onPressed: busy
                             ? null
                             : () {
-                                setState(() => reset = true);
+                                setState(() {
+                                  codeSent = false;
+                                  requestedPhone = null;
+                                  reset = false;
+                                  register = false;
+                                  privacyAccepted = false;
+                                  privacyError = null;
+                                  notice = null;
+                                  code.clear();
+                                });
                               },
-                        child: const Text('Forgot password?'),
+                        child: const Text('Back to sign in'),
                       ),
-                  ],
-                  if (codeSent)
-                    TextButton(
-                      onPressed: busy || resendWait > 0 ? null : resend,
-                      child: Text(
-                        resendWait > 0
-                            ? 'Resend code in ${resendWait}s'
-                            : 'Resend verification code',
-                      ),
-                    ),
-                  if (codeSent || reset)
-                    TextButton(
-                      onPressed: busy
-                          ? null
-                          : () {
-                              setState(() {
-                                codeSent = false;
-                                requestedPhone = null;
-                                reset = false;
-                                register = false;
-                                privacyAccepted = false;
-                                privacyError = null;
-                                notice = null;
-                                code.clear();
-                              });
-                            },
-                      child: const Text('Back to sign in'),
-                    ),
-                  if (notice != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 16),
-                      child: Text(
-                        notice!,
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.primary,
+                    if (notice != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 16),
+                        child: Text(
+                          notice!,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
                         ),
                       ),
+                    const SizedBox(height: 24),
+                    const Text(
+                      'Private beta • Messaging is not end-to-end encrypted yet.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 12),
                     ),
-                  const SizedBox(height: 24),
-                  const Text(
-                    'Private beta • Messaging is not end-to-end encrypted yet.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 12),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

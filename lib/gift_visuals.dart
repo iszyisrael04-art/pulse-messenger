@@ -285,6 +285,97 @@ class GiftMesh {
         m.sphere(0, -.28, .44, .38, .26, .22, const Color(0xffffe5a7));
         m.gem(0, -.13, .66, .12, const Color(0xff332839), tall: .7, sides: 4);
         m.sphere(0, -.43, .62, .15, .09, .035, const Color(0xff53293b));
+      case 'saturn':
+        m.sphere(0, 0, 0, .6, .6, .6, gold);
+        for (var i = 0; i < 48; i++) {
+          final a = i * math.pi / 24, b = (i + 1) * math.pi / 24;
+          m.triangle(
+            GiftVertex(.75 * math.cos(a), .12 * math.sin(a), .75 * math.sin(a)),
+            GiftVertex(
+              1.15 * math.cos(a),
+              .18 * math.sin(a),
+              1.15 * math.sin(a),
+            ),
+            GiftVertex(
+              1.15 * math.cos(b),
+              .18 * math.sin(b),
+              1.15 * math.sin(b),
+            ),
+            cyan,
+          );
+        }
+      case 'trophy':
+        m.cone(0, -1, 0, .5, .2, gold, top: .5);
+        m.cone(0, -.8, 0, .1, .65, gold, top: .15);
+        m.cone(0, -.15, 0, .15, .8, gold, top: .6);
+        for (final side in [-1, 1]) {
+          for (var i = 0; i < 9; i++) {
+            final a = i * math.pi / 8;
+            m.sphere(
+              side * (.4 + .35 * math.sin(a)),
+              .3 + .38 * math.cos(a),
+              0,
+              .08,
+              .08,
+              .08,
+              gold,
+              segments: 8,
+              rings: 5,
+            );
+          }
+        }
+      case 'butterfly':
+        m.sphere(0, 0, 0, .12, .65, .15, gold);
+        for (final side in [-1, 1]) {
+          m.sphere(side * .46, .3, 0, .45, .6, .1, pink);
+          m.sphere(side * .4, -.4, 0, .35, .35, .12, cyan);
+          m.gem(side * .5, .4, .12, .13, gold);
+        }
+      case 'castle':
+        for (final x in [-.65, .65]) {
+          m.cone(x, -.8, 0, .24, 1.4, const Color(0xffbca5f5), top: .24);
+          m.cone(x, .6, 0, .33, .45, pink);
+        }
+        m.cone(0, -.8, .2, .48, .9, const Color(0xffd6c9ff), top: .48);
+        m.cone(0, .1, .2, .58, .5, gold);
+        m.sphere(0, -.45, .66, .15, .3, .03, const Color(0xff28263f));
+      case 'fireworks':
+        for (var i = 0; i < 24; i++) {
+          final a = i * math.pi / 12;
+          m.gem(
+            .8 * math.cos(a),
+            .8 * math.sin(a),
+            .25 * math.sin(a * 3),
+            .12,
+            i.isEven ? gold : pink,
+            tall: 2,
+          );
+        }
+        m.gem(0, 0, 0, .35, cyan);
+      case 'pearl':
+        m.sphere(
+          0,
+          .1,
+          0,
+          .48,
+          .48,
+          .48,
+          const Color(0xfffff3e8),
+          segments: 20,
+          rings: 12,
+        );
+        for (var i = 0; i < 12; i++) {
+          final a = i * math.pi / 6;
+          m.sphere(
+            .7 * math.cos(a),
+            -.45,
+            .6 * math.sin(a),
+            .28,
+            .12,
+            .23,
+            pink,
+          );
+        }
       default:
         m.gem(0, 0, 0, .8, cyan);
     }
@@ -333,6 +424,31 @@ class _GiftPainter extends CustomPainter {
                 .sign
                 .toInt(),
           );
+    final center = Offset(size.width / 2, size.height / 2);
+    canvas.drawCircle(
+      center,
+      size.shortestSide * .42,
+      Paint()
+        ..shader =
+            RadialGradient(
+              colors: [
+                const Color(0xff7c5cff).withValues(alpha: .23),
+                Colors.transparent,
+              ],
+            ).createShader(
+              Rect.fromCircle(center: center, radius: size.shortestSide * .42),
+            ),
+    );
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(center.dx, size.height * .88),
+        width: size.width * .55,
+        height: size.height * .045,
+      ),
+      Paint()
+        ..color = Colors.black.withValues(alpha: .3)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
+    );
     final paint = Paint()..isAntiAlias = true;
     for (final f in faces) {
       final ux = f.$2.x - f.$1.x, uy = f.$2.y - f.$1.y, uz = f.$2.z - f.$1.z;
@@ -348,12 +464,19 @@ class _GiftPainter extends CustomPainter {
               1.0,
             );
       final color = f.$4;
-      paint.color = Color.fromARGB(
+      final base = Color.fromARGB(
         255,
         (color.r * 255 * light).round(),
         (color.g * 255 * light).round(),
         (color.b * 255 * light).round(),
       );
+      final shine = length == 0
+          ? 0.0
+          : math
+                    .pow(((nx * -.3 + ny * .4 + nz * .86) / length).abs(), 18)
+                    .toDouble() *
+                .45;
+      paint.color = Color.lerp(base, Colors.white, shine)!;
       final a = project(f.$1), b = project(f.$2), c = project(f.$3);
       canvas.drawPath(
         Path()
@@ -396,7 +519,7 @@ class _PulseGiftEffectState extends State<PulseGiftEffect>
     controller =
         AnimationController(
             vsync: this,
-            duration: Duration(milliseconds: widget.fast ? 1000 : 2800),
+            duration: Duration(milliseconds: widget.fast ? 1200 : 3800),
           )
           ..addStatusListener((s) {
             if (s == AnimationStatus.completed) widget.onComplete();
@@ -469,7 +592,11 @@ class _PulseGiftEffectState extends State<PulseGiftEffect>
                           : math.sin(t * math.pi * 3) * 10,
                     ),
                     child: Transform.scale(
-                      scale: .75 + .25 * math.sin(t * math.pi),
+                      scale:
+                          Curves.easeOutBack.transform(
+                            (t * 4).clamp(0.0, 1.0),
+                          ) *
+                          (.95 + .05 * math.sin(t * math.pi)),
                       child: PulseGiftModel(sku: widget.event['sku'], phase: t),
                     ),
                   ),

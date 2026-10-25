@@ -5,7 +5,7 @@ import 'package:pulse_messenger/gifter_ranks.dart';
 
 void main() {
   testWidgets(
-    'all ten gifts have real depth meshes and render at multiple angles',
+    'all sixteen gifts have real depth meshes and render at multiple angles',
     (tester) async {
       for (final sku in [
         'rose',
@@ -18,6 +18,12 @@ void main() {
         'rocket',
         'galaxy',
         'lion',
+        'saturn',
+        'trophy',
+        'butterfly',
+        'castle',
+        'fireworks',
+        'pearl',
       ]) {
         final mesh = GiftMesh.forSku(sku);
         expect(mesh.faces.length, greaterThan(20), reason: sku);

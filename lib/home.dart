@@ -2302,7 +2302,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   Future<void> confirmSignOut({bool all = false}) async {
     final count = repo.pending.length;
-    final yes = await showDialog<bool>(
+    final nav = Navigator.of(context);
+    final dialog = DialogRoute<bool>(
       context: context,
       builder: (c) => AlertDialog(
         title: Text(all ? 'Sign out all devices?' : 'Sign out this device?'),
@@ -2327,7 +2328,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         ],
       ),
     );
-    if (yes == true && mounted) await perform(() => repo.signOut(all: all));
+    final yes = await nav.push(dialog);
+    await dialog.completed;
+    if (yes != true || !mounted) return;
+    // Signing out destroys this route. Do not refresh its repository afterward.
+    try {
+      await repo.signOut(all: all);
+    } catch (_) {
+      if (mounted) notice('Sign out could not complete. Please retry.');
+    }
   }
 
   Widget settingsView() => ListView(
@@ -2540,7 +2549,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       const Padding(
         padding: EdgeInsets.all(24),
         child: Text(
-          'PULSE 0.5.5 · Private beta\nMessages are protected by access policies and TLS. End-to-end encryption, individual device management and MFA UI are not implemented yet. Do not use this beta for sensitive conversations.',
+          'PULSE 0.1.0 · Private beta\nMessages are protected by access policies and TLS. End-to-end encryption, individual device management and MFA UI are not implemented yet. Do not use this beta for sensitive conversations.',
         ),
       ),
     ],

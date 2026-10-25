@@ -506,12 +506,12 @@ class _PulseSplashState extends State<PulseSplash>
           child: LayoutBuilder(
             builder: (c, box) => Stack(
               children: [
-                if (style == 'glow')
+                if (style != 'minimal')
                   Positioned(
                     left: 0,
                     right: 0,
                     bottom: 0,
-                    height: box.maxHeight * .36,
+                    height: box.maxHeight * .7,
                     child: DecoratedBox(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
@@ -519,7 +519,7 @@ class _PulseSplashState extends State<PulseSplash>
                           end: Alignment.bottomCenter,
                           colors: [
                             cs.primary.withValues(alpha: 0),
-                            cs.primary.withValues(alpha: .07),
+                            cs.primary.withValues(alpha: .15),
                           ],
                         ),
                       ),
