@@ -1,3 +1,4 @@
+import 'event_branding.dart';
 import 'admin_rewards.dart';
 import 'text_prompt.dart';
 import 'withdrawals.dart';
@@ -84,6 +85,11 @@ class _AdminScreenState extends State<AdminScreen> {
         : ListView(
             padding: const EdgeInsets.all(24),
             children: [
+              FilledButton.icon(
+                onPressed: () => editPulseEventBranding(context, widget.repo),
+                icon: const Icon(Icons.celebration_outlined),
+                label: const Text('Change Pulse icons'),
+              ),
               FilledButton.icon(
                 onPressed: () => Navigator.push(
                   context,

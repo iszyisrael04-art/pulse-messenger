@@ -1,4 +1,5 @@
 import 'profile_banner.dart';
+import 'profile_tools_sheet.dart';
 import 'profile_hero.dart';
 import 'offline_videos.dart';
 import 'gifter_ranks.dart';
@@ -268,172 +269,173 @@ class _SocialProfileState extends State<SocialProfile> {
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
-      builder: (_) => SafeArea(
-        child: FilledButtonTheme(
-          data: FilledButtonThemeData(
-            style: FilledButton.styleFrom(
-              alignment: Alignment.centerLeft,
-              minimumSize: const Size.fromHeight(58),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
+      builder: (sheetContext) {
+        VoidCallback? action(VoidCallback callback) => busy
+            ? null
+            : () {
+                Navigator.pop(sheetContext);
+                callback();
+              };
+        return PulseProfileToolsSheet(
+          groups: [
+            PulseProfileToolGroup('Your profile', [
+              PulseProfileTool(
+                'Edit photo & profile',
+                'Your name, photo and bio',
+                Icons.person_outline,
+                action(editProfile),
               ),
-            ),
-          ),
-          child: SizedBox(
-            height: MediaQuery.sizeOf(context).height * .8,
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Profile tools',
-                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+              PulseProfileTool(
+                'Video banner',
+                'Five-second video behind your portrait · Free',
+                Icons.panorama_outlined,
+                action(
+                  () => perform(
+                    () => editFreeProfileBanner(
+                      context,
+                      widget.store,
+                      p['is_private'] == true,
+                    ),
                   ),
-                  const SizedBox(height: 6),
-                  const Text('Your identity, audience and creator controls.'),
-                  const SizedBox(height: 20),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      FilledButton.tonalIcon(
-                        icon: const Icon(Icons.panorama_outlined),
-                        label: const Text('Video banner · Free'),
-                        onPressed: busy
-                            ? null
-                            : () => perform(
-                                () => editFreeProfileBanner(
-                                  context,
-                                  widget.store,
-                                  p['is_private'] == true,
-                                ),
-                              ),
-                      ),
-                      FilledButton.tonalIcon(
-                        icon: const Icon(Icons.offline_bolt),
-                        label: const Text('Offline videos'),
-                        onPressed: () => Navigator.push(
-                          context,
-                          MaterialPageRoute<void>(
-                            builder: (_) =>
-                                PulseOfflineVideos(user: widget.store.uid),
-                          ),
-                        ),
-                      ),
-                      FilledButton.tonalIcon(
-                        icon: const Icon(Icons.palette_outlined),
-                        label: const Text('Background & Signal'),
-                        onPressed: busy
-                            ? null
-                            : () async {
-                                final changed = await editPulseIdentity(
-                                  context,
-                                  widget.store,
-                                  features,
-                                );
-                                if (changed == true && mounted) await load();
-                              },
-                      ),
-                      FilledButton.tonalIcon(
-                        icon: const Icon(Icons.add_a_photo_outlined),
-                        label: const Text('Edit photo & profile'),
-                        onPressed: busy ? null : editProfile,
-                      ),
-                      FilledButton.tonal(
-                        onPressed: busy
-                            ? null
-                            : () => perform(() async {
-                                await widget.store.repo
-                                    .rpc('profile_features_save', {
-                                      'p_background': 'classic',
-                                      'p_signal': '',
-                                      'p_mode': 'creating',
-                                    });
-                              }),
-                        child: const Text('Clear background & Signal'),
-                      ),
-                      FilledButton.tonal(
-                        onPressed: busy ? null : requests,
-                        child: const Text('Follow requests'),
-                      ),
-                      FilledButton.tonal(
-                        onPressed: busy
-                            ? null
-                            : () => perform(() async {
-                                await widget.store.rpc('account', {
-                                  'p_private': p['is_private'] != true,
-                                  'p_cover': p['cover_path'],
-                                });
-                              }),
-                        child: Text(
-                          p['is_private'] == true
-                              ? 'Make public'
-                              : 'Make private',
-                        ),
-                      ),
-                      FilledButton.tonal(
-                        onPressed: () => showDialog<void>(
-                          context: context,
-                          builder: (c) => AlertDialog(
-                            title: const Text('Creator Studio'),
-                            content: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                for (final entry
-                                    in (p['analytics'] as Map).entries)
-                                  Padding(
-                                    padding: const EdgeInsets.all(8),
-                                    child: Text('${entry.key}: ${entry.value}'),
-                                  ),
-                                const Text(
-                                  'Views count unique signed-in viewers opening a post or watching 3 seconds of video. These self-reported beta metrics are not audited advertising metrics.',
-                                ),
-                              ],
-                            ),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(c),
-                                child: const Text('Close'),
-                              ),
-                            ],
-                          ),
-                        ),
-                        child: const Text('Creator Studio'),
-                      ),
-                      FilledButton.tonal(
-                        onPressed: () async {
-                          final changed = await Navigator.push<bool>(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  PulseCreatorAccessPage(store: widget.store),
-                            ),
-                          );
-                          if (changed == true && mounted) await load();
-                        },
-                        child: const Text('Animated profile & Boost'),
-                      ),
-                      if (admin)
-                        FilledButton.tonal(
-                          onPressed: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  SocialModeration(store: widget.store),
-                            ),
-                          ),
-                          child: const Text('Social moderation'),
-                        ),
-                    ],
-                  ),
-                ],
+                ),
               ),
-            ),
-          ),
-        ),
-      ),
+              PulseProfileTool(
+                'Background & Signal',
+                'Choose a style and share what’s on your mind',
+                Icons.palette_outlined,
+                action(() async {
+                  final changed = await editPulseIdentity(
+                    context,
+                    widget.store,
+                    features,
+                  );
+                  if (changed == true && mounted) await load();
+                }),
+              ),
+              PulseProfileTool(
+                'Clear background & Signal',
+                'Return to your classic profile style',
+                Icons.restart_alt,
+                action(
+                  () => perform(() async {
+                    await widget.store.repo.rpc('profile_features_save', {
+                      'p_background': 'classic',
+                      'p_signal': '',
+                      'p_mode': 'creating',
+                    });
+                  }),
+                ),
+              ),
+            ]),
+            PulseProfileToolGroup('Creator tools', [
+              PulseProfileTool(
+                'Creator Studio',
+                'Your posts, reach and engagement',
+                Icons.insights_outlined,
+                action(
+                  () => showDialog<void>(
+                    context: context,
+                    builder: (c) => AlertDialog(
+                      title: const Text('Creator Studio'),
+                      content: SingleChildScrollView(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            for (final entry
+                                in (p['analytics'] as Map? ?? {}).entries)
+                              Padding(
+                                padding: const EdgeInsets.all(8),
+                                child: Text('${entry.key}: ${entry.value}'),
+                              ),
+                            const Text(
+                              'Views count unique signed-in viewers opening a post or watching 3 seconds of video. These self-reported beta metrics are not audited advertising metrics.',
+                            ),
+                          ],
+                        ),
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(c),
+                          child: const Text('Close'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              PulseProfileTool(
+                'Animated profile & Boost',
+                'Profile motion and promotion options',
+                Icons.auto_awesome_outlined,
+                action(() async {
+                  final changed = await Navigator.push<bool>(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          PulseCreatorAccessPage(store: widget.store),
+                    ),
+                  );
+                  if (changed == true && mounted) await load();
+                }),
+              ),
+              PulseProfileTool(
+                'Offline videos',
+                'Manage videos saved for offline viewing',
+                Icons.offline_bolt_outlined,
+                action(
+                  () => Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (_) =>
+                          PulseOfflineVideos(user: widget.store.uid),
+                    ),
+                  ),
+                ),
+              ),
+            ]),
+            PulseProfileToolGroup('Privacy & audience', [
+              PulseProfileTool(
+                'Follow requests',
+                'Review people requesting to follow you',
+                Icons.person_add_alt_outlined,
+                action(requests),
+              ),
+              PulseProfileTool(
+                p['is_private'] == true ? 'Make public' : 'Make private',
+                p['is_private'] == true
+                    ? 'Let everyone on Pulse see your posts'
+                    : 'Limit your posts to approved followers',
+                p['is_private'] == true ? Icons.public : Icons.lock_outline,
+                action(
+                  () => perform(() async {
+                    await widget.store.rpc('account', {
+                      'p_private': p['is_private'] != true,
+                      'p_cover': p['cover_path'],
+                    });
+                  }),
+                ),
+              ),
+            ]),
+            if (admin)
+              PulseProfileToolGroup('Administration', [
+                PulseProfileTool(
+                  'Social moderation',
+                  'Review reports and manage content',
+                  Icons.shield_outlined,
+                  action(
+                    () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => SocialModeration(store: widget.store),
+                      ),
+                    ),
+                  ),
+                ),
+              ]),
+          ],
+        );
+      },
     );
   }
 

@@ -153,20 +153,7 @@ class _PulseAdminRewardsState extends State<PulseAdminRewards> {
                   }
                 },
           icon: const Icon(Icons.celebration_outlined),
-          label: const Text('Event logo · Home & splash'),
-        ),
-        TextButton(
-          onPressed: busy
-              ? null
-              : () async {
-                  await widget.repo.rpc('event_branding_save', {
-                    'p_path': null,
-                    'p_title': '',
-                    'p_days': 1,
-                  });
-                  await PulseEventBranding.instance.refresh();
-                },
-          child: const Text('Restore original Pulse logo'),
+          label: const Text('Change Pulse icons'),
         ),
 
         if (busy) const LinearProgressIndicator(),
