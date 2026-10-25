@@ -1,3 +1,5 @@
+import 'call_layout.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 import 'dart:async';
 import 'dart:io';
 
@@ -268,7 +270,9 @@ class _PulseCallScreenState extends State<PulseCallScreen>
   );
   late CallRow state;
   final outboundTone = PulseCallTone();
-  Timer? timer;
+  Timer? timer, elapsedTimer;
+  Future<void>? shutdownFuture;
+  late final String selfId;
   bool connected = false,
       muted = false,
       camera = false,
@@ -285,23 +289,30 @@ class _PulseCallScreenState extends State<PulseCallScreen>
   void initState() {
     super.initState();
     state = Map<String, dynamic>.from(widget.credentials['call']);
+    selfId = repo.uid;
+    unawaited(WakelockPlus.enable().catchError((_) {}));
+    elapsedTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted && !ending && state['status'] == 'active') setState(() {});
+    });
     WidgetsBinding.instance.addObserver(this);
     room.addListener(changed);
     connect(widget.credentials);
   }
 
   void changed() {
+    if (!mounted || ending) return;
     syncTone();
     if (mounted) setState(() {});
   }
 
   void syncTone() {
-    final label = pulseCallSignal(state, repo.uid, DateTime.now());
+    if (!mounted || ending) return;
+    final label = pulseCallSignal(state, selfId, DateTime.now());
     unawaited(
       outboundTone.play(
         !ending &&
                 connected &&
-                state['caller_id'] == repo.uid &&
+                state['caller_id'] == selfId &&
                 room.remoteParticipants.isEmpty &&
                 state['status'] == 'ringing'
             ? (label == 'Ringing…'
@@ -322,9 +333,17 @@ class _PulseCallScreenState extends State<PulseCallScreen>
         return;
       }
       await room.localParticipant?.setMicrophoneEnabled(true);
+      if (!mounted || ending) {
+        await room.disconnect();
+        return;
+      }
       if (state['kind'] == 'video') {
         await room.localParticipant?.setCameraEnabled(true);
         camera = true;
+      }
+      if (!mounted || ending) {
+        await room.disconnect();
+        return;
       }
       speaker = state['kind'] == 'video';
       await lk.AudioManager.instance.setSpeakerOutputPreferred(speaker);
@@ -340,15 +359,12 @@ class _PulseCallScreenState extends State<PulseCallScreen>
       await poll();
       syncTone();
     } catch (e) {
-      await room.disconnect();
-      try {
-        await widget.calls.invoke('leave', callId: id);
-      } catch (_) {}
-      if (mounted)
-        setState(() {
-          connected = false;
-          error = callError(e);
-        });
+      if (!mounted || ending) return;
+      setState(() {
+        connected = false;
+        error = callError(e);
+      });
+      shutdownFuture ??= shutdown();
     }
   }
 
@@ -361,7 +377,7 @@ class _PulseCallScreenState extends State<PulseCallScreen>
       );
       if (!mounted || ending) return;
       final me = (snapshot['members'] as List).where(
-        (m) => m['user_id'] == repo.uid,
+        (m) => m['user_id'] == selfId,
       );
       if (snapshot['status'] == 'ended' ||
           me.isEmpty ||
@@ -401,235 +417,388 @@ class _PulseCallScreenState extends State<PulseCallScreen>
     }
   }
 
-  Future<void> leave() async {
-    if (ending) return;
-    ending = true;
-    unawaited(outboundTone.play(null));
-    timer?.cancel();
-    await room.disconnect();
+  Future<void> leaveServer() async {
+    // A removed account route must never send a leave request as another user.
+    if (repo.db.auth.currentUser?.id != selfId) return;
     try {
-      await widget.calls.invoke('leave', callId: id);
+      await widget.calls
+          .invoke('leave', callId: id)
+          .timeout(const Duration(seconds: 8));
     } catch (_) {
       try {
-        await repo.rpc('call_leave', {'p_call': id, 'p_decline': false});
+        if (repo.db.auth.currentUser?.id == selfId) {
+          await repo
+              .rpc('call_leave', {'p_call': id, 'p_decline': false})
+              .timeout(const Duration(seconds: 4));
+        }
       } catch (_) {}
     }
-    await widget.calls.refresh();
-    if (mounted) Navigator.pop(context);
+    try {
+      await widget.calls.refresh().timeout(const Duration(seconds: 3));
+    } catch (_) {}
+  }
+
+  Future<void> shutdown() async {
+    timer?.cancel();
+    elapsedTimer?.cancel();
+    final server = leaveServer();
+    await Future.wait([
+      () async {
+        try {
+          await room.localParticipant
+              ?.setCameraEnabled(false)
+              .timeout(const Duration(seconds: 2));
+        } catch (_) {}
+      }(),
+      () async {
+        try {
+          await room.localParticipant
+              ?.setMicrophoneEnabled(false)
+              .timeout(const Duration(seconds: 2));
+        } catch (_) {}
+      }(),
+    ]);
+    try {
+      await room.disconnect().timeout(const Duration(seconds: 3));
+    } catch (_) {}
+    try {
+      await room.dispose().timeout(const Duration(seconds: 3));
+    } catch (_) {}
+    await server;
+  }
+
+  Future<void> leave() async {
+    if (ending) return;
+    setState(() => ending = true);
+    unawaited(outboundTone.play(null));
+    timer?.cancel();
+    elapsedTimer?.cancel();
+    // UI closes on the next frame; server and native device cleanup are bounded.
+    shutdownFuture ??= shutdown();
+    await WidgetsBinding.instance.endOfFrame;
+    if (mounted) pulseCloseCallRoute(context);
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState lifecycle) {
-    // No Android foreground-call service is shipped in this beta. Release media explicitly.
-    if (Platform.isAndroid && lifecycle == AppLifecycleState.paused)
+    unawaited(
+      (lifecycle == AppLifecycleState.resumed && !ending
+              ? WakelockPlus.enable()
+              : WakelockPlus.disable())
+          .catchError((_) {}),
+    );
+    // The current Android beta releases media in background; no foreground-call
+    // service or system picture-in-picture is implied by this in-call preview.
+    if (Platform.isAndroid &&
+        lifecycle == AppLifecycleState.paused &&
+        !ending) {
       unawaited(leave());
+    }
   }
 
   @override
   void dispose() {
     outboundTone.dispose();
     WidgetsBinding.instance.removeObserver(this);
+    unawaited(WakelockPlus.disable().catchError((_) {}));
     timer?.cancel();
+    elapsedTimer?.cancel();
     room.removeListener(changed);
-    // Account changes remove routes. Dispose native media in order and do not
-    // issue an unauthenticated leave request after sign-out.
-    unawaited(() async {
-      try {
-        await room.disconnect();
-      } catch (_) {}
-      try {
-        await room.dispose();
-      } catch (_) {}
-      if (!ending && repo.db.auth.currentUser != null) {
-        try {
-          await repo.rpc('call_leave', {'p_call': id, 'p_decline': false});
-        } catch (_) {}
-      }
-    }());
+    shutdownFuture ??= shutdown();
     super.dispose();
   }
 
-  Widget tile(lk.Participant participant) {
-    lk.VideoTrack? video;
-    for (final publication in participant.videoTrackPublications) {
-      if (!publication.muted && publication.track is lk.VideoTrack) {
-        video = publication.track as lk.VideoTrack;
-        break;
-      }
+  Future<void> switchCamera() => control(() async {
+    final track = room.localParticipant?.videoTrackPublications
+        .map((p) => p.track)
+        .whereType<lk.LocalVideoTrack>()
+        .firstOrNull;
+    if (track == null) throw StateError('Camera is not active');
+    if (Platform.isAndroid || Platform.isIOS) {
+      final options = track.currentOptions;
+      final facing = track.mediaStreamTrack.getSettings()['facingMode'];
+      final front = facing == null
+          ? options is lk.CameraCaptureOptions &&
+                options.cameraPosition == lk.CameraPosition.front
+          : facing == 'user';
+      await track.setCameraPosition(
+        front ? lk.CameraPosition.back : lk.CameraPosition.front,
+      );
+    } else {
+      final devices = await lk.Hardware.instance.videoInputs();
+      if (devices.length < 2) throw StateError('No second camera');
+      final current = track.mediaStreamTrack
+          .getSettings()['deviceId']
+          ?.toString();
+      final index = devices.indexWhere((d) => d.deviceId == current);
+      deviceIndex = ((index >= 0 ? index : deviceIndex) + 1) % devices.length;
+      await room.setVideoInputDevice(devices[deviceIndex]);
     }
-    final person = repo.profiles[participant.identity];
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        color: Theme.of(context).colorScheme.surfaceContainerHigh,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            if (video != null)
-              lk.VideoTrackRenderer(video)
-            else
-              Center(
-                child: PulseAvatar(
-                  repo: repo,
-                  path: person?['avatar_path'],
-                  name: person?['display_name'] ?? 'P',
-                  radius: 40,
+  });
+
+  Future<void> details() => showDialog<void>(
+    context: context,
+    builder: (c) => AlertDialog(
+      title: const Text('Call information'),
+      content: SingleChildScrollView(
+        child: Text(
+          '${error == null ? '' : '$error\n\n'}Media is encrypted in transit. End-to-end encryption is not implemented in this Pulse beta.',
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(c),
+          child: const Text('Close'),
+        ),
+      ],
+    ),
+  );
+
+  Future<void> participants() => showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    isScrollControlled: true,
+    builder: (sheet) => SafeArea(
+      child: SizedBox(
+        height: MediaQuery.sizeOf(sheet).height * .55,
+        child: AnimatedBuilder(
+          animation: Listenable.merge([room, widget.calls]),
+          builder: (_, __) {
+            final members = widget.calls.members(state);
+            return ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                Text(
+                  'Participants · ${members.length}',
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
-              ),
+                const SizedBox(height: 12),
+                for (final member in members)
+                  ListTile(
+                    leading: PulseAvatar(
+                      repo: repo,
+                      path: repo.profiles[member['user_id']]?['avatar_path'],
+                      name:
+                          repo.profiles[member['user_id']]?['display_name'] ??
+                          'Pulse user',
+                    ),
+                    title: Text(
+                      member['user_id'] == selfId
+                          ? 'You'
+                          : repo.profiles[member['user_id']]?['display_name'] ??
+                                'Pulse user',
+                    ),
+                    subtitle: Text(
+                      member['state'] == 'ringing'
+                          ? member['received_at'] == null
+                                ? 'Calling…'
+                                : 'Ringing…'
+                          : member['state'] == 'joined'
+                          ? 'Joined'
+                          : member['state'] == 'declined'
+                          ? 'Declined'
+                          : 'Left',
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+      ),
+    ),
+  );
+
+  Widget tile(
+    lk.Participant participant, {
+    bool fill = true,
+    bool label = false,
+  }) {
+    final video = participant.videoTrackPublications
+        .where((p) => !p.muted)
+        .map((p) => p.track)
+        .whereType<lk.VideoTrack>()
+        .firstOrNull;
+    final person = repo.profiles[participant.identity];
+    final own = participant.identity == selfId;
+    return ColoredBox(
+      color: const Color(0xff142329),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          if (video != null)
+            lk.VideoTrackRenderer(
+              video,
+              fit: fill ? lk.VideoViewFit.cover : lk.VideoViewFit.contain,
+            )
+          else
+            LayoutBuilder(
+              builder: (_, box) {
+                final radius = (box.biggest.shortestSide * .20).clamp(
+                  14.0,
+                  70.0,
+                );
+                return Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      PulseAvatar(
+                        repo: repo,
+                        path: person?['avatar_path'],
+                        name: person?['display_name'] ?? 'Pulse user',
+                        radius: radius,
+                      ),
+                      if (box.maxHeight > 180 && state['kind'] == 'video') ...[
+                        const SizedBox(height: 14),
+                        const Text(
+                          'Camera off',
+                          style: TextStyle(color: Colors.white70),
+                        ),
+                      ],
+                    ],
+                  ),
+                );
+              },
+            ),
+          if (label)
             Positioned(
-              left: 12,
-              bottom: 12,
-              child: Container(
-                padding: const EdgeInsets.all(6),
-                color: Colors.black54,
-                child: Text(
-                  participant.identity == repo.uid
-                      ? 'You'
-                      : person?['display_name'] ?? 'Pulse user',
-                  style: const TextStyle(color: Colors.white),
+              left: 6,
+              right: 6,
+              bottom: 6,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 5,
+                  ),
+                  child: Text(
+                    own ? 'You' : person?['display_name'] ?? 'Pulse user',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ),
             ),
-          ],
-        ),
+        ],
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final people = <lk.Participant>[
-      if (room.localParticipant != null) room.localParticipant!,
-      ...room.remoteParticipants.values,
-    ];
-    final started = state['started_at'] == null
-        ? null
-        : DateTime.parse(state['started_at']);
+    final peers = room.remoteParticipants.values.toList();
+    final local = room.localParticipant;
+    final members = widget.calls
+        .members(state)
+        .where((m) => m['user_id'] != selfId)
+        .toList();
+    final peer = peers.firstOrNull;
+    final main = peer ?? local;
+    final otherId = peer?.identity ?? members.firstOrNull?['user_id'];
+    final chat = repo.chats
+        .where((c) => c['id'] == state['chat_id'])
+        .firstOrNull;
+    final group = peers.length > 1;
+    final name = members.length > 1
+        ? (chat?['name'] as String? ?? 'Group call')
+        : repo.profiles[otherId]?['display_name'] as String? ?? 'Pulse call';
+    final started = DateTime.tryParse(state['started_at']?.toString() ?? '');
     final seconds = started == null
         ? 0
-        : DateTime.now().toUtc().difference(started).inSeconds;
+        : DateTime.now().toUtc().difference(started).inSeconds.clamp(0, 86400);
+    final status = ending
+        ? 'Ending…'
+        : !connected
+        ? error == null
+              ? 'Connecting…'
+              : 'Call unavailable'
+        : room.connectionState == lk.ConnectionState.reconnecting
+        ? 'Reconnecting…'
+        : state['status'] == 'ringing'
+        ? pulseCallSignal(state, selfId, DateTime.now())
+        : peers.isEmpty
+        ? 'Connecting media…'
+        : '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}${group ? ' · ${peers.length + 1} connected' : ''}';
     return PopScope(
-      canPop: false,
+      canPop: ending,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) unawaited(leave());
       },
       child: Scaffold(
-        appBar: AppBar(
-          title: Text(
-            state['kind'] == 'video' ? 'Pulse video call' : 'Pulse voice call',
-          ),
-          leading: IconButton(
-            onPressed: leave,
-            icon: const Icon(Icons.arrow_back),
-          ),
-        ),
-        body: Column(
-          children: [
-            const Padding(
-              padding: EdgeInsets.all(8),
-              child: Text(
-                'Transport encrypted · End-to-end encryption is not implemented',
-              ),
-            ),
-            Text(
-              !connected
-                  ? 'Connecting…'
-                  : room.connectionState == lk.ConnectionState.reconnecting
-                  ? 'Reconnecting…'
-                  : state['status'] == 'ringing'
-                  ? pulseCallSignal(state, repo.uid, DateTime.now())
-                  : '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')} · ${room.remoteParticipants.length + 1} connected',
-            ),
-            if (error != null)
-              Padding(padding: const EdgeInsets.all(12), child: Text(error!)),
-            Expanded(
-              child: !connected
-                  ? Center(
-                      child: error == null
-                          ? const CircularProgressIndicator()
-                          : const Icon(Icons.call_end, size: 64),
-                    )
-                  : GridView.count(
-                      crossAxisCount: people.length > 1 ? 2 : 1,
-                      padding: const EdgeInsets.all(16),
-                      mainAxisSpacing: 12,
-                      crossAxisSpacing: 12,
-                      children: people.map(tile).toList(),
-                    ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Wrap(
-                spacing: 14,
-                runSpacing: 12,
-                alignment: WrapAlignment.center,
-                children: [
-                  IconButton.filledTonal(
-                    tooltip: muted ? 'Unmute microphone' : 'Mute microphone',
-                    onPressed: controlsBusy
-                        ? null
-                        : () => control(() async {
-                            await room.localParticipant?.setMicrophoneEnabled(
-                              muted,
-                            );
-                            muted = !muted;
-                          }),
-                    icon: Icon(muted ? Icons.mic_off : Icons.mic),
+        backgroundColor: Colors.black,
+        body: PulseCallLayout(
+          name: name,
+          status: status,
+          videoCall: state['kind'] == 'video',
+          muted: muted,
+          camera: camera,
+          speaker: speaker,
+          ending: ending,
+          controlsEnabled: connected && !controlsBusy && !ending,
+          error: error,
+          onDetails: details,
+          onMembers: participants,
+          onHangUp: leave,
+          mainVideo: (fill) => main != null
+              ? tile(main, fill: fill)
+              : Center(
+                  child: PulseAvatar(
+                    repo: repo,
+                    path: repo.profiles[otherId]?['avatar_path'],
+                    name: name,
+                    radius: 70,
                   ),
-                  if (state['kind'] == 'video')
-                    IconButton.filledTonal(
-                      tooltip: camera ? 'Turn camera off' : 'Turn camera on',
-                      onPressed: controlsBusy
-                          ? null
-                          : () => control(() async {
-                              await room.localParticipant?.setCameraEnabled(
-                                !camera,
-                              );
-                              camera = !camera;
-                            }),
-                      icon: Icon(camera ? Icons.videocam : Icons.videocam_off),
+                ),
+          previewVideo:
+              !group &&
+                  peer != null &&
+                  local != null &&
+                  state['kind'] == 'video'
+              ? (fill) => tile(local, fill: fill)
+              : null,
+          groupVideos: group
+              ? [
+                  if (local != null)
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: tile(local, label: true),
                     ),
-                  if (state['kind'] == 'video')
-                    IconButton.filledTonal(
-                      tooltip: 'Switch camera',
-                      onPressed: controlsBusy
-                          ? null
-                          : () => control(() async {
-                              final devices = await lk.Hardware.instance
-                                  .videoInputs();
-                              if (devices.length < 2)
-                                throw Exception('No second camera');
-                              deviceIndex = (deviceIndex + 1) % devices.length;
-                              await room.setVideoInputDevice(
-                                devices[deviceIndex],
-                              );
-                            }),
-                      icon: const Icon(Icons.cameraswitch),
+                  for (final remote in peers)
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: tile(remote, label: true),
                     ),
-                  if (Platform.isAndroid)
-                    IconButton.filledTonal(
-                      tooltip: 'Speaker output',
-                      onPressed: controlsBusy
-                          ? null
-                          : () => control(() async {
-                              await lk.AudioManager.instance
-                                  .setSpeakerOutputPreferred(!speaker);
-                              speaker = !speaker;
-                            }),
-                      icon: Icon(speaker ? Icons.volume_up : Icons.hearing),
-                    ),
-                  IconButton.filled(
-                    style: IconButton.styleFrom(
-                      backgroundColor: Colors.redAccent,
-                    ),
-                    tooltip: 'Leave call',
-                    onPressed: leave,
-                    icon: const Icon(Icons.call_end),
-                  ),
-                ],
-              ),
-            ),
-          ],
+                ]
+              : const [],
+          onMute: () => control(() async {
+            await room.localParticipant?.setMicrophoneEnabled(muted);
+            muted = !muted;
+          }),
+          onCamera: state['kind'] == 'video'
+              ? () => control(() async {
+                  await room.localParticipant?.setCameraEnabled(!camera);
+                  camera = !camera;
+                })
+              : null,
+          onSwitchCamera: state['kind'] == 'video' ? switchCamera : null,
+          onSpeaker: Platform.isAndroid || Platform.isIOS
+              ? () => control(() async {
+                  await lk.AudioManager.instance.setSpeakerOutputPreferred(
+                    !speaker,
+                  );
+                  speaker = !speaker;
+                })
+              : null,
         ),
       ),
     );
