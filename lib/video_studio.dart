@@ -112,7 +112,7 @@ class _PulseVideoStudioState extends State<PulseVideoStudio>
 
   Widget preview() {
     Widget view = Video(controller: controller!, fit: BoxFit.cover);
-    if (Platform.isAndroid) {
+    if (Platform.isAndroid || Platform.isIOS) {
       if (mono)
         view = ColorFiltered(
           colorFilter: const ColorFilter.matrix([
@@ -438,7 +438,7 @@ class _PulseVideoStudioState extends State<PulseVideoStudio>
                             'trim': Icons.content_cut,
                             'mute': mute ? Icons.volume_off : Icons.volume_up,
                             'cover': Icons.image_outlined,
-                            if (Platform.isAndroid) ...{
+                            if (Platform.isAndroid || Platform.isIOS) ...{
                               'crop': Icons.crop_rounded,
                               'rotate': Icons.rotate_right_rounded,
                               'adjust': Icons.tune_rounded,
@@ -534,7 +534,7 @@ class _PulseVideoStudioState extends State<PulseVideoStudio>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (Platform.isAndroid && tool == 'crop')
+                  if ((Platform.isAndroid || Platform.isIOS) && tool == 'crop')
                     Wrap(
                       spacing: 8,
                       children: [
@@ -554,7 +554,8 @@ class _PulseVideoStudioState extends State<PulseVideoStudio>
                           ),
                       ],
                     ),
-                  if (Platform.isAndroid && tool == 'adjust') ...[
+                  if ((Platform.isAndroid || Platform.isIOS) &&
+                      tool == 'adjust') ...[
                     const Text(
                       'Brightness',
                       style: TextStyle(color: Colors.white),
@@ -619,6 +620,8 @@ class _PulseVideoStudioState extends State<PulseVideoStudio>
                     Text(
                       Platform.isAndroid
                           ? 'Android trims align to video keyframes.'
+                          : Platform.isIOS
+                          ? 'Precise native iOS export.'
                           : 'Precise native Windows export.',
                       style: const TextStyle(
                         color: Colors.white54,

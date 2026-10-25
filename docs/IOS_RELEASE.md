@@ -14,6 +14,6 @@ Local notification permission is requested only when enabled in settings. iOS lo
 
 Closed-app push and system incoming-call UI require separate iOS Firebase/APNs/CallKit work; the current push client remains Android-only. No APNs credentials or Apple signing identity are configured by this workflow.
 
-NativePulseEditor currently provides Android/Windows export. iOS video trimming, style export, avatar rendering and watermarked downloads still require an AVFoundation implementation. Do not describe this compile artifact as full feature parity or a completed App Store release.
+The AVFoundation bridge implements iOS trimming/mute, five-second square profile clips, rotation/crop/brightness/contrast/mono/text exports, Pulse watermarks and saving to Photos with permission. These paths require physical-device validation, including portrait orientation, cancellation, audio timing and Photos permission denial. Do not describe an unsigned compile artifact as a completed App Store release.
 
 The original favicon is retained. Seasonal branding changes in-app assets only, not the installed iOS app icon.

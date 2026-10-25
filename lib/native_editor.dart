@@ -79,7 +79,7 @@ class NativePulseEditor {
                 ? 'Export cancelled'
                 : 'Windows could not export this codec. Try an MP4 video.',
           );
-      } else if (Platform.isAndroid) {
+      } else if (Platform.isAndroid || Platform.isIOS) {
         await _editorChannel.invokeMethod<Map>('export', {
           'input': input.path,
           'output': output.path,
@@ -89,7 +89,7 @@ class NativePulseEditor {
         });
       } else {
         throw UnsupportedError(
-          'Native video export supports Android and Windows.',
+          'Native video export supports Android, iOS and Windows.',
         );
       }
       if (!await output.exists() || await output.length() == 0)
@@ -112,8 +112,8 @@ class NativePulseEditor {
       throw ArgumentError('Profile clips must be at most five seconds');
     if (Platform.isWindows)
       return export(input, output, startMs, endMs, true, onProgress);
-    if (!Platform.isAndroid)
-      throw UnsupportedError('Video avatars support Android and Windows');
+    if (!Platform.isAndroid && !Platform.isIOS)
+      throw UnsupportedError('Video avatars support Android, iOS and Windows');
     final timer = Timer.periodic(const Duration(milliseconds: 200), (_) async {
       try {
         onProgress(
@@ -145,8 +145,8 @@ class NativePulseEditor {
     Map<String, dynamic> settings,
     void Function(double) onProgress,
   ) async {
-    if (!Platform.isAndroid)
-      throw UnsupportedError('Video style export requires Android.');
+    if (!Platform.isAndroid && !Platform.isIOS)
+      throw UnsupportedError('Video style export requires Android or iOS.');
     final timer = Timer.periodic(const Duration(milliseconds: 200), (_) async {
       try {
         onProgress(
@@ -188,7 +188,7 @@ class NativePulseEditor {
       } catch (_) {}
     });
     try {
-      if (Platform.isAndroid) {
+      if (Platform.isAndroid || Platform.isIOS) {
         await _editorChannel.invokeMethod<void>('watermark', {
           'input': input.path,
           'output': output.path,
@@ -205,7 +205,7 @@ class NativePulseEditor {
           );
       } else {
         throw UnsupportedError(
-          'Watermarked video downloads require Android or Windows.',
+          'Watermarked video downloads require Android, iOS or Windows.',
         );
       }
       if (!await output.exists() || await output.length() == 0)
@@ -221,7 +221,7 @@ class NativePulseEditor {
       _library().lookupFunction<Void Function(), void Function()>(
         'pulse_editor_cancel',
       )();
-    } else if (Platform.isAndroid) {
+    } else if (Platform.isAndroid || Platform.isIOS) {
       await _editorChannel.invokeMethod<void>('cancel');
     }
   }
