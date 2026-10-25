@@ -106,8 +106,9 @@ class NativePulseEditor {
     File output,
     int startMs,
     int endMs,
-    void Function(double) onProgress,
-  ) async {
+    void Function(double) onProgress, {
+    bool square = true,
+  }) async {
     if (startMs < 0 || endMs <= startMs || endMs - startMs > 5000)
       throw ArgumentError('Profile clips must be at most five seconds');
     if (Platform.isWindows)
@@ -129,6 +130,7 @@ class NativePulseEditor {
         'output': output.path,
         'startMs': startMs,
         'endMs': endMs,
+        'square': square,
       });
       if (!await output.exists() || await output.length() == 0)
         throw StateError('No profile video was exported');

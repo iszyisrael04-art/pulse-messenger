@@ -57,7 +57,7 @@ final class PulseIOSNativeEditor: NSObject, FlutterPlugin {
     let natural = CGRect(origin: .zero, size: source.naturalSize).applying(source.preferredTransform)
     let rotated = CGRect(origin: .zero, size: CGSize(width: abs(natural.width), height: abs(natural.height))).applying(CGAffineTransform(rotationAngle: angle))
     var width = max(2, abs(rotated.width)), height = max(2, abs(rotated.height))
-    let ratio = method == "avatar" ? 1.0 : (style["ratio"] as? NSNumber)?.doubleValue
+    let ratio = method == "avatar" && (args["square"] as? Bool ?? true) ? 1.0 : (style["ratio"] as? NSNumber)?.doubleValue
     if let ratio = ratio, ratio.isFinite, ratio > 0 {
       if width / height > ratio { width = height * ratio } else { height = width / ratio }
     }

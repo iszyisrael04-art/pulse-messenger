@@ -12,8 +12,13 @@ typedef ProfileVideoResult = ({File video, File poster});
 
 /// Exports an actual muted MP4, rather than retaining the full selected video.
 class ProfileVideoEditor extends StatefulWidget {
-  const ProfileVideoEditor({super.key, required this.file});
+  const ProfileVideoEditor({
+    super.key,
+    required this.file,
+    this.banner = false,
+  });
   final File file;
+  final bool banner;
   @override
   State<ProfileVideoEditor> createState() => _ProfileVideoEditorState();
 }
@@ -109,6 +114,7 @@ class _ProfileVideoEditorState extends State<ProfileVideoEditor> {
         (value) {
           if (mounted) setState(() => progress = value);
         },
+        square: !widget.banner,
       );
       if (await output.length() > 15728640)
         throw StateError(
@@ -146,11 +152,21 @@ class _ProfileVideoEditorState extends State<ProfileVideoEditor> {
     super.dispose();
   }
 
+  Widget preview() => controller == null
+      ? const Center(child: CircularProgressIndicator())
+      : Video(
+          controller: controller!,
+          controls: NoVideoControls,
+          fit: BoxFit.cover,
+        );
+
   @override
   Widget build(BuildContext context) => PopScope(
     canPop: !busy,
     child: Scaffold(
-      appBar: AppBar(title: const Text('Trim profile video')),
+      appBar: AppBar(
+        title: Text(widget.banner ? 'Trim video banner' : 'Trim profile video'),
+      ),
       body: ListView(
         padding: const EdgeInsets.all(24),
         children: [
@@ -159,18 +175,14 @@ class _ProfileVideoEditorState extends State<ProfileVideoEditor> {
           ),
           const SizedBox(height: 24),
           Center(
-            child: ClipOval(
-              child: SizedBox.square(
-                dimension: 240,
-                child: controller == null
-                    ? const Center(child: CircularProgressIndicator())
-                    : Video(
-                        controller: controller!,
-                        controls: NoVideoControls,
-                        fit: BoxFit.cover,
-                      ),
-              ),
-            ),
+            child: widget.banner
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: AspectRatio(aspectRatio: 16 / 9, child: preview()),
+                  )
+                : ClipOval(
+                    child: SizedBox.square(dimension: 240, child: preview()),
+                  ),
           ),
           const SizedBox(height: 24),
           Text(

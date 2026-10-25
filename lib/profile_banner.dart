@@ -22,7 +22,8 @@ Future<void> editFreeProfileBanner(
   final result = await Navigator.push<ProfileVideoResult>(
     context,
     MaterialPageRoute(
-      builder: (_) => ProfileVideoEditor(file: File(picked.first.path!)),
+      builder: (_) =>
+          ProfileVideoEditor(file: File(picked.first.path!), banner: true),
     ),
   );
   if (result == null) return;

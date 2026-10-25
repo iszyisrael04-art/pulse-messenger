@@ -119,7 +119,7 @@ class PulseProfileHero extends StatelessWidget {
                           ...actions,
                         ],
                       ),
-                      const SizedBox(height: 72),
+                      const SizedBox(height: 40),
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
