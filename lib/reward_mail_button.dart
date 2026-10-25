@@ -1,3 +1,4 @@
+import 'reward_mail_state.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'repository.dart' hide Row;
@@ -26,7 +27,10 @@ class _PulseRewardMailButtonState extends State<PulseRewardMailButton> {
     loading = true;
     try {
       final r = await widget.repo.rpc('reward_mail', {});
-      if (mounted) setState(() => unread = (r['unread'] as num).toInt());
+      if (mounted) {
+        setState(() => unread = (r['unread'] as num).toInt());
+        pulseRewardMailUnread.value = unread;
+      }
     } catch (_) {
     } finally {
       loading = false;
@@ -42,10 +46,13 @@ class _PulseRewardMailButtonState extends State<PulseRewardMailButton> {
   @override
   Widget build(BuildContext context) => IconButton(
     tooltip: 'Pulse mail & requests',
-    icon: Badge(
-      isLabelVisible: unread > 0,
-      label: Text(unread > 99 ? '99+' : '$unread'),
-      child: const Icon(Icons.mail_outline),
+    icon: ValueListenableBuilder<int>(
+      valueListenable: pulseRewardMailUnread,
+      builder: (_, count, __) => Badge(
+        isLabelVisible: count > 0,
+        label: Text(count > 99 ? '99+' : '$count'),
+        child: const Icon(Icons.mail_outline),
+      ),
     ),
     onPressed: () async {
       await Navigator.push(

@@ -20,6 +20,11 @@ class PulseEventBranding extends ChangeNotifier {
       : null;
   void start() {
     if (timer != null) return;
+    try {
+      Supabase.instance.client;
+    } catch (_) {
+      return;
+    }
     refresh();
     timer = Timer.periodic(const Duration(seconds: 30), (_) => refresh());
   }

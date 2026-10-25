@@ -1,3 +1,4 @@
+import 'reward_mail_state.dart';
 import 'package:flutter/material.dart';
 import 'repository.dart' hide Row;
 
@@ -26,10 +27,14 @@ class _PulseMailboxState extends State<PulseMailbox> {
       final r = await widget.repo.rpc('inbox', {});
       final mail = await widget.repo.rpc('reward_mail', {});
       rewards = mail['items'] as List? ?? [];
-      if (rewards.isNotEmpty)
-        await widget.repo.rpc('reward_mail', {
+      if (rewards.isNotEmpty) {
+        final seen = await widget.repo.rpc('reward_mail', {
           'p_seen': rewards.map((r) => r['id']).toList(),
         });
+        pulseRewardMailUnread.value = (seen['unread'] as num).toInt();
+      } else {
+        pulseRewardMailUnread.value = 0;
+      }
       if (mounted)
         setState(() {
           data = r as Map;
