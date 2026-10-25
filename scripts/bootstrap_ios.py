@@ -22,3 +22,8 @@ for icon in json.loads((assets/'Contents.json').read_text())['images']:
  if 'filename' not in icon: continue
  size=round(float(icon['size'].split('x')[0])*float(icon['scale'].rstrip('x')))
  subprocess.run(['sips','-z',str(size),str(size),str(root/'assets/branding/pulse.png'),'--out',str(assets/icon['filename'])],check=True,stdout=subprocess.DEVNULL)
+
+# Flutter create may add its template counter test. Preserve any real tests.
+sample=root/'test/widget_test.dart'
+if sample.exists() and 'MyApp' in sample.read_text() and 'counter' in sample.read_text().lower():
+ sample.unlink()
