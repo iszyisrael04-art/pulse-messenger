@@ -22,6 +22,9 @@ def build(root):
     if flutter is None:
         print('Flutter was not found on PATH.', flush=True)
         return 127
+    # Crown snapshots must not use the old busy-spin/leaking capturer.
+    if os.name == 'nt' and (root / '.dart_tool/package_config.json').exists():
+        subprocess.run([sys.executable, str(Path(__file__).with_name('patch_webrtc_capture.py')), str(root)], check=True)
     logs = root / 'build-logs'
     logs.mkdir(exist_ok=True)
     code = run_logged([
