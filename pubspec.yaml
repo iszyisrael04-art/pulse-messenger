@@ -1,7 +1,7 @@
 name: pulse_messenger
 description: Native Pulse Messenger — staged private beta.
 publish_to: none
-version: 0.1.0+44
+version: 0.1.0+45
 environment:
   sdk: '>=3.12.0 <4.0.0'
 dependencies:
@@ -38,5 +38,6 @@ flutter:
     - assets/branding/pulse.png
     - assets/audio/
     - assets/gifts/
+
 
 

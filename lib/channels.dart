@@ -1721,6 +1721,11 @@ class _LiveScreenState extends State<LiveScreen> with WidgetsBindingObserver {
                   onTap: () => Navigator.pop(c, 'comments'),
                 ),
                 ListTile(
+                  leading: const Icon(Icons.ios_share),
+                  title: const Text('Share LIVE'),
+                  onTap: () => Navigator.pop(c, 'share'),
+                ),
+                ListTile(
                   leading: const Icon(Icons.close),
                   title: Text(widget.host ? 'End live' : 'Leave live'),
                   onTap: () => Navigator.pop(c, 'leave'),
@@ -1748,6 +1753,14 @@ class _LiveScreenState extends State<LiveScreen> with WidgetsBindingObserver {
           break;
         case 'gifts':
           await giftsKey.currentState?.showControls(context);
+          break;
+        case 'share':
+          await SharePlus.instance.share(
+            ShareParams(
+              text:
+                  'Watch $liveOwnerLabel LIVE on Pulse. Open Pulse and find their profile to join. https://iszyisrael04-art.github.io/Pulse-web/',
+            ),
+          );
           break;
         case 'gift_sounds':
           setState(() => giftSounds = !giftSounds);
@@ -1948,83 +1961,28 @@ class _LiveScreenState extends State<LiveScreen> with WidgetsBindingObserver {
                       colors: [Colors.black54, Colors.transparent],
                     ),
                   ),
-                  child: SafeArea(
-                    bottom: false,
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(10, 6, 6, 20),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: InkWell(
-                              onTap: hostId == null
-                                  ? null
-                                  : () => openProfile(hostId!),
-                              borderRadius: BorderRadius.circular(28),
-                              child: Row(
-                                children: [
-                                  PulseAvatar(
-                                    repo: widget.repo,
-                                    path: host['avatar_path'],
-                                    name: liveOwnerLabel,
-                                    userId: hostId,
-                                    radius: 19,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Flexible(
-                                    child: Text(
-                                      liveOwnerLabel,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w800,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          if (!widget.host &&
-                              hostId != null &&
-                              hostFollowState != 'accepted')
-                            TextButton(
-                              onPressed:
-                                  followingHost || hostFollowState == 'pending'
-                                  ? null
-                                  : followHost,
-                              child: Text(
-                                hostFollowState == 'pending'
-                                    ? 'Requested'
-                                    : '+ Follow',
-                                style: const TextStyle(
-                                  color: Color(0xff81d5c2),
-                                ),
-                              ),
-                            ),
-                          const Icon(
-                            Icons.visibility_outlined,
-                            color: Colors.white70,
-                            size: 16,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '$viewers',
-                            semanticsLabel: '$viewers viewers',
-                            style: const TextStyle(color: Colors.white),
-                          ),
-                          PulseLiveMenuButton(
-                            requests: canModerate ? party.requests.length : 0,
-                            onPressed: showLiveMenu,
-                          ),
-                          IconButton(
-                            tooltip: widget.host ? 'End live' : 'Leave live',
-                            onPressed: ending ? null : end,
-                            icon: const Icon(Icons.close, color: Colors.white),
-                          ),
-                        ],
-                      ),
+                  child: PulseLiveHeader(
+                    avatar: PulseAvatar(
+                      repo: widget.repo,
+                      path: host['avatar_path'],
+                      name: liveOwnerLabel,
+                      userId: hostId,
+                      radius: 17,
                     ),
+                    name: liveOwnerLabel,
+                    viewers: viewers,
+                    openProfile: () {
+                      if (hostId != null) openProfile(hostId!);
+                    },
+                    leave: ending ? null : end,
+                    follow:
+                        !widget.host &&
+                            hostId != null &&
+                            hostFollowState != 'accepted' &&
+                            hostFollowState != 'pending' &&
+                            !followingHost
+                        ? followHost
+                        : null,
                   ),
                 ),
               ),
@@ -2079,7 +2037,7 @@ class _LiveScreenState extends State<LiveScreen> with WidgetsBindingObserver {
                           ),
                         if (liveStyle != 'cinema')
                           SizedBox(
-                            height: (bounds.maxHeight * .22).clamp(90.0, 200.0),
+                            height: (bounds.maxHeight * .24).clamp(76.0, 180.0),
                             child: ListView.builder(
                               controller: chatScroll,
                               reverse: true,
@@ -2155,16 +2113,42 @@ class _LiveScreenState extends State<LiveScreen> with WidgetsBindingObserver {
                                       });
                                   },
                                 ),
-                                IconButton(
-                                  tooltip: 'Like LIVE',
-                                  onPressed: likeLive,
-                                  icon: Icon(
-                                    tools['liked'] == true
-                                        ? Icons.favorite
-                                        : Icons.favorite_border,
-                                    color: Colors.pinkAccent,
+                                if (MediaQuery.viewInsetsOf(context).bottom ==
+                                    0)
+                                  PulseLiveMenuButton(
+                                    requests: canModerate
+                                        ? party.requests.length
+                                        : 0,
+                                    onPressed: showLiveMenu,
                                   ),
-                                ),
+                                if (MediaQuery.viewInsetsOf(context).bottom ==
+                                        0 &&
+                                    bounds.maxWidth >= 390)
+                                  IconButton(
+                                    tooltip: 'Share LIVE',
+                                    onPressed: () => SharePlus.instance.share(
+                                      ShareParams(
+                                        text:
+                                            'Watch $liveOwnerLabel LIVE on Pulse. Open Pulse and find their profile to join. https://iszyisrael04-art.github.io/Pulse-web/',
+                                      ),
+                                    ),
+                                    icon: const Icon(
+                                      Icons.ios_share,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                if (MediaQuery.viewInsetsOf(context).bottom ==
+                                    0)
+                                  IconButton(
+                                    tooltip: 'Like LIVE',
+                                    onPressed: likeLive,
+                                    icon: Icon(
+                                      tools['liked'] == true
+                                          ? Icons.favorite
+                                          : Icons.favorite_border,
+                                      color: Colors.pinkAccent,
+                                    ),
+                                  ),
                               ],
                             ),
                           ),

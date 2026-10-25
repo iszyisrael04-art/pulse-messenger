@@ -127,3 +127,121 @@ class PulseLiveMessageField extends StatelessWidget {
     ),
   );
 }
+
+/// Compact LIVE header keeps the camera visible and leaves a real close target.
+class PulseLiveHeader extends StatelessWidget {
+  const PulseLiveHeader({
+    super.key,
+    required this.avatar,
+    required this.name,
+    required this.viewers,
+    required this.openProfile,
+    required this.leave,
+    this.follow,
+    this.followLabel = '+ Follow',
+  });
+  final Widget avatar;
+  final String name, followLabel;
+  final int viewers;
+  final VoidCallback openProfile;
+  final VoidCallback? leave, follow;
+  @override
+  Widget build(BuildContext context) => SafeArea(
+    bottom: false,
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(10, 6, 6, 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(5, 4, 6, 4),
+              decoration: BoxDecoration(
+                color: Colors.black45,
+                borderRadius: BorderRadius.circular(32),
+              ),
+              child: Row(
+                children: [
+                  InkWell(onTap: openProfile, child: avatar),
+                  const SizedBox(width: 7),
+                  Expanded(
+                    child: InkWell(
+                      onTap: openProfile,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const Text(
+                            'LIVE',
+                            style: TextStyle(
+                              color: Color(0xffff7198),
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (follow != null)
+                    TextButton(
+                      onPressed: follow,
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        backgroundColor: Color(0xffff3974),
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.symmetric(horizontal: 9),
+                      ),
+                      child: Text(
+                        followLabel,
+                        style: const TextStyle(fontSize: 11),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Semantics(
+            label: '$viewers viewers',
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+              decoration: BoxDecoration(
+                color: Colors.black45,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.people_outline,
+                    size: 14,
+                    color: Colors.white,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '$viewers',
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Leave live',
+            onPressed: leave,
+            icon: const Icon(Icons.close, color: Colors.white),
+          ),
+        ],
+      ),
+    ),
+  );
+}

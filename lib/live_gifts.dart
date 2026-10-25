@@ -1,3 +1,5 @@
+import 'gift_gallery.dart';
+import 'gift_cinematic.dart';
 import 'gift_visuals.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -173,60 +175,75 @@ class PulseLiveGiftsState extends State<PulseLiveGifts> {
       }
       recipient = others.first['user_id'] as String;
     }
+    int? balance;
+    try {
+      final wallet = await widget.repo.rpc('wallet', {});
+      balance = test ? testCoins : (wallet['coins'] as num?)?.toInt();
+    } catch (_) {
+      balance = test ? testCoins : null;
+    }
+    if (!mounted) return;
+    final recipients = people
+        .where((p) => test || p['user_id'] != widget.repo.uid)
+        .toList();
     final choice = await showModalBottomSheet<Map>(
       context: context,
       isScrollControlled: true,
-      builder: (sheet) => StatefulBuilder(
-        builder: (sheet, update) => SafeArea(
-          child: SizedBox(
-            height: MediaQuery.sizeOf(sheet).height * .65,
-            child: ListView(
-              padding: const EdgeInsets.all(20),
-              children: [
-                Text(
-                  test ? 'Send a TEST gift' : 'Send a LIVE gift',
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                ),
-                DropdownButtonFormField<String>(
-                  initialValue: recipient,
-                  items: people
-                      .where((p) => p['user_id'] != widget.repo.uid)
-                      .map(
-                        (p) => DropdownMenuItem(
-                          value: p['user_id'] as String,
-                          child: Text('${p['display_name']}'),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (v) => update(() => recipient = v),
-                ),
-                Text(
-                  test
-                      ? 'Test coins only. No P-coins, cash value or rank progress.'
-                      : 'Normal coins are spent. The recipient earns the listed P-coins.',
-                ),
-                for (final gift in gifts['gifts'] as List? ?? [])
-                  ListTile(
-                    leading: SizedBox(
-                      width: 52,
-                      height: 52,
-                      child: PulseGiftModel(sku: gift['sku']),
+      showDragHandle: true,
+      builder: (sheet) => PulseGiftGallery(
+        gifts: (gifts['gifts'] as List? ?? []).cast<Map>(),
+        people: recipients,
+        recipient: recipient!,
+        test: test,
+        balance: balance,
+        onChoose: (gift) => Navigator.pop(sheet, gift),
+        onRecharge: () => Navigator.push(
+          sheet,
+          MaterialPageRoute<void>(
+            builder: (_) => PulseShopPage(repo: widget.repo),
+          ),
+        ),
+        onPreview: (gift) => Navigator.push(
+          sheet,
+          MaterialPageRoute<void>(
+            builder: (preview) => Scaffold(
+              backgroundColor: Colors.black,
+              body: Stack(
+                children: [
+                  Positioned.fill(
+                    child: PulseLiveGiftPresentation(
+                      repo: widget.repo,
+                      event: {
+                        ...gift,
+                        'quantity': 1,
+                        'display_name': 'Preview',
+                        'is_test': true,
+                      },
+                      sound: true,
+                      onComplete: () {
+                        if (preview.mounted &&
+                            ModalRoute.of(preview)?.isCurrent == true)
+                          Navigator.pop(preview);
+                      },
                     ),
-                    title: Text('${gift['title']} · ${gift['coins']} coins'),
-                    subtitle: Text(
-                      test
-                          ? 'Test animation · no earnings'
-                          : 'Recipient gets ${gift['p_coins']} P-coins',
-                    ),
-                    onTap: () => Navigator.pop(sheet, {
-                      'sku': gift['sku'],
-                      'recipient': recipient,
-                      'title': gift['title'],
-                      'coins': gift['coins'],
-                      'p_coins': gift['p_coins'],
-                    }),
                   ),
-              ],
+                  SafeArea(
+                    child: Row(
+                      children: [
+                        IconButton(
+                          tooltip: 'Close preview',
+                          onPressed: () => Navigator.pop(preview),
+                          icon: const Icon(Icons.close, color: Colors.white),
+                        ),
+                        const Text(
+                          'PREVIEW · no coins spent',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -360,7 +377,7 @@ class PulseLiveGiftsState extends State<PulseLiveGifts> {
           onPressed: busy || pendingGift != null || feedCursor == null
               ? null
               : () => chooseGift(),
-          icon: const Icon(Icons.card_giftcard, color: Colors.amberAccent),
+          icon: const Icon(Icons.card_giftcard, color: Color(0xffff4e91)),
         )
       : controls(context);
 
