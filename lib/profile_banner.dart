@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -48,42 +49,81 @@ class PulseProfileBanner extends StatefulWidget {
     super.key,
     required this.store,
     required this.path,
+    this.fill = false,
   });
   final SocialStore store;
   final String path;
+  final bool fill;
   @override
   State<PulseProfileBanner> createState() => _PulseProfileBannerState();
 }
 
-class _PulseProfileBannerState extends State<PulseProfileBanner> {
+class _PulseProfileBannerState extends State<PulseProfileBanner>
+    with WidgetsBindingObserver {
   Player? player;
   VideoController? controller;
+  int generation = 0;
+  bool motionAllowed = true, foreground = true;
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    foreground =
+        WidgetsBinding.instance.lifecycleState == null ||
+        WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
     open();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    motionAllowed =
+        TickerMode.of(context) && !MediaQuery.disableAnimationsOf(context);
+    unawaited(syncPlayback());
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    foreground = state == AppLifecycleState.resumed;
+    unawaited(syncPlayback());
+  }
+
+  Future<void> syncPlayback() async {
+    final p = player;
+    if (p == null) return;
+    try {
+      if (motionAllowed && foreground) {
+        await p.play();
+      } else {
+        await p.pause();
+      }
+    } catch (_) {}
+  }
+
   Future<void> open() async {
+    final ticket = ++generation;
     try {
       final url = await widget.store.signed(widget.path);
-      if (!mounted) return;
+      if (!mounted || ticket != generation) return;
       final p = Player();
       player = p;
       controller = VideoController(p);
       await p.setVolume(0);
       await p.setPlaylistMode(PlaylistMode.single);
-      await p.open(Media(url));
-      if (mounted) setState(() {});
+      await p.open(Media(url), play: false);
+      if (!mounted || ticket != generation) return;
+      await syncPlayback();
+      if (mounted && ticket == generation) setState(() {});
     } catch (_) {
-      if (mounted) setState(() {});
+      if (mounted && ticket == generation) setState(() {});
     }
   }
 
   @override
   void didUpdateWidget(PulseProfileBanner old) {
     super.didUpdateWidget(old);
-    if (old.path != widget.path) {
+    if (old.path != widget.path || old.store != widget.store) {
       player?.dispose();
       player = null;
       controller = null;
@@ -93,25 +133,25 @@ class _PulseProfileBannerState extends State<PulseProfileBanner> {
 
   @override
   void dispose() {
+    generation++;
+    WidgetsBinding.instance.removeObserver(this);
     player?.dispose();
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) => ClipRRect(
-    borderRadius: BorderRadius.circular(22),
-    child: AspectRatio(
-      aspectRatio: 16 / 6,
-      child: controller == null
-          ? const ColoredBox(
-              color: Color(0xff172139),
-              child: Center(child: Icon(Icons.panorama_outlined)),
-            )
-          : Video(
-              controller: controller!,
-              fit: BoxFit.cover,
-              controls: NoVideoControls,
-            ),
-    ),
-  );
+  Widget build(BuildContext context) {
+    final media = controller == null
+        ? const ColoredBox(color: Color(0xff172139))
+        : Video(
+            controller: controller!,
+            fit: BoxFit.cover,
+            controls: NoVideoControls,
+          );
+    if (widget.fill) return media;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(22),
+      child: AspectRatio(aspectRatio: 16 / 6, child: media),
+    );
+  }
 }

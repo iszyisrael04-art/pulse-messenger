@@ -1,4 +1,5 @@
 import 'profile_banner.dart';
+import 'profile_hero.dart';
 import 'offline_videos.dart';
 import 'gifter_ranks.dart';
 import 'channels.dart';
@@ -456,241 +457,147 @@ class _SocialProfileState extends State<SocialProfile> {
         : ['Posts', 'Reels'];
     final profileHeader = Column(
       children: [
-        if ((p['cover_path']?.toString() ?? '').endsWith('.mp4'))
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: PulseProfileBanner(
-              key: ValueKey(p['cover_path']),
-              store: widget.store,
-              path: p['cover_path'],
-            ),
+        PulseProfileHero(
+          background: PulseProfileBackdrop(
+            style: profileStyle,
+            child: (p['cover_path']?.toString() ?? '').endsWith('.mp4')
+                ? PulseProfileBanner(
+                    key: ValueKey('${widget.user}:${p['cover_path']}'),
+                    store: widget.store,
+                    path: p['cover_path'],
+                    fill: true,
+                  )
+                : const SizedBox.expand(),
           ),
-        PulseProfileBackdrop(
-          style: profileStyle,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    if (mine)
-                      IconButton(
-                        tooltip: 'Profile tools',
-                        onPressed: () => showProfileTools(p),
-                        icon: const Icon(Icons.more_horiz),
-                      ),
-                    IconButton(
-                      tooltip: widget.settings == null
-                          ? 'Refresh profile'
-                          : 'Settings',
-                      onPressed: widget.settings ?? load,
-                      icon: Icon(
-                        widget.settings == null
-                            ? Icons.refresh
-                            : Icons.settings_outlined,
-                      ),
-                    ),
-                  ],
-                ),
-                Center(
-                  child: Tooltip(
-                    message: mine ? 'Add story' : 'View profile photo',
-                    child: InkWell(
-                      customBorder: const CircleBorder(),
-                      onTap: mine
-                          ? addStory
-                          : () => showDialog<void>(
-                              context: context,
-                              builder: (c) => AlertDialog(
-                                content: SizedBox.square(
-                                  dimension: 240,
-                                  child: PulseAvatar(
-                                    repo: widget.store.repo,
-                                    path: p['avatar_path'],
-                                    userId: widget.user,
-                                    name: p['display_name'],
-                                    radius: 120,
-                                  ),
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(c),
-                                    child: const Text('Close'),
-                                  ),
-                                ],
-                              ),
-                            ),
-                      child: SizedBox.square(
-                        dimension: 112,
-                        child: Stack(
-                          children: [
-                            PulseAvatar(
+          avatar: Center(
+            child: Tooltip(
+              message: mine ? 'Add story' : 'View profile photo',
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: mine
+                    ? addStory
+                    : () => showDialog<void>(
+                        context: context,
+                        builder: (c) => AlertDialog(
+                          content: SizedBox.square(
+                            dimension: 240,
+                            child: PulseAvatar(
                               repo: widget.store.repo,
                               path: p['avatar_path'],
                               userId: widget.user,
                               name: p['display_name'],
-                              radius: 54,
+                              radius: 120,
                             ),
-                            if (mine)
-                              Positioned(
-                                bottom: 0,
-                                right: 0,
-                                child: Container(
-                                  padding: const EdgeInsets.all(3),
-                                  decoration: BoxDecoration(
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.surface,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: IconButton.filled(
-                                    tooltip: 'Add story',
-                                    onPressed: addStory,
-                                    icon: const Icon(Icons.add, size: 23),
-                                  ),
-                                ),
-                              ),
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(c),
+                              child: const Text('Close'),
+                            ),
                           ],
                         ),
                       ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Flexible(
-                      child: Text(
-                        p['display_name'],
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 23,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                    if (p['verified'] == true)
-                      const Padding(
-                        padding: EdgeInsets.only(left: 6),
-                        child: Icon(
-                          Icons.verified,
-                          color: Colors.blue,
-                          size: 21,
-                        ),
-                      ),
-                    if (mine)
-                      Padding(
-                        padding: const EdgeInsets.only(left: 12),
-                        child: FilledButton.tonal(
-                          onPressed: editProfile,
-                          child: const Text('Edit'),
-                        ),
-                      ),
-                  ],
-                ),
-                Center(
-                  child: PulseGifterIdentity(
-                    repo: widget.store.repo,
-                    user: widget.user,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Center(
-                  child: Text(
-                    '@${p['username'] ?? 'pulse_user'}',
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      fontSize: 15,
-                    ),
-                  ),
-                ),
-                Center(
-                  child: PulsePresenceLabel(
-                    presence: widget.store.repo.presence,
-                    userId: widget.user,
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 20),
-                  child: Row(
+                child: SizedBox.square(
+                  dimension: 112,
+                  child: Stack(
                     children: [
-                      for (final entry in {
-                        'Following': p['following'],
-                        'Followers': p['followers'],
-                        'Likes': p['likes'],
-                      }.entries)
-                        Expanded(
-                          child: Column(
-                            children: [
-                              Text(
-                                compactProfileCount(entry.value),
-                                style: const TextStyle(
-                                  fontSize: 23,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                entry.key,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ],
+                      PulseAvatar(
+                        repo: widget.store.repo,
+                        path: p['avatar_path'],
+                        userId: widget.user,
+                        name: p['display_name'],
+                        radius: 54,
+                      ),
+                      if (mine)
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
+                          child: Container(
+                            padding: const EdgeInsets.all(3),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.surface,
+                              shape: BoxShape.circle,
+                            ),
+                            child: IconButton.filled(
+                              tooltip: 'Add story',
+                              onPressed: addStory,
+                              icon: const Icon(Icons.add, size: 23),
+                            ),
                           ),
                         ),
                     ],
                   ),
                 ),
-                PulseProfileCommunities(
-                  repo: widget.store.repo,
-                  user: widget.user,
-                ),
-                if (p['bio'].toString().isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Text(
-                      p['bio'],
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 15, height: 1.4),
-                    ),
-                  ),
-                if ((features['signal'] as String? ?? '').isNotEmpty)
-                  Card(
-                    child: ListTile(
-                      leading: const Icon(Icons.waves_outlined),
-                      title: Text(
-                        pulseSignalModes[features['mode']] ?? 'Profile Signal',
-                      ),
-                      subtitle: Text(features['signal'] as String),
-                    ),
-                  ),
-                if (!mine)
-                  FilledButton(
-                    onPressed: busy
-                        ? null
-                        : () => perform(() async {
-                            await widget.store.follow(
-                              widget.user,
-                              p['follow_state'] == 'none',
-                            );
-                          }),
-                    child: Text(
-                      p['follow_state'] == 'accepted'
-                          ? 'Unfollow'
-                          : p['follow_state'] == 'pending'
-                          ? 'Cancel request'
-                          : 'Follow',
-                    ),
-                  ),
-              ],
+              ),
             ),
+          ),
+          displayName: p['display_name']?.toString() ?? 'Pulse creator',
+          username: p['username']?.toString() ?? 'pulse_user',
+          following: p['following'],
+          followers: p['followers'],
+          likes: p['likes'] ?? p['analytics']?['likes'],
+          verified: p['verified'] == true,
+          signal: features['signal'] as String?,
+          onEdit: mine ? editProfile : null,
+          actions: [
+            if (mine)
+              IconButton(
+                tooltip: 'Profile tools',
+                onPressed: () => showProfileTools(p),
+                icon: const Icon(Icons.more_horiz),
+              ),
+            IconButton(
+              tooltip: widget.settings == null ? 'Refresh profile' : 'Settings',
+              onPressed: widget.settings ?? load,
+              icon: Icon(
+                widget.settings == null
+                    ? Icons.refresh
+                    : Icons.settings_outlined,
+              ),
+            ),
+          ],
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              PulseGifterIdentity(repo: widget.store.repo, user: widget.user),
+              PulsePresenceLabel(
+                presence: widget.store.repo.presence,
+                userId: widget.user,
+              ),
+              PulseProfileCommunities(
+                repo: widget.store.repo,
+                user: widget.user,
+              ),
+              if ((p['bio']?.toString() ?? '').isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Text(
+                    p['bio'],
+                    style: const TextStyle(fontSize: 15, height: 1.4),
+                  ),
+                ),
+              if (!mine)
+                FilledButton(
+                  onPressed: busy
+                      ? null
+                      : () => perform(() async {
+                          await widget.store.follow(
+                            widget.user,
+                            p['follow_state'] == 'none',
+                          );
+                        }),
+                  child: Text(
+                    p['follow_state'] == 'accepted'
+                        ? 'Unfollow'
+                        : p['follow_state'] == 'pending'
+                        ? 'Cancel request'
+                        : 'Follow',
+                  ),
+                ),
+            ],
           ),
         ),
         Row(
