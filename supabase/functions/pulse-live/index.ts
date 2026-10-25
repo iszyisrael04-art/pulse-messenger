@@ -38,17 +38,19 @@ Deno.serve(async req => {
     let sessionId: string;
     if (body.action === 'start') {
       if (typeof body.title !== 'string' || !body.title.trim() || body.title.length > 100) return json({error:'Invalid title'},400);
-      const {data,error} = await client.rpc('pulse_live_start',{p_channel:body.channel_id,p_title:body.title});
+      if (body.kind !== 'personal' || body.channel_id != null) return json({error:'Channel LIVE has been removed. Go live from your personal account.'},410);
+      const {data,error} = await client.rpc('pulse_personal_live',{p_action:'start',p_title:body.title});
       if (error) return json({error:error.message},403);
-      sessionId = data;
+      sessionId = data?.session?.id;
     } else if (['join','end','party','party-sync'].includes(body.action)) sessionId = body.session_id;
     else return json({error:'Unknown action'},400);
     if (typeof sessionId !== 'string' || !/^[0-9a-f-]{36}$/i.test(sessionId)) return json({error:'Invalid session'},400);
     const {data:session,error} = await client.from('pulse_live_sessions').select('*').eq('id',sessionId).single();
     if (error || !session) return json({error:'Live session unavailable'},404);
-    const {data:admin,error:adminError} = await client.rpc('pulse_channel_admin',{p_channel:session.channel_id});
+    if(session.channel_id != null) return json({error:'Channel LIVE is no longer available.'},410);
+    const {data:admin,error:adminError} = await client.rpc('pulse_live_moderator',{p_session:sessionId});
     if (adminError) return json({error:'Authorization unavailable'},503);
-    const room = `pulse-channel-${sessionId}`;
+    const room = `${session.channel_id == null ? 'pulse-user' : 'pulse-channel'}-${sessionId}`;
     const roomCall = async (method:string, payload:Record<string,unknown>) => {
       const token = await sign(key,secret,user.id,{room,roomAdmin:true,roomList:true});
       return fetch(url.replace('wss://','https://').replace(/\/$/,'')+'/twirp/livekit.RoomService/'+method,{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({room,...payload}),signal:AbortSignal.timeout(10000)});
@@ -64,11 +66,11 @@ Deno.serve(async req => {
     };
     if (body.action === 'end') {
       if (session.host_id !== user.id && admin !== true) return json({error:'Administrator required'},403);
-      const result = await roomCall('DeleteRoom',{});
-      if (!result.ok && result.status !== 404) return json({error:'Could not stop live room. Please retry.'},502);
       const {error:endError} = await client.rpc('pulse_live_end',{p_session:sessionId});
       if (endError) return json({error:'Could not close live session'},502);
-      return json({ended:true});
+      let mediaClosed=false;
+      try {const result=await roomCall('DeleteRoom',{});mediaClosed=result.ok||result.status===404;} catch(_){}
+      return json({ended:true,media_closed:mediaClosed});
     }
     if (session.status !== 'live' || Date.parse(session.expires_at) <= Date.now()) return json({error:'This livestream has ended'},409);
     if (body.action === 'party') {

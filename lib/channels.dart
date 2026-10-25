@@ -1,3 +1,7 @@
+import 'package:wakelock_plus/wakelock_plus.dart';
+import 'live_ui.dart';
+import 'social_profile.dart';
+import 'social_repository.dart' show SocialStore;
 import 'gift_visuals.dart';
 import 'gifter_ranks.dart';
 import 'channel_responses.dart';
@@ -409,14 +413,6 @@ class _ChannelDetailState extends State<ChannelDetail> {
                 .from('pulse_post_reactions')
                 .select()
                 .inFilter('post_id', ids);
-      final l = await db
-          .from('pulse_live_sessions')
-          .select()
-          .eq('channel_id', widget.channelId)
-          .eq('status', 'live')
-          .gt('expires_at', DateTime.now().toUtc().toIso8601String())
-          .order('created_at', ascending: false)
-          .limit(1);
       if (!mounted || query != postQuery || onlyMedia != mediaOnly) return;
       setState(() {
         channel = c;
@@ -434,7 +430,7 @@ class _ChannelDetailState extends State<ChannelDetail> {
             ...reactions.where((v) => !seen.contains(v['post_id'])),
           ];
         }
-        live = l.isEmpty ? null : l.first;
+        live = null;
         loading = false;
         error = null;
       });
@@ -562,68 +558,6 @@ class _ChannelDetailState extends State<ChannelDetail> {
         'p_enabled': true,
       });
     });
-  }
-
-  Future<void> goLive() async {
-    try {
-      final eligibility =
-          await widget.repo.rpc('live_tools', {
-                'p_action': 'eligibility',
-                'p_channel': widget.channelId,
-              })
-              as Map;
-      if (!mounted) return;
-      if (eligibility['eligible'] != true) {
-        await showDialog<void>(
-          context: context,
-          builder: (c) => AlertDialog(
-            title: const Text('Unlock channel LIVE'),
-            content: Text(
-              'Channel administrators can go live once the channel reaches ${eligibility['minimum']} followers. Current followers: ${eligibility['followers']}.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(c),
-                child: const Text('Got it'),
-              ),
-            ],
-          ),
-        );
-        return;
-      }
-    } catch (e) {
-      if (mounted) channelError(context, e);
-      return;
-    }
-    if (!mounted) return;
-    final title = await channelPrompt(context, 'Livestream title', max: 100);
-    if (title == null) return;
-    try {
-      final response = await widget.repo.db.functions.invoke(
-        'pulse-live',
-        body: {
-          'action': 'start',
-          'party_version': 1,
-          'channel_id': widget.channelId,
-          'title': title,
-        },
-      );
-      if (!mounted) return;
-      await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => LiveScreen(
-            repo: widget.repo,
-            sessionId: response.data['session_id'],
-            initial: Map<String, dynamic>.from(response.data),
-            host: true,
-          ),
-        ),
-      );
-      await load();
-    } catch (e) {
-      if (mounted) channelError(context, e);
-    }
   }
 
   Future<void> channelInfo() => showModalBottomSheet<void>(
@@ -907,31 +841,6 @@ class _ChannelDetailState extends State<ChannelDetail> {
                     icon: const Icon(Icons.close),
                   ),
                 ),
-              if (live != null)
-                ListTile(
-                  tileColor: Theme.of(context).colorScheme.tertiaryContainer,
-                  leading: const Icon(Icons.live_tv, color: Colors.redAccent),
-                  title: Text('LIVE · ${live!['title']}'),
-                  trailing: FilledButton(
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => LiveScreen(
-                          repo: widget.repo,
-                          sessionId: live!['id'],
-                          host: live!['host_id'] == widget.repo.uid,
-                        ),
-                      ),
-                    ),
-                    child: const Text('Watch'),
-                  ),
-                ),
-              if (admin && live == null)
-                TextButton.icon(
-                  onPressed: goLive,
-                  icon: const Icon(Icons.videocam),
-                  label: const Text('Go live'),
-                ),
               Expanded(
                 child: RefreshIndicator(
                   onRefresh: () => load(reset: true),
@@ -1203,9 +1112,22 @@ class LiveScreen extends StatefulWidget {
   State<LiveScreen> createState() => _LiveScreenState();
 }
 
-class _LiveScreenState extends State<LiveScreen> {
+class _LiveScreenState extends State<LiveScreen> with WidgetsBindingObserver {
+  final chatScroll = ScrollController();
+  final giftsKey = GlobalKey<PulseLiveGiftsState>();
+  String? hostId;
+  String hostFollowState = 'none';
+  bool followingHost = false;
+  Future<void>? shutdownFuture;
   final room = lk.Room(
-    roomOptions: const lk.RoomOptions(adaptiveStream: true, dynacast: true),
+    roomOptions: const lk.RoomOptions(
+      adaptiveStream: true,
+      dynacast: true,
+      defaultCameraCaptureOptions: lk.CameraCaptureOptions(
+        params: lk.VideoParametersPresets.h720_169,
+        maxFrameRate: 30,
+      ),
+    ),
   );
   final composer = TextEditingController();
   late final party = PulseLiveParty(widget.repo, widget.sessionId);
@@ -1326,9 +1248,22 @@ class _LiveScreenState extends State<LiveScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    unawaited(WakelockPlus.enable().catchError((_) {}));
     party.addListener(changed);
     room.addListener(changed);
     connect();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (ending) return;
+    unawaited(
+      (state == AppLifecycleState.resumed
+              ? WakelockPlus.enable()
+              : WakelockPlus.disable())
+          .catchError((_) {}),
+    );
   }
 
   void changed() {
@@ -1357,21 +1292,18 @@ class _LiveScreenState extends State<LiveScreen> {
           .select('host_id,channel_id')
           .eq('id', widget.sessionId)
           .single();
-      final channelMatches = widget.repo.channels.where(
-        (c) => c['id'] == sessionInfo['channel_id'],
-      );
-      if (channelMatches.isNotEmpty) {
-        liveOwnerLabel =
-            channelMatches.first['name']?.toString() ?? 'The channel';
-      } else {
-        final hostProfile = await widget.repo.db
-            .from('pulse_profiles')
-            .select('display_name')
-            .eq('id', sessionInfo['host_id'])
-            .maybeSingle();
-        liveOwnerLabel = hostProfile?['display_name']?.toString() ?? 'The host';
-      }
+      hostId = sessionInfo['host_id'] as String;
+      final hostProfile = await widget.repo.rpc('social_profile', {
+        'p_user': hostId,
+      });
+      liveOwnerLabel = hostProfile?['display_name']?.toString() ?? 'The host';
+      hostFollowState = hostProfile?['follow_state']?.toString() ?? 'none';
+      if (!mounted || ending) return;
       await room.connect(data['url'], data['token']);
+      if (!mounted || ending) {
+        await room.disconnect();
+        return;
+      }
       await party.refresh();
       if (widget.host) await joinStage();
       if (!mounted) {
@@ -1382,7 +1314,7 @@ class _LiveScreenState extends State<LiveScreen> {
         connected = true;
         error = null;
       });
-      timer = Timer.periodic(const Duration(seconds: 4), (_) => poll());
+      timer = Timer.periodic(const Duration(seconds: 2), (_) => poll());
       await poll();
     } catch (connectionError) {
       // A failed join is recoverable; never end a host's live as a side effect.
@@ -1435,7 +1367,7 @@ class _LiveScreenState extends State<LiveScreen> {
       });
       final rows = await widget.repo.db
           .from('pulse_live_chat')
-          .select('*,pulse_profiles(display_name)')
+          .select('*,pulse_profiles(display_name,avatar_path,username)')
           .eq('session_id', widget.sessionId)
           .order('created_at', ascending: false)
           .limit(100);
@@ -1444,15 +1376,27 @@ class _LiveScreenState extends State<LiveScreen> {
                 'p_users': rows.map((r) => r['user_id']).toSet().toList(),
               })
               as List;
+      final latestChanged =
+          rows.isNotEmpty &&
+          (chat.isEmpty || chat.first['id'] != rows.first['id']);
       if (mounted)
         setState(() {
           chatRanks = {
             for (final r in rankData.whereType<Map>())
               r['user_id'] as String: r,
           };
-          chat = rows.reversed.toList();
+          chat = rows.toList();
           tools = Map<String, dynamic>.from(info as Map);
           if (error == 'Live chat is reconnecting…') error = null;
+        });
+      if (mounted && latestChanged)
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (chatScroll.hasClients)
+            chatScroll.animateTo(
+              0,
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOut,
+            );
         });
     } catch (_) {
       if (mounted) setState(() => error = 'Live chat is reconnecting…');
@@ -1539,41 +1483,269 @@ class _LiveScreenState extends State<LiveScreen> {
     }
   }
 
+  Future<void> shutdown() async {
+    timer?.cancel();
+    try {
+      await room.localParticipant
+          ?.setCameraEnabled(false)
+          .timeout(const Duration(seconds: 2));
+    } catch (_) {}
+    try {
+      await room.localParticipant
+          ?.setMicrophoneEnabled(false)
+          .timeout(const Duration(seconds: 2));
+    } catch (_) {}
+    try {
+      if (widget.host && !liveEnded) {
+        try {
+          await widget.repo.db.functions
+              .invoke(
+                'pulse-live',
+                body: {'action': 'end', 'session_id': widget.sessionId},
+              )
+              .timeout(const Duration(seconds: 8));
+        } catch (_) {
+          await widget.repo
+              .rpc('live_end', {'p_session': widget.sessionId})
+              .timeout(const Duration(seconds: 4));
+        }
+      } else if (!widget.host &&
+          (party.state == 'approved' || party.state == 'pending')) {
+        await widget.repo.db.functions
+            .invoke(
+              'pulse-live',
+              body: {
+                'action': 'party',
+                'party_action': 'leave',
+                'session_id': widget.sessionId,
+              },
+            )
+            .timeout(const Duration(seconds: 3));
+      }
+    } catch (_) {}
+    try {
+      await room.disconnect().timeout(const Duration(seconds: 3));
+    } catch (_) {}
+    try {
+      await room.dispose().timeout(const Duration(seconds: 3));
+    } catch (_) {}
+  }
+
   Future<void> end() async {
     if (ending) return;
     setState(() => ending = true);
     timer?.cancel();
-    String? failure;
+    // Close the viewer immediately; media/server cleanup must never block Back.
+    shutdownFuture ??= shutdown();
+    await WidgetsBinding.instance.endOfFrame;
+    if (mounted) Navigator.pop(context);
+  }
+
+  Future<void> openProfile(String user) async {
+    final store = SocialStore(widget.repo);
     try {
-      await room.localParticipant?.setCameraEnabled(false);
-      await room.localParticipant?.setMicrophoneEnabled(false);
-      if (widget.host && !liveEnded) {
-        await widget.repo.db.functions
-            .invoke(
-              'pulse-live',
-              body: {'action': 'end', 'session_id': widget.sessionId},
-            )
-            .timeout(const Duration(seconds: 10));
-      } else if (!widget.host &&
-          (party.state == 'approved' || party.state == 'pending')) {
-        await party.action('leave').timeout(const Duration(seconds: 6));
-      }
-    } catch (_) {
-      failure = widget.host
-          ? 'You left the live. The server could not confirm the end; the broadcast will expire if it cannot reconnect.'
-          : null;
+      await Navigator.push(
+        context,
+        MaterialPageRoute<void>(
+          builder: (_) => Scaffold(
+            appBar: AppBar(title: const Text('Profile')),
+            body: SocialProfile(
+              store: store,
+              user: user,
+              liveNavigation: false,
+            ),
+          ),
+        ),
+      );
     } finally {
+      store.dispose();
+    }
+  }
+
+  Future<void> followHost() async {
+    if (hostId == null || followingHost) return;
+    setState(() => followingHost = true);
+    try {
+      final result = await widget.repo.rpc('social_follow', {
+        'p_user': hostId,
+        'p_follow': true,
+      });
+      if (mounted) setState(() => hostFollowState = result.toString());
+    } catch (e) {
+      if (mounted) channelError(context, e);
+    } finally {
+      if (mounted) setState(() => followingHost = false);
+    }
+  }
+
+  Future<void> moderateComment(Map<String, dynamic> message) async {
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (c) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final item in {
+              'pin': 'Pin comment',
+              'hide': 'Hide comment',
+              'mute': 'Mute for 10 minutes',
+              'unmute': 'Unmute',
+            }.entries)
+              ListTile(
+                title: Text(item.value),
+                onTap: () => Navigator.pop(c, item.key),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (action == null || !mounted) return;
+    if (action == 'hide') {
       try {
-        await room.disconnect();
-      } catch (_) {}
-      if (mounted) {
-        if (failure != null)
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(failure)));
-        await WidgetsBinding.instance.endOfFrame;
-        if (mounted) Navigator.pop(context);
+        await widget.repo.rpc('live_chat_hide', {'p_message': message['id']});
+        await poll();
+      } catch (e) {
+        if (mounted) channelError(context, e);
       }
+    } else
+      await liveAction(
+        action,
+        user: message['user_id'],
+        data: action == 'pin' ? {'message': message['id']} : {'minutes': 10},
+      );
+  }
+
+  Future<void> showLiveMenu() async {
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (c) => SafeArea(
+        child: SizedBox(
+          height: MediaQuery.sizeOf(c).height * .65,
+          child: AnimatedBuilder(
+            animation: party,
+            builder: (_, __) => ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                const ListTile(
+                  title: Text(
+                    'LIVE menu',
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 22),
+                  ),
+                ),
+                if (canModerate)
+                  ListTile(
+                    leading: const Icon(Icons.groups_outlined),
+                    title: const Text('Seat requests & guests'),
+                    trailing: Badge(
+                      isLabelVisible: party.requests.isNotEmpty,
+                      label: Text('${party.requests.length}'),
+                      child: const Icon(Icons.chevron_right),
+                    ),
+                    onTap: () => Navigator.pop(c, 'seats'),
+                  ),
+                if (!widget.host)
+                  ListTile(
+                    leading: const Icon(Icons.person_add_outlined),
+                    title: Text(
+                      onStage
+                          ? 'Leave seat'
+                          : party.state == 'pending'
+                          ? 'Cancel seat request'
+                          : party.state == 'approved'
+                          ? 'Join approved seat'
+                          : 'Request a seat',
+                    ),
+                    onTap: () => Navigator.pop(c, 'guest'),
+                  ),
+                if (widget.host)
+                  ListTile(
+                    leading: Icon(paused ? Icons.play_arrow : Icons.pause),
+                    title: Text(paused ? 'Resume live' : 'Pause live'),
+                    onTap: () => Navigator.pop(c, 'pause'),
+                  ),
+                if (onStage)
+                  ListTile(
+                    leading: Icon(muted ? Icons.mic_off : Icons.mic),
+                    title: Text(
+                      muted ? 'Unmute microphone' : 'Mute microphone',
+                    ),
+                    onTap: () => Navigator.pop(c, 'mic'),
+                  ),
+                if (onStage && (widget.host || party.mode != 'audio'))
+                  ListTile(
+                    leading: Icon(camera ? Icons.videocam : Icons.videocam_off),
+                    title: Text(camera ? 'Turn camera off' : 'Turn camera on'),
+                    onTap: () => Navigator.pop(c, 'camera'),
+                  ),
+                if (canModerate)
+                  ListTile(
+                    leading: const Icon(Icons.tune),
+                    title: const Text('Comment controls'),
+                    onTap: () => Navigator.pop(c, 'chat'),
+                  ),
+                ListTile(
+                  leading: const Icon(Icons.card_giftcard),
+                  title: const Text('Gifts, wallet & battles'),
+                  onTap: () => Navigator.pop(c, 'gifts'),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.chat_bubble_outline),
+                  title: Text(
+                    liveStyle == 'cinema' ? 'Show comments' : 'Hide comments',
+                  ),
+                  onTap: () => Navigator.pop(c, 'comments'),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.close),
+                  title: Text(widget.host ? 'End live' : 'Leave live'),
+                  onTap: () => Navigator.pop(c, 'leave'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    if (!mounted || selected == null) return;
+    try {
+      switch (selected) {
+        case 'seats':
+          await showPulsePartyRequests(context, party);
+          break;
+        case 'guest':
+          await guestAction();
+          break;
+        case 'pause':
+          await pauseOrResume();
+          break;
+        case 'chat':
+          await liveSettings();
+          break;
+        case 'gifts':
+          await giftsKey.currentState?.showControls(context);
+          break;
+        case 'comments':
+          setState(
+            () => liveStyle = liveStyle == 'cinema' ? 'classic' : 'cinema',
+          );
+          break;
+        case 'mic':
+          await room.localParticipant?.setMicrophoneEnabled(muted);
+          if (mounted) setState(() => muted = !muted);
+          break;
+        case 'camera':
+          await room.localParticipant?.setCameraEnabled(!camera);
+          if (mounted) setState(() => camera = !camera);
+          break;
+        case 'leave':
+          await end();
+          break;
+      }
+    } catch (e) {
+      if (mounted) channelError(context, e);
     }
   }
 
@@ -1626,124 +1798,78 @@ class _LiveScreenState extends State<LiveScreen> {
   void dispose() {
     timer?.cancel();
     likeTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    unawaited(WakelockPlus.disable().catchError((_) {}));
+    shutdownFuture ??= shutdown();
     party.removeListener(changed);
     party.dispose();
     room.removeListener(changed);
-    unawaited(room.dispose());
+    chatScroll.dispose();
     composer.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    lk.VideoTrack? track;
-    if (widget.host) {
-      for (final publication
-          in room.localParticipant?.videoTrackPublications ?? []) {
-        if (publication.track is lk.VideoTrack) {
-          track = publication.track as lk.VideoTrack;
-          break;
-        }
-      }
-    } else {
-      for (final participant in room.remoteParticipants.values) {
-        for (final publication in participant.videoTrackPublications) {
-          if (publication.track is lk.VideoTrack) {
-            track = publication.track as lk.VideoTrack;
-            break;
-          }
-        }
-        if (track != null) break;
-      }
-    }
+    final host = party.data['host'] is Map
+        ? party.data['host'] as Map
+        : const {};
+    final viewers = connected
+        ? pulseLiveViewerCount(
+            room.remoteParticipants.keys,
+            room.localParticipant?.identity,
+            hostId,
+          )
+        : 0;
     return PopScope(
       canPop: ending,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) end();
       },
       child: Scaffold(
-        appBar: AppBar(
-          backgroundColor: liveStyle == 'neon'
-              ? const Color(0x883d1768)
-              : Colors.transparent,
-          foregroundColor: Colors.white,
-          elevation: 0,
-          title: Text(
-            liveEnded
-                ? 'Live ended'
-                : widget.host
-                ? (paused ? 'Live paused' : 'Broadcasting live')
-                : 'Channel live',
-          ),
-          actions: [
-            PopupMenuButton<String>(
-              tooltip: 'LIVE style',
-              icon: const Icon(Icons.auto_awesome),
-              initialValue: liveStyle,
-              onSelected: (value) => setState(() => liveStyle = value),
-              itemBuilder: (_) => [
-                const PopupMenuItem(
-                  value: 'classic',
-                  child: Text('Classic · Full controls'),
-                ),
-                const PopupMenuItem(
-                  value: 'cinema',
-                  child: Text('Cinema · Hide comments'),
-                ),
-                const PopupMenuItem(
-                  value: 'neon',
-                  child: Text('Neon · Violet accents'),
-                ),
-              ],
-            ),
-            if (widget.host && connected && !liveEnded)
-              IconButton(
-                tooltip: paused ? 'Resume live' : 'Pause live',
-                onPressed: pauseOrResume,
-                icon: Icon(paused ? Icons.play_arrow : Icons.pause),
-              ),
-            TextButton(
-              onPressed: ending ? null : end,
-              child: Text(
-                liveEnded
-                    ? 'Close'
-                    : widget.host
-                    ? 'End live'
-                    : 'Leave',
-              ),
-            ),
-          ],
-        ),
-        extendBodyBehindAppBar: true,
+        backgroundColor: Colors.black,
+        resizeToAvoidBottomInset: true,
         body: LayoutBuilder(
           builder: (context, bounds) => Stack(
             fit: StackFit.expand,
             children: [
-              const ColoredBox(color: Colors.black),
               AnimatedPositioned(
-                duration: const Duration(milliseconds: 350),
-                curve: Curves.easeOutCubic,
+                duration: const Duration(milliseconds: 300),
                 left: 0,
                 right: 0,
                 top: party.members.length > 1
-                    ? MediaQuery.paddingOf(context).top + 56
+                    ? MediaQuery.paddingOf(context).top + 70
                     : 0,
                 height: party.members.length > 1
-                    ? bounds.maxHeight * .52
+                    ? bounds.maxHeight * .56
                     : bounds.maxHeight,
                 child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
                   onDoubleTap: likeLive,
-                  child: !connected || party.members.isEmpty
-                      ? Center(
+                  behavior: HitTestBehavior.opaque,
+                  child: connected && party.members.isNotEmpty
+                      ? PulsePartyGrid(room: room, party: party)
+                      : Center(
                           child: Text(
-                            error ?? 'Connecting…',
+                            liveEnded
+                                ? '$liveOwnerLabel has ended the live.'
+                                : error ?? 'Connecting…',
+                            textAlign: TextAlign.center,
                             style: const TextStyle(color: Colors.white),
                           ),
-                        )
-                      : PulsePartyGrid(room: room, party: party),
+                        ),
                 ),
               ),
+              if (paused)
+                const Center(
+                  child: Text(
+                    'LIVE paused',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
               if (likeBurst)
                 const Center(
                   child: IgnorePointer(
@@ -1754,342 +1880,279 @@ class _LiveScreenState extends State<LiveScreen> {
                     ),
                   ),
                 ),
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxHeight: bounds.maxHeight * .46,
-                  ),
-                  child: DecoratedBox(
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [Colors.transparent, Color(0xf0111722)],
-                      ),
-                    ),
-                    child: Theme(
-                      data: Theme.of(context).copyWith(
-                        textTheme: Theme.of(context).textTheme.apply(
-                          bodyColor: Colors.white,
-                          displayColor: Colors.white,
-                        ),
-                        iconTheme: const IconThemeData(color: Colors.white),
-                      ),
-                      child: SingleChildScrollView(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (error != null && track != null) Text(error!),
-                            if (!connected && !liveEnded && !ending)
-                              TextButton.icon(
-                                onPressed: () {
-                                  timer?.cancel();
-                                  connect();
-                                },
-                                icon: const Icon(Icons.refresh),
-                                label: const Text('Resume connection'),
-                              ),
-                            if (connected)
-                              PulseLiveGifts(
-                                repo: widget.repo,
-                                session: widget.sessionId,
-                                host: widget.host,
-                                onGift: (event) {
-                                  if (mounted)
-                                    setState(() => giftQueue.add(event));
-                                },
-                              ),
-                            if (connected)
-                              Wrap(
-                                spacing: 12,
-                                runSpacing: 8,
-                                crossAxisAlignment: WrapCrossAlignment.center,
-                                children: [
-                                  IconButton(
-                                    tooltip: '${tools['likes'] ?? 0} likes',
-                                    onPressed: liveActionBusy
-                                        ? null
-                                        : () => liveAction(
-                                            'like',
-                                            data: {
-                                              'enabled': tools['liked'] != true,
-                                            },
-                                          ),
-                                    icon: Icon(
-                                      tools['liked'] == true
-                                          ? Icons.favorite
-                                          : Icons.favorite_border,
-                                      color: Colors.pinkAccent,
-                                    ),
-                                  ),
-                                  Text('${tools['likes'] ?? 0}'),
-                                  if (canModerate)
-                                    IconButton(
-                                      tooltip:
-                                          'Party requests (${party.requests.length})',
-                                      onPressed: () => showPulsePartyRequests(
-                                        context,
-                                        party,
-                                      ),
-                                      icon: Badge(
-                                        isLabelVisible:
-                                            party.requests.isNotEmpty,
-                                        label: Text('${party.requests.length}'),
-                                        child: const Icon(
-                                          Icons.groups_outlined,
-                                        ),
-                                      ),
-                                    ),
-                                  if (!widget.host)
-                                    TextButton.icon(
-                                      onPressed: party.busy || joiningStage
-                                          ? null
-                                          : guestAction,
-                                      icon: Icon(
-                                        onStage
-                                            ? Icons.logout
-                                            : Icons.person_add_outlined,
-                                      ),
-                                      label: Text(
-                                        onStage
-                                            ? 'Leave stage'
-                                            : party.state == 'pending'
-                                            ? 'Cancel request'
-                                            : party.state == 'approved'
-                                            ? 'Join stage'
-                                            : 'Request seat',
-                                      ),
-                                    ),
-
-                                  if (!widget.host && canModerate)
-                                    IconButton(
-                                      tooltip: 'Chat controls',
-                                      onPressed: !canModerate || liveActionBusy
-                                          ? null
-                                          : liveSettings,
-                                      icon: const Icon(Icons.tune),
-                                    ),
-                                  if (onStage) ...[
-                                    if (widget.host || party.mode != 'audio')
-                                      IconButton(
-                                        tooltip: camera
-                                            ? 'Turn camera off'
-                                            : 'Turn camera on',
-                                        onPressed: () async {
-                                          try {
-                                            await room.localParticipant
-                                                ?.setCameraEnabled(!camera);
-                                            if (mounted)
-                                              setState(() => camera = !camera);
-                                          } catch (e) {
-                                            if (mounted)
-                                              channelError(context, e);
-                                          }
-                                        },
-                                        icon: Icon(
-                                          camera
-                                              ? Icons.videocam
-                                              : Icons.videocam_off,
-                                        ),
-                                      ),
-                                    IconButton(
-                                      tooltip: 'Chat controls',
-                                      onPressed: !canModerate || liveActionBusy
-                                          ? null
-                                          : liveSettings,
-                                      icon: const Icon(Icons.tune),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            if (tools['pinned'] is Map)
-                              ListTile(
-                                dense: true,
-                                leading: const Icon(Icons.push_pin_outlined),
-                                title: Text(
-                                  tools['pinned']['body'],
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                trailing: canModerate
-                                    ? IconButton(
-                                        tooltip: 'Unpin comment',
-                                        icon: const Icon(Icons.close),
-                                        onPressed: () => liveAction(
-                                          'pin',
-                                          data: {'message': null},
-                                        ),
-                                      )
-                                    : null,
-                              ),
-                            if (onStage && connected)
-                              IconButton(
-                                onPressed: () async {
-                                  try {
-                                    await room.localParticipant
-                                        ?.setMicrophoneEnabled(muted);
-                                    if (mounted) setState(() => muted = !muted);
-                                  } catch (e) {
-                                    if (mounted) channelError(context, e);
-                                  }
-                                },
-                                icon: Icon(muted ? Icons.mic_off : Icons.mic),
-                              ),
-                            SizedBox(
-                              height: 110,
-                              child: ListView.builder(
-                                itemCount: liveStyle == 'cinema'
-                                    ? 0
-                                    : chat.length,
-                                itemBuilder: (_, i) {
-                                  final m = chat[i];
-                                  return ListTile(
-                                    dense: true,
-                                    title: Text(m['body']),
-                                    subtitle: Row(
-                                      children: [
-                                        PulseRankBadge(
-                                          rank:
-                                              (chatRanks[m['user_id']]?['rank']
-                                                          as num? ??
-                                                      0)
-                                                  .toInt(),
-                                          size: 24,
-                                        ),
-                                        const SizedBox(width: 5),
-                                        Flexible(
-                                          child: Text(
-                                            m['pulse_profiles']?['display_name'] ??
-                                                'Pulse fan',
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    trailing: canModerate
-                                        ? PopupMenuButton<String>(
-                                            enabled: !liveActionBusy,
-                                            onSelected: (value) async {
-                                              if (value == 'hide') {
-                                                try {
-                                                  await widget.repo.rpc(
-                                                    'live_chat_hide',
-                                                    {'p_message': m['id']},
-                                                  );
-                                                  await poll();
-                                                } catch (e) {
-                                                  if (mounted)
-                                                    channelError(context, e);
-                                                }
-                                              } else if (value == 'pin') {
-                                                await liveAction(
-                                                  'pin',
-                                                  data: {'message': m['id']},
-                                                );
-                                              } else {
-                                                await liveAction(
-                                                  value,
-                                                  user: m['user_id'],
-                                                  data: {'minutes': 10},
-                                                );
-                                              }
-                                            },
-                                            itemBuilder: (_) => const [
-                                              PopupMenuItem(
-                                                value: 'pin',
-                                                child: Text('Pin comment'),
-                                              ),
-                                              PopupMenuItem(
-                                                value: 'hide',
-                                                child: Text('Hide comment'),
-                                              ),
-                                              PopupMenuItem(
-                                                value: 'mute',
-                                                child: Text(
-                                                  'Mute fan for 10 minutes',
-                                                ),
-                                              ),
-                                              PopupMenuItem(
-                                                value: 'unmute',
-                                                child: Text('Unmute fan'),
-                                              ),
-                                            ],
-                                          )
-                                        : null,
-                                  );
-                                },
-                              ),
-                            ),
-                            if (connected && !canChat)
-                              const Padding(
-                                padding: EdgeInsets.all(8),
-                                child: Text(
-                                  'Fan chat is paused or you are temporarily muted.',
-                                ),
-                              ),
-                            if (connected)
-                              SafeArea(
-                                top: false,
-                                child: Padding(
-                                  padding: const EdgeInsets.all(12),
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        child: TextField(
-                                          controller: composer,
-                                          enabled: canChat,
-                                          textInputAction: TextInputAction.send,
-                                          onSubmitted: (_) => send(),
-                                          maxLength: 500,
-                                          decoration: const InputDecoration(
-                                            hintText:
-                                                'Fan chat · followers only',
-                                            counterText: '',
-                                          ),
-                                        ),
-                                      ),
-                                      IconButton(
-                                        onPressed: sending || !canChat
-                                            ? null
-                                            : send,
-                                        icon: const Icon(Icons.send),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
               if (giftQueue.isNotEmpty)
                 Positioned.fill(
-                  child: Center(
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
+                  child: IgnorePointer(
+                    child: Center(
                       child: SizedBox(
                         width: 360,
                         height: 400,
                         child: PulseGiftEffect(
                           key: ValueKey(
-                            '${giftQueue.first['is_test'] == true ? 'test:' : 'real:'}${giftQueue.first['id']}',
+                            '${giftQueue.first['is_test']}:${giftQueue.first['id']}',
                           ),
                           repo: widget.repo,
                           event: giftQueue.first,
                           fast: giftQueue.length > 5,
                           onComplete: () {
-                            if (mounted) setState(() => giftQueue.removeAt(0));
+                            if (mounted && giftQueue.isNotEmpty)
+                              setState(() => giftQueue.removeAt(0));
                           },
                         ),
                       ),
                     ),
                   ),
                 ),
+              Positioned(
+                left: 0,
+                right: 0,
+                top: 0,
+                child: DecoratedBox(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Colors.black54, Colors.transparent],
+                    ),
+                  ),
+                  child: SafeArea(
+                    bottom: false,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(10, 6, 6, 20),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: InkWell(
+                              onTap: hostId == null
+                                  ? null
+                                  : () => openProfile(hostId!),
+                              borderRadius: BorderRadius.circular(28),
+                              child: Row(
+                                children: [
+                                  PulseAvatar(
+                                    repo: widget.repo,
+                                    path: host['avatar_path'],
+                                    name: liveOwnerLabel,
+                                    userId: hostId,
+                                    radius: 19,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Flexible(
+                                    child: Text(
+                                      liveOwnerLabel,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          if (!widget.host &&
+                              hostId != null &&
+                              hostFollowState != 'accepted')
+                            TextButton(
+                              onPressed:
+                                  followingHost || hostFollowState == 'pending'
+                                  ? null
+                                  : followHost,
+                              child: Text(
+                                hostFollowState == 'pending'
+                                    ? 'Requested'
+                                    : '+ Follow',
+                                style: const TextStyle(
+                                  color: Color(0xff81d5c2),
+                                ),
+                              ),
+                            ),
+                          const Icon(
+                            Icons.visibility_outlined,
+                            color: Colors.white70,
+                            size: 16,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '$viewers',
+                            semanticsLabel: '$viewers viewers',
+                            style: const TextStyle(color: Colors.white),
+                          ),
+                          PulseLiveMenuButton(
+                            requests: canModerate ? party.requests.length : 0,
+                            onPressed: showLiveMenu,
+                          ),
+                          IconButton(
+                            tooltip: widget.host ? 'End live' : 'Leave live',
+                            onPressed: ending ? null : end,
+                            icon: const Icon(Icons.close, color: Colors.white),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: DecoratedBox(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Colors.transparent, Color(0xcc000000)],
+                    ),
+                  ),
+                  child: SafeArea(
+                    top: false,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (error != null)
+                          Padding(
+                            padding: const EdgeInsets.all(8),
+                            child: Text(
+                              error!,
+                              maxLines: 2,
+                              style: const TextStyle(color: Colors.white70),
+                            ),
+                          ),
+                        if (!connected && !liveEnded && !ending)
+                          TextButton.icon(
+                            onPressed: () {
+                              timer?.cancel();
+                              connect();
+                            },
+                            icon: const Icon(Icons.refresh),
+                            label: const Text('Reconnect'),
+                          ),
+                        if (tools['pinned'] is Map)
+                          ListTile(
+                            dense: true,
+                            leading: const Icon(
+                              Icons.push_pin_outlined,
+                              color: Colors.white70,
+                            ),
+                            title: Text(
+                              tools['pinned']['body'],
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(color: Colors.white),
+                            ),
+                          ),
+                        if (liveStyle != 'cinema')
+                          SizedBox(
+                            height: (bounds.maxHeight * .22).clamp(90.0, 200.0),
+                            child: ListView.builder(
+                              controller: chatScroll,
+                              reverse: true,
+                              padding: const EdgeInsets.only(bottom: 4),
+                              itemCount: chat.length,
+                              itemBuilder: (_, i) {
+                                final m = chat[i],
+                                    p = m['pulse_profiles'] as Map? ?? {};
+                                return PulseLiveComment(
+                                  avatar: PulseAvatar(
+                                    repo: widget.repo,
+                                    path: p['avatar_path'],
+                                    name: p['display_name'] ?? 'Pulse fan',
+                                    userId: m['user_id'],
+                                    radius: 15,
+                                  ),
+                                  name: p['display_name'] ?? 'Pulse fan',
+                                  message: m['body'] ?? '',
+                                  openProfile: () => openProfile(m['user_id']),
+                                  rank: PulseRankBadge(
+                                    rank:
+                                        (chatRanks[m['user_id']]?['rank']
+                                                    as num? ??
+                                                0)
+                                            .toInt(),
+                                    size: 20,
+                                  ),
+                                  moderate: canModerate
+                                      ? () => moderateComment(m)
+                                      : null,
+                                );
+                              },
+                            ),
+                          ),
+                        if (connected)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(12, 4, 8, 10),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: TextField(
+                                    controller: composer,
+                                    enabled: canChat,
+                                    onSubmitted: (_) => send(),
+                                    textInputAction: TextInputAction.send,
+                                    maxLength: 500,
+                                    style: const TextStyle(color: Colors.white),
+                                    decoration: InputDecoration(
+                                      hintText: canChat
+                                          ? 'Say something…'
+                                          : 'Comments paused',
+                                      hintStyle: const TextStyle(
+                                        color: Colors.white60,
+                                      ),
+                                      counterText: '',
+                                      filled: true,
+                                      fillColor: Colors.black45,
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(28),
+                                        borderSide: BorderSide.none,
+                                      ),
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                            horizontal: 16,
+                                            vertical: 12,
+                                          ),
+                                    ),
+                                  ),
+                                ),
+                                IconButton(
+                                  tooltip: 'Send message',
+                                  onPressed: sending || !canChat ? null : send,
+                                  icon: const Icon(
+                                    Icons.send,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                PulseLiveGifts(
+                                  key: giftsKey,
+                                  repo: widget.repo,
+                                  session: widget.sessionId,
+                                  host: widget.host,
+                                  compact: true,
+                                  onGift: (event) {
+                                    if (mounted)
+                                      setState(() => giftQueue.add(event));
+                                  },
+                                ),
+                                IconButton(
+                                  tooltip: 'Like LIVE',
+                                  onPressed: likeLive,
+                                  icon: Icon(
+                                    tools['liked'] == true
+                                        ? Icons.favorite
+                                        : Icons.favorite_border,
+                                    color: Colors.pinkAccent,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
         ),

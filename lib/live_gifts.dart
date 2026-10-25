@@ -14,16 +14,17 @@ class PulseLiveGifts extends StatefulWidget {
     required this.session,
     required this.host,
     this.onGift,
+    this.compact = false,
   });
   final PulseRepository repo;
   final String session;
-  final bool host;
+  final bool host, compact;
   final ValueChanged<Map<String, dynamic>>? onGift;
   @override
-  State<PulseLiveGifts> createState() => _PulseLiveGiftsState();
+  State<PulseLiveGifts> createState() => PulseLiveGiftsState();
 }
 
-class _PulseLiveGiftsState extends State<PulseLiveGifts> {
+class PulseLiveGiftsState extends State<PulseLiveGifts> {
   Map<String, dynamic> gifts = {}, battle = {}, party = {};
   Timer? timer;
   bool loading = false, busy = false;
@@ -334,8 +335,36 @@ class _PulseLiveGiftsState extends State<PulseLiveGifts> {
     super.dispose();
   }
 
+  Future<void> showControls(BuildContext context) => showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    isScrollControlled: true,
+    builder: (sheet) => SafeArea(
+      child: SizedBox(
+        height: MediaQuery.sizeOf(sheet).height * .65,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: StreamBuilder<int>(
+            stream: Stream<int>.periodic(const Duration(seconds: 1), (i) => i),
+            builder: (_, __) => controls(sheet),
+          ),
+        ),
+      ),
+    ),
+  );
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => widget.compact
+      ? IconButton(
+          tooltip: 'Send gift',
+          onPressed: busy || pendingGift != null || feedCursor == null
+              ? null
+              : () => chooseGift(),
+          icon: const Icon(Icons.card_giftcard, color: Colors.amberAccent),
+        )
+      : controls(context);
+
+  Widget controls(BuildContext context) {
     final active = battle['state'] == 'active';
     final invited = battle['state'] == 'invited';
     final opponent = battle['opponent_id'] == widget.repo.uid;

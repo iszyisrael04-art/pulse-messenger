@@ -28,16 +28,19 @@ class SocialProfile extends StatefulWidget {
     required this.store,
     required this.user,
     this.settings,
+    this.liveNavigation = true,
   });
   final SocialStore store;
   final String user;
   final VoidCallback? settings;
+  final bool liveNavigation;
   @override
   State<SocialProfile> createState() => _SocialProfileState();
 }
 
 class _SocialProfileState extends State<SocialProfile> {
   SocialRow? profile;
+  Map? liveSession;
   String? error;
   bool loading = false, busy = false;
   int tab = 0;
@@ -121,6 +124,10 @@ class _SocialProfileState extends State<SocialProfile> {
       final identity = await widget.store.repo.rpc('profile_features', {
         'p_user': widget.user,
       });
+      final live = await widget.store.repo.rpc('personal_live', {
+        'p_action': 'info',
+        'p_user': user,
+      });
       final style = identity is Map
           ? identity['background'] as String? ?? 'classic'
           : 'classic';
@@ -130,6 +137,7 @@ class _SocialProfileState extends State<SocialProfile> {
       if (!mounted || user != widget.user) return;
       setState(() {
         profile = result;
+        liveSession = live is Map ? live['session'] as Map? : null;
         profileStyle = style;
         features = identity is Map ? identity : {};
         admin = isAdmin;
@@ -510,6 +518,43 @@ class _SocialProfileState extends State<SocialProfile> {
                         name: p['display_name'],
                         radius: 54,
                       ),
+                      if (liveSession != null)
+                        Positioned(
+                          left: 0,
+                          bottom: 0,
+                          child: InkWell(
+                            onTap: !widget.liveNavigation
+                                ? null
+                                : () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute<void>(
+                                      builder: (_) => LiveScreen(
+                                        repo: widget.store.repo,
+                                        sessionId: liveSession!['id'],
+                                        host: mine,
+                                      ),
+                                    ),
+                                  ),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 9,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.redAccent,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Text(
+                                'LIVE',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
                       if (mine)
                         Positioned(
                           bottom: 0,

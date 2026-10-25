@@ -41,6 +41,70 @@ class _SocialComposerState extends State<SocialComposer> {
   String? error;
   String stage = 'Preparing your post';
   double? progress;
+  Future<void> openPersonalLive() async {
+    if (busy) return;
+    setState(() => busy = true);
+    try {
+      final result = await widget.store.repo.rpc('personal_live', {
+        'p_action': 'info',
+      });
+      final personalLive = result is Map ? result : {};
+      if (!mounted) return;
+      String? session = (personalLive['session'] as Map?)?['id']?.toString();
+      Map<String, dynamic>? initial;
+      if (session == null) {
+        if (personalLive['eligible'] != true) {
+          await showDialog<void>(
+            context: context,
+            builder: (c) => AlertDialog(
+              title: const Text('Unlock personal LIVE'),
+              content: Text(
+                'Your profile needs ${personalLive['minimum'] ?? 'more'} followers. Current followers: ${personalLive['followers'] ?? 0}. Channels no longer broadcast LIVE.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(c),
+                  child: const Text('Got it'),
+                ),
+              ],
+            ),
+          );
+          return;
+        }
+        final title = await channelPrompt(context, 'Your LIVE title', max: 100);
+        if (title == null || !mounted) return;
+        final response = await widget.store.repo.db.functions.invoke(
+          'pulse-live',
+          body: {
+            'action': 'start',
+            'kind': 'personal',
+            'party_version': 1,
+            'title': title,
+          },
+        );
+        initial = Map<String, dynamic>.from(response.data as Map);
+        session = initial['session_id']?.toString();
+        if (session == null) throw StateError('Personal LIVE could not start.');
+      }
+      if (!mounted) return;
+      await Navigator.push(
+        context,
+        MaterialPageRoute<void>(
+          builder: (_) => LiveScreen(
+            repo: widget.store.repo,
+            sessionId: session!,
+            host: true,
+            initial: initial,
+          ),
+        ),
+      );
+    } catch (e) {
+      if (mounted) channelError(context, e);
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -856,20 +920,8 @@ class _SocialComposerState extends State<SocialComposer> {
         ),
         actions: [
           IconButton(
-            tooltip: 'Go LIVE',
-            onPressed: busy
-                ? null
-                : () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => Scaffold(
-                        appBar: AppBar(
-                          title: const Text('Choose a channel for LIVE'),
-                        ),
-                        body: ChannelsScreen(repo: widget.store.repo),
-                      ),
-                    ),
-                  ),
+            tooltip: 'Go LIVE / Resume',
+            onPressed: busy ? null : openPersonalLive,
             icon: const Icon(Icons.live_tv_rounded),
           ),
           TextButton(

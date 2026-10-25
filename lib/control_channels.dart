@@ -131,8 +131,8 @@ class _PulseControlChannelsState extends State<PulseControlChannels> {
         maxLines: 1,
         keyboardType: TextInputType.number,
         helperText:
-            'Applies to all channels. 0 removes the follower requirement.',
-        actionLabel: 'Save for all channels',
+            'Applies to personal user accounts. 0 removes the follower requirement.',
+        actionLabel: 'Save for all users',
         validator: (v) {
           final n = int.tryParse(v);
           return n == null || n < 0 || n > 1000000
@@ -149,9 +149,7 @@ class _PulseControlChannelsState extends State<PulseControlChannels> {
       if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              'Channels now need $minimum followers to start LIVE.',
-            ),
+            content: Text('Users now need $minimum followers to start LIVE.'),
           ),
         );
     } catch (_) {
@@ -184,7 +182,7 @@ class _PulseControlChannelsState extends State<PulseControlChannels> {
           leading: const Icon(Icons.live_tv_outlined),
           title: const Text('LIVE follower requirement'),
           subtitle: const Text(
-            'Set the minimum channel followers needed to broadcast.',
+            'Set the minimum profile followers a user needs to broadcast.',
           ),
           trailing: TextButton(
             onPressed: livePolicy,
