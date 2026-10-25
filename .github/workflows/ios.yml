@@ -7,8 +7,12 @@ permissions:
   contents: read
 jobs:
   ios:
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
+      - name: Check Xcode and Swift toolchain
+        run: |
+          xcodebuild -version
+          swift --version
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
