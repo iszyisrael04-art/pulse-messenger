@@ -1,3 +1,4 @@
+import 'offline_settings.dart';
 import 'gifter_ranks.dart';
 import 'text_prompt.dart';
 import 'chat_display.dart';
@@ -2514,6 +2515,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             ),
           );
         },
+      ),
+      ListTile(
+        leading: const Icon(Icons.offline_bolt),
+        title: const Text('Offline videos & storage'),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute<void>(
+            builder: (_) => PulseOfflineSettings(store: social),
+          ),
+        ),
       ),
       ListTile(
         leading: const Icon(Icons.download_outlined),

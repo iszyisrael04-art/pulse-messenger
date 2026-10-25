@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
@@ -12,6 +13,22 @@ Future<Directory> offlineVideoDirectory(String user) async {
 Future<void> keepOfflineVideo(String user, File source, String name) async {
   final dir = await offlineVideoDirectory(user);
   await dir.create(recursive: true);
+  var limit = 512 * 1024 * 1024;
+  try {
+    final p =
+        jsonDecode(await File('${dir.path}/settings.json').readAsString())
+            as Map;
+    limit = (p['limit'] as num).toInt() * 1024 * 1024;
+  } catch (_) {}
+  var used = 0;
+  await for (final entry in dir.list()) {
+    if (entry is File && entry.path.endsWith('.mp4'))
+      used += await entry.length();
+  }
+  if (used + await source.length() > limit)
+    throw StateError(
+      'Offline storage limit reached. Remove videos or increase the limit.',
+    );
   final safe = name.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
   await source.copy(
     '${dir.path}/${DateTime.now().microsecondsSinceEpoch}-$safe',

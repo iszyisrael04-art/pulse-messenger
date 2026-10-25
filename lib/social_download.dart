@@ -16,6 +16,7 @@ Future<void> downloadPulsePost(
   SocialStore store,
   String id, {
   bool external = false,
+  bool offlineOnly = false,
 }) async {
   final fresh = await store.rpc('export_post', {'p_id': id});
   if (fresh == null) throw SocialFailure('This post is no longer available.');
@@ -63,6 +64,7 @@ Future<void> downloadPulsePost(
     context,
     media[selected],
     postId: id,
+    offlineOnly: offlineOnly,
     username: username,
     externalText: external ? text : null,
     signedUrl: () => store.signed(media[selected]['path'], renew: true),
@@ -75,6 +77,7 @@ Future<void> downloadPulsePost(
 Future<void> downloadPulseMedia(
   BuildContext context,
   Map item, {
+  bool offlineOnly = false,
   String? username,
   String? postId,
   String? externalText,
@@ -83,7 +86,7 @@ Future<void> downloadPulseMedia(
 }) async {
   final video = itemIsVideo(item);
   String? directory;
-  if (Platform.isWindows && externalText == null) {
+  if (Platform.isWindows && externalText == null && !offlineOnly) {
     directory = await FilePicker.getDirectoryPath(
       dialogTitle: 'Save Pulse media',
     );
@@ -207,6 +210,12 @@ Future<void> downloadPulseMedia(
           ],
         ),
       );
+      return;
+    }
+    if (offlineOnly) {
+      final owner = Supabase.instance.client.auth.currentUser?.id;
+      if (owner == null) throw StateError('Sign in required');
+      await keepOfflineVideo(owner, ready, safe);
       return;
     }
     stage.value = 'Saving';
