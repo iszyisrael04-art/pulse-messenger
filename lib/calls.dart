@@ -703,7 +703,7 @@ class _PulseCallScreenState extends State<PulseCallScreen>
         .where((m) => m['user_id'] != selfId)
         .toList();
     final peer = peers.firstOrNull;
-    final main = peer ?? local;
+    final lk.Participant? main = peer ?? local;
     final otherId = peer?.identity ?? members.firstOrNull?['user_id'];
     final chat = repo.chats
         .where((c) => c['id'] == state['chat_id'])
@@ -749,7 +749,8 @@ class _PulseCallScreenState extends State<PulseCallScreen>
           onDetails: details,
           onMembers: participants,
           onHangUp: leave,
-          mainVideo: (fill) => main != null
+          mainVideo: (fill) =>
+              main != null && (state['kind'] == 'video' || peer != null)
               ? tile(main, fill: fill)
               : Center(
                   child: PulseAvatar(
