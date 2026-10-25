@@ -8,6 +8,8 @@ void main() {
   testWidgets('Branding validates before save and waits for server approval', (
     tester,
   ) async {
+    await tester.binding.setSurfaceSize(const Size(800, 1100));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     final pending = Completer<void>();
     var calls = 0;
     await tester.pumpWidget(
@@ -58,6 +60,8 @@ void main() {
   testWidgets('Restore failures are visible and the action can be retried', (
     tester,
   ) async {
+    await tester.binding.setSurfaceSize(const Size(800, 1100));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(
       MaterialApp(
         home: PulseEventBrandingForm(
