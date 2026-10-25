@@ -1,11 +1,14 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import '../lib/call_layout.dart';
 
+// Camera pixels do not scale with accessibility text. Only the call chrome does.
 Widget video(String name, Color color) => DecoratedBox(
   decoration: BoxDecoration(
     gradient: LinearGradient(
@@ -14,13 +17,20 @@ Widget video(String name, Color color) => DecoratedBox(
       colors: [color, const Color(0xff071c24)],
     ),
   ),
-  child: Center(
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const Icon(Icons.person, size: 80, color: Colors.white30),
-        Text(name, style: const TextStyle(color: Colors.white)),
-      ],
+  child: MediaQuery.withNoTextScaling(
+    child: Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.person, size: 80, color: Colors.white30),
+          Text(
+            name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(color: Colors.white, fontSize: 14),
+          ),
+        ],
+      ),
     ),
   ),
 );
@@ -227,12 +237,38 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
       tester.view.devicePixelRatio = 1;
+      await tester.runAsync(() async {
+        final sdk = Platform.environment['FLUTTER_ROOT'];
+        if (sdk != null) {
+          final roboto = File(
+            '$sdk/bin/cache/artifacts/material_fonts/Roboto-Regular.ttf',
+          );
+          if (await roboto.exists()) {
+            final loader = FontLoader('PulseCallQA')
+              ..addFont(
+                Future.value(ByteData.sublistView(await roboto.readAsBytes())),
+              );
+            await loader.load();
+          }
+        }
+        final icons = File(
+          'build/unit_test_assets/fonts/MaterialIcons-Regular.otf',
+        );
+        if (await icons.exists()) {
+          final loader = FontLoader('MaterialIcons')
+            ..addFont(
+              Future.value(ByteData.sublistView(await icons.readAsBytes())),
+            );
+          await loader.load();
+        }
+      });
       final shots = <ui.Image>[];
       final key = GlobalKey();
       for (final size in [const Size(360, 780), const Size(800, 360)]) {
         tester.view.physicalSize = size;
         await tester.pumpWidget(
           MaterialApp(
+            theme: ThemeData(fontFamily: 'PulseCallQA'),
             home: Scaffold(
               body: RepaintBoundary(key: key, child: call()),
             ),
