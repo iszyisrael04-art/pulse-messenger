@@ -1,3 +1,4 @@
+import 'reward_mail_button.dart';
 import 'offline_settings.dart';
 import 'gifter_ranks.dart';
 import 'text_prompt.dart';
@@ -1040,16 +1041,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         ),
                       ),
                     ),
-                  IconButton(
-                    tooltip: 'Pulse mail & requests',
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => PulseMailbox(repo: repo),
-                      ),
-                    ),
-                    icon: const Icon(Icons.mail_outline),
-                  ),
+                  PulseRewardMailButton(repo: repo),
                   IconButton(
                     tooltip: 'Settings',
                     onPressed: openSettings,

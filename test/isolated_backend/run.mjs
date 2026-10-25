@@ -76,6 +76,10 @@ await db.exec(fs.readFileSync(root+'/supabase/schema/039_admin_reward_codes.sql'
 console.log('SCHEMA PASS 039_admin_reward_codes.sql');
 await db.exec(fs.readFileSync(root+'/test/reward_codes_security.sql','utf8'));
 console.log('TEST PASS reward_codes_security.sql');
+await db.exec(fs.readFileSync(root+'/supabase/schema/040_event_branding_reward_mail.sql','utf8'));
+console.log('SCHEMA PASS 040_event_branding_reward_mail.sql');
+await db.exec(fs.readFileSync(root+'/test/event_reward_mail_security.sql','utf8'));
+console.log('TEST PASS event_reward_mail_security.sql');
 await db.close();
 await import('../live_edge_offline.mjs');
 }catch(e){console.log('BOOTSTRAP FAIL',e.message);process.exit(1);}

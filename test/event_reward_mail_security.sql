@@ -1,0 +1,20 @@
+begin;
+create temporary table event_fixture(k text primary key,id uuid default gen_random_uuid());
+insert into event_fixture(k)values('staff'),('viewer');
+insert into auth.users(id,aud,role,email,email_confirmed_at)select id,'authenticated','authenticated',id||'@example.invalid',now()from event_fixture;
+insert into pulse_private.admins select id from event_fixture where k='staff';
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from event_fixture where k='staff'),'role','authenticated')::text,true);
+select public.pulse_staff_rewards('create','{"kind":"coins","amount":10,"days":1,"reward_days":1,"max_uses":10,"public":false}');
+do $$begin if exists(select 1 from pulse_private.reward_announcements)then raise exception 'FAIL private code announced';end if;end$$;
+select public.pulse_staff_rewards('create','{"kind":"coins","amount":10,"days":1,"reward_days":1,"max_uses":10,"public":true}');
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from event_fixture where k='viewer'),'role','authenticated')::text,true);
+set local role authenticated;
+do $$declare r jsonb;begin
+ r=public.pulse_reward_mail();
+ if(r->>'unread')::integer<>1 or jsonb_array_length(r->'items')<>1 then raise exception 'FAIL public reward mail';end if;
+ r=public.pulse_reward_mail(array[(r->'items'->0->>'id')::uuid]);
+ if(r->>'unread')::integer<>0 then raise exception 'FAIL mail acknowledgement';end if;
+ begin perform public.pulse_event_branding_save(null,'Fake event',1);raise exception 'FAIL nonstaff branding';exception when others then if sqlerrm like 'FAIL%'then raise;end if;end;
+end$$;
+reset role;
+rollback;

@@ -1,3 +1,4 @@
+import 'event_branding.dart';
 import 'package:flutter/material.dart';
 
 /// Original Pulse mark; no third-party logo or proprietary assets.
@@ -13,13 +14,7 @@ class PulseMark extends StatelessWidget {
       image: true,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(size * (tile ? .25 : .20)),
-        child: Image.asset(
-          'assets/branding/pulse.png',
-          width: size,
-          height: size,
-          fit: BoxFit.cover,
-          filterQuality: FilterQuality.high,
-        ),
+        child: PulseEventLogo(size: size),
       ),
     );
   }
@@ -207,11 +202,7 @@ class _AnimatedPulseFaviconState extends State<AnimatedPulseFavicon>
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(widget.size * .25),
-          child: Image.asset(
-            'assets/branding/pulse.png',
-            width: widget.size,
-            height: widget.size,
-          ),
+          child: PulseEventLogo(size: widget.size),
         ),
       ),
     ),

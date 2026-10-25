@@ -115,9 +115,6 @@ class _PulseControlState extends State<PulseControl> {
         content: Text(
           'This changes the real Pulse account. ${days == null ? '' : 'Duration: $days days.'}',
         ),
-        title: Text(
-          widget.repo == null ? 'Pulse Control' : 'User verification',
-        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(c),
@@ -173,6 +170,7 @@ class _PulseControlState extends State<PulseControl> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
+      title: Text(widget.repo == null ? 'Pulse Control' : 'User verification'),
       actions: [
         IconButton(
           tooltip: 'Administrators & reward codes',

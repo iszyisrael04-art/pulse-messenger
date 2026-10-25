@@ -10,6 +10,7 @@ class PulseMailbox extends StatefulWidget {
 
 class _PulseMailboxState extends State<PulseMailbox> {
   Map data = {};
+  List rewards = [];
   bool busy = false;
   String? error;
   @override
@@ -23,6 +24,12 @@ class _PulseMailboxState extends State<PulseMailbox> {
     setState(() => busy = true);
     try {
       final r = await widget.repo.rpc('inbox', {});
+      final mail = await widget.repo.rpc('reward_mail', {});
+      rewards = mail['items'] as List? ?? [];
+      if (rewards.isNotEmpty)
+        await widget.repo.rpc('reward_mail', {
+          'p_seen': rewards.map((r) => r['id']).toList(),
+        });
       if (mounted)
         setState(() {
           data = r as Map;
@@ -67,6 +74,21 @@ class _PulseMailboxState extends State<PulseMailbox> {
         Expanded(
           child: ListView(
             children: [
+              if (rewards.isNotEmpty)
+                const ListTile(
+                  leading: Icon(Icons.redeem),
+                  title: Text('Public reward codes'),
+                ),
+              for (final r in rewards)
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.redeem),
+                    title: SelectableText(r['code']),
+                    subtitle: Text(
+                      '${r['amount']} ${r['kind']} · expires ${r['expires_at']}\nRedeem in Shop. Limited availability.',
+                    ),
+                  ),
+                ),
               const ListTile(title: Text('Community join requests')),
               for (final r in data['community_requests'] as List? ?? [])
                 ListTile(

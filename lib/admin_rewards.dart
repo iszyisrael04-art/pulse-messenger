@@ -1,3 +1,4 @@
+import 'event_branding.dart';
 import 'package:flutter/material.dart';
 import 'repository.dart' hide Row;
 import 'text_prompt.dart';
@@ -76,7 +77,28 @@ class _PulseAdminRewardsState extends State<PulseAdminRewards> {
           )
         : days;
     if (duration == null || !mounted) return;
+    final announce = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('Visible to everyone?'),
+        content: const Text(
+          'Public: show this code in Pulse Mail and notify all users with an unread bubble. Private: create without an announcement.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text('Private · No mail'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(c, true),
+            child: const Text('Public · Notify everyone'),
+          ),
+        ],
+      ),
+    );
+    if (announce == null) return;
     await run('create', {
+      'public': announce,
       'kind': kind,
       'amount': amount,
       'max_uses': uses,
@@ -116,6 +138,37 @@ class _PulseAdminRewardsState extends State<PulseAdminRewards> {
     body: ListView(
       padding: const EdgeInsets.all(20),
       children: [
+        FilledButton.icon(
+          onPressed: busy
+              ? null
+              : () async {
+                  try {
+                    await editPulseEventBranding(context, widget.repo);
+                  } catch (_) {
+                    if (mounted)
+                      setState(
+                        () => message =
+                            'Event logo could not be saved. Check staff access, image and duration.',
+                      );
+                  }
+                },
+          icon: const Icon(Icons.celebration_outlined),
+          label: const Text('Event logo · Home & splash'),
+        ),
+        TextButton(
+          onPressed: busy
+              ? null
+              : () async {
+                  await widget.repo.rpc('event_branding_save', {
+                    'p_path': null,
+                    'p_title': '',
+                    'p_days': 1,
+                  });
+                  await PulseEventBranding.instance.refresh();
+                },
+          child: const Text('Restore original Pulse logo'),
+        ),
+
         if (busy) const LinearProgressIndicator(),
         if (message != null) SelectableText(message!),
         if (data['owner'] == true)
