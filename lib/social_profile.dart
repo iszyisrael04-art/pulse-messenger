@@ -294,7 +294,7 @@ class _SocialProfileState extends State<SocialProfile> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      FilledButton.tonal.icon(
+                      FilledButton.tonalIcon(
                         icon: const Icon(Icons.palette_outlined),
                         label: const Text('Background & Signal'),
                         onPressed: busy
@@ -308,7 +308,7 @@ class _SocialProfileState extends State<SocialProfile> {
                                 if (changed == true && mounted) await load();
                               },
                       ),
-                      FilledButton.tonal.icon(
+                      FilledButton.tonalIcon(
                         icon: const Icon(Icons.add_a_photo_outlined),
                         label: const Text('Edit photo & profile'),
                         onPressed: busy ? null : editProfile,
