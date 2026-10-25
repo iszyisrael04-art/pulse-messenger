@@ -5,6 +5,8 @@ import subprocess
 from pathlib import Path
 root = Path(__file__).resolve().parents[1]
 subprocess.run(['flutter','create','--no-pub','--platforms=ios','--org','com.pulsemessenger','--project-name','pulse_messenger','.'],cwd=root,check=True)
+# Flutter Swift Package Manager plugin copying expects this parent to exist.
+(root/'build/ios/SourcePackages').mkdir(parents=True, exist_ok=True)
 p = root/'ios/Runner/Info.plist'
 with p.open('rb') as f: info=plistlib.load(f)
 info.update(CFBundleDisplayName='Pulse',NSCameraUsageDescription='Use the camera for calls, LIVE and posts.',NSMicrophoneUsageDescription='Use the microphone for calls, LIVE and voice messages.',NSPhotoLibraryUsageDescription='Choose media to share in Pulse.',NSPhotoLibraryAddUsageDescription='Save permitted Pulse media to your library.',FirebaseMessagingAutoInitEnabled=False)
