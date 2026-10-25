@@ -93,3 +93,37 @@ class PulseLiveComment extends StatelessWidget {
     ),
   );
 }
+
+/// The mobile IME retains its paragraph key; the adjacent button submits.
+class PulseLiveMessageField extends StatelessWidget {
+  const PulseLiveMessageField({
+    super.key,
+    required this.controller,
+    required this.enabled,
+  });
+  final TextEditingController controller;
+  final bool enabled;
+  @override
+  Widget build(BuildContext context) => TextField(
+    controller: controller,
+    enabled: enabled,
+    minLines: 1,
+    maxLines: 3,
+    maxLength: 500,
+    keyboardType: TextInputType.multiline,
+    textInputAction: TextInputAction.newline,
+    style: const TextStyle(color: Colors.white),
+    decoration: InputDecoration(
+      hintText: enabled ? 'Say something…' : 'Comments paused',
+      hintStyle: const TextStyle(color: Colors.white60),
+      counterText: '',
+      filled: true,
+      fillColor: Colors.black45,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(28),
+        borderSide: BorderSide.none,
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+    ),
+  );
+}

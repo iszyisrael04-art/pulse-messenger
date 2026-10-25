@@ -1,3 +1,4 @@
+import 'gift_face_anchor.dart';
 import 'package:flutter/material.dart';
 import 'package:livekit_client/livekit_client.dart' as lk;
 import 'repository.dart' hide Row;
@@ -220,7 +221,13 @@ Future<void> showPulsePartyRequests(
 }
 
 class PulsePartyGrid extends StatelessWidget {
-  const PulsePartyGrid({super.key, required this.room, required this.party});
+  const PulsePartyGrid({
+    super.key,
+    required this.room,
+    required this.party,
+    this.crownUntil,
+  });
+  final DateTime? crownUntil;
   final lk.Room room;
   final PulseLiveParty party;
   @override
@@ -278,7 +285,28 @@ class PulsePartyGrid extends StatelessWidget {
                 children: [
                   const ColoredBox(color: Color(0xff151b29)),
                   if (video != null)
-                    lk.VideoTrackRenderer(video)
+                    if (member['host'] == true &&
+                        crownUntil != null &&
+                        crownUntil!.isAfter(DateTime.now()))
+                      PulseHeadCrown(
+                        key: ValueKey('crown:${video.mediaStreamTrack.id}'),
+                        until: crownUntil!,
+                        sample: () => pulseSampleFace(video!),
+                        mirror:
+                            video is lk.LocalVideoTrack &&
+                            (video.mediaStreamTrack
+                                        .getSettings()['facingMode'] ==
+                                    'user' ||
+                                (video.currentOptions
+                                        is lk.CameraCaptureOptions &&
+                                    (video.currentOptions
+                                                as lk.CameraCaptureOptions)
+                                            .cameraPosition ==
+                                        lk.CameraPosition.front)),
+                        child: lk.VideoTrackRenderer(video),
+                      )
+                    else
+                      lk.VideoTrackRenderer(video)
                   else
                     Center(
                       child: Column(

@@ -37,4 +37,44 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets(
+    'LIVE keeps paragraph IME and sends the complete multiline body by button',
+    (tester) async {
+      final controller = TextEditingController();
+      addTearDown(controller.dispose);
+      String? sent;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Row(
+              children: [
+                Expanded(
+                  child: PulseLiveMessageField(
+                    controller: controller,
+                    enabled: true,
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Send message',
+                  onPressed: () => sent = controller.text,
+                  icon: const Icon(Icons.send),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      final input = tester.widget<TextField>(find.byType(TextField));
+      expect(input.textInputAction, TextInputAction.newline);
+      expect(input.keyboardType, TextInputType.multiline);
+      await tester.enterText(
+        find.byType(TextField),
+        'Hello host\nSecond paragraph',
+      );
+      expect(sent, isNull);
+      await tester.tap(find.byTooltip('Send message'));
+      expect(sent, 'Hello host\nSecond paragraph');
+    },
+  );
 }

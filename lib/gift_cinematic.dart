@@ -1,3 +1,4 @@
+import 'gift_story_player.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
@@ -25,11 +26,29 @@ class PulseLiveGiftPresentation extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (['rocket', 'castle', 'crown'].contains(event['sku']) &&
+        !MediaQuery.disableAnimationsOf(context)) {
+      return PulseGiftStoryPlayer(
+        repo: repo,
+        event: event,
+        sound: sound,
+        onComplete: onComplete,
+      );
+    }
     if (event['sku'] == 'lion' && !MediaQuery.disableAnimationsOf(context)) {
       return _LionCinematic(
         repo: repo,
         event: event,
         sound: sound,
+        onComplete: onComplete,
+      );
+    }
+    if (!MediaQuery.disableAnimationsOf(context)) {
+      return PulseGiftStoryPlayer(
+        repo: repo,
+        event: event,
+        sound: sound,
+        fast: fast,
         onComplete: onComplete,
       );
     }

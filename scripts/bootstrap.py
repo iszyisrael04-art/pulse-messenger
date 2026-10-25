@@ -75,6 +75,8 @@ if 'desugar_jdk_libs' not in s:
     s += '\ndependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")\n}\n'
 if 'media3-transformer' not in s:
     s += '\ndependencies {\n    implementation("androidx.media3:media3-transformer:1.8.0")\n    implementation("androidx.media3:media3-effect:1.8.0")\n}\n'
+if 'com.google.mlkit:face-detection' not in s:
+    s += '\ndependencies {\n    implementation("com.google.mlkit:face-detection:16.1.7")\n}\n'
 gradle.write_text(s, encoding='utf-8')
 runner = root / 'windows/runner/main.cpp'
 if runner.exists():
@@ -125,6 +127,11 @@ if native.exists():
             # Flutter's empty class may already have braces.
             text = text.replace('} {\n}', '}').replace('} {}', '}')
             activity.write_text(text, encoding='utf-8')
+        text = activity.read_text(encoding='utf-8')
+        if 'flutterEngine.plugins.add(PulseGiftFaces())' not in text:
+            text = text.replace('PulseNativeEditor(this, flutterEngine.dartExecutor.binaryMessenger)',
+                'PulseNativeEditor(this, flutterEngine.dartExecutor.binaryMessenger)\n        flutterEngine.plugins.add(PulseGiftFaces())')
+            activity.write_text(text, encoding='utf-8')
     cmake = root / 'windows/CMakeLists.txt'
     if cmake.exists():
         text = cmake.read_text(encoding='utf-8')
@@ -140,6 +147,11 @@ if native.exists():
             cmake.write_text(text, encoding='utf-8')
         if '# Pulse native editor' not in text:
             text += '\n# Pulse native editor\nadd_library(pulse_editor SHARED "${CMAKE_CURRENT_SOURCE_DIR}/../native/editor/pulse_editor.cpp")\ntarget_compile_features(pulse_editor PRIVATE cxx_std_17)\ntarget_link_libraries(pulse_editor PRIVATE windowsapp)\nadd_dependencies(${BINARY_NAME} pulse_editor)\nset_target_properties(pulse_editor PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/runner/$<CONFIG>")\ninstall(FILES "$<TARGET_FILE:pulse_editor>" DESTINATION "${CMAKE_INSTALL_PREFIX}" COMPONENT Runtime)\n'
+            cmake.write_text(text, encoding='utf-8')
+    if cmake.exists():
+        text = cmake.read_text(encoding='utf-8')
+        if 'gift_faces.cpp' not in text:
+            text += '\ntarget_sources(pulse_editor PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../native/editor/gift_faces.cpp")\n'
             cmake.write_text(text, encoding='utf-8')
 default = root / 'test/widget_test.dart'
 if default.exists():

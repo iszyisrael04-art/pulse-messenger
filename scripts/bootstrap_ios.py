@@ -32,10 +32,12 @@ if sample.exists() and 'MyApp' in sample.read_text() and 'counter' in sample.rea
 # Xcode project includes it without brittle PBX project edits.
 delegate=root/'ios/Runner/AppDelegate.swift'
 s=delegate.read_text().split('\n// PULSE_IOS_EDITOR\n')[0]
-s='\n'.join(line for line in s.splitlines() if 'PulseIOSNativeEditor.register(with:' not in line)+'\n'
+s='\n'.join(line for line in s.splitlines() if 'PulseIOSNativeEditor.register(with:' not in line and 'PulseIOSGiftFaces.register(with:' not in line)+'\n'
 marker='GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)'
 if marker not in s:
  raise RuntimeError('Review the new Flutter AppDelegate template before registering Pulse editor')
 s=s.replace(marker, marker + '\n    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "PulseIOSNativeEditor") as FlutterPluginRegistrar? { PulseIOSNativeEditor.register(with: registrar) }')
+s=s.replace(marker, marker + '\n    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "PulseIOSGiftFaces") as FlutterPluginRegistrar? { PulseIOSGiftFaces.register(with: registrar) }')
 s += '\n// PULSE_IOS_EDITOR\n' + (root/'native/ios/PulseNativeEditor.swift').read_text()
+s += '\n' + (root/'native/ios/PulseGiftFaces.swift').read_text()
 delegate.write_text(s)

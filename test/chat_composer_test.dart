@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import '../lib/chat_composer.dart';
 
 void main() {
-  testWidgets('Enter sends once; Shift+Enter inserts a newline at the cursor', (
+  testWidgets('Enter and Shift+Enter add paragraphs; only Send submits', (
     tester,
   ) async {
     final controller = TextEditingController(text: 'Hello');
@@ -25,12 +25,17 @@ void main() {
     await tester.tap(find.byType(TextField));
     await tester.pump();
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-    expect(sends, 1);
+    expect(controller.text, 'Hello\n');
+    expect(sends, 0);
+    controller.text = 'Hello';
     controller.selection = const TextSelection.collapsed(offset: 2);
     await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
     expect(controller.text, 'He\nllo');
+    expect(sends, 0);
+    await tester.pump();
+    await tester.tap(find.byTooltip('Send message'));
     expect(sends, 1);
   });
 
@@ -62,7 +67,7 @@ void main() {
     expect(sends, 0);
   });
 
-  testWidgets('mobile send action works and microphone is inside the field', (
+  testWidgets('mobile keyboard keeps paragraph action and Send is separate', (
     tester,
   ) async {
     final controller = TextEditingController(text: 'Mobile message');
@@ -86,7 +91,13 @@ void main() {
       ),
     );
     await tester.tap(find.byType(TextField));
-    await tester.testTextInput.receiveAction(TextInputAction.send);
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).textInputAction,
+      TextInputAction.newline,
+    );
+    await tester.testTextInput.receiveAction(TextInputAction.newline);
+    expect(sends, 0);
+    await tester.tap(find.byTooltip('Send message'));
     expect(sends, 1);
     final microphone = find.descendant(
       of: find.byType(TextField),

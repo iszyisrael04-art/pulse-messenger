@@ -56,11 +56,11 @@ class PulseChatComposer extends StatelessWidget {
                 const SingleActivator(
                   LogicalKeyboardKey.enter,
                   includeRepeats: false,
-                ): submit,
+                ): newline,
                 const SingleActivator(
                   LogicalKeyboardKey.numpadEnter,
                   includeRepeats: false,
-                ): submit,
+                ): newline,
                 const SingleActivator(LogicalKeyboardKey.enter, shift: true):
                     newline,
                 const SingleActivator(
@@ -76,9 +76,8 @@ class PulseChatComposer extends StatelessWidget {
                 maxLines: 5,
                 maxLength: 8000,
                 keyboardType: TextInputType.multiline,
-                textInputAction: TextInputAction.send,
+                textInputAction: TextInputAction.newline,
                 onEditingComplete: () {},
-                onSubmitted: (_) => submit(),
                 decoration: InputDecoration(
                   hintText: 'Message',
                   counterText: '',
@@ -124,24 +123,21 @@ class PulseChatComposer extends StatelessWidget {
           const SizedBox(width: 8),
           ValueListenableBuilder<TextEditingValue>(
             valueListenable: controller,
-            builder: (_, value, __) => value.text.trim().isEmpty && !busy
-                ? const SizedBox.shrink()
-                : SizedBox.square(
-                    dimension: 48,
-                    child: IconButton.filled(
-                      tooltip: 'Send message',
-                      onPressed:
-                          enabled && !busy && value.text.trim().isNotEmpty
-                          ? submit
-                          : null,
-                      icon: busy
-                          ? const SizedBox.square(
-                              dimension: 19,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.arrow_upward_rounded),
-                    ),
-                  ),
+            builder: (_, value, __) => SizedBox.square(
+              dimension: 48,
+              child: IconButton.filled(
+                tooltip: 'Send message',
+                onPressed: enabled && !busy && value.text.trim().isNotEmpty
+                    ? submit
+                    : null,
+                icon: busy
+                    ? const SizedBox.square(
+                        dimension: 19,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.send_rounded),
+              ),
+            ),
           ),
         ],
       ),

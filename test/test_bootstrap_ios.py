@@ -18,6 +18,7 @@ class IOSBootstrapTest(unittest.TestCase):
             shutil.copy(ROOT/'scripts/bootstrap_ios.py', root/'scripts/bootstrap_ios.py')
             (root/'native/ios').mkdir(parents=True)
             shutil.copy(ROOT/'native/ios/PulseNativeEditor.swift', root/'native/ios/PulseNativeEditor.swift')
+            shutil.copy(ROOT/'native/ios/PulseGiftFaces.swift', root/'native/ios/PulseGiftFaces.swift')
             runner = root/'ios/Runner'
             assets = runner/'Assets.xcassets/AppIcon.appiconset'
             assets.mkdir(parents=True)
@@ -35,6 +36,8 @@ class IOSBootstrapTest(unittest.TestCase):
                 runpy.run_path(str(root/'scripts/bootstrap_ios.py'))
                 runpy.run_path(str(root/'scripts/bootstrap_ios.py'))
             text = (runner/'AppDelegate.swift').read_text()
+            self.assertEqual(text.count('final class PulseIOSGiftFaces'), 1)
+            self.assertEqual(text.count('PulseIOSGiftFaces.register(with:'), 1)
             self.assertEqual(text.count('final class PulseIOSNativeEditor'), 1)
             self.assertEqual(text.count('PulseIOSNativeEditor.register(with:'), 1)
             self.assertTrue((root/'build/ios/SourcePackages').is_dir())

@@ -1134,6 +1134,7 @@ class _LiveScreenState extends State<LiveScreen> with WidgetsBindingObserver {
       paused = false,
       connecting = false;
   final giftQueue = <Map<String, dynamic>>[];
+  DateTime? crownUntil;
   Map<String, Map> chatRanks = {};
   bool likeBurst = false;
   bool giftSounds = true;
@@ -1871,7 +1872,11 @@ class _LiveScreenState extends State<LiveScreen> with WidgetsBindingObserver {
                   onDoubleTap: likeLive,
                   behavior: HitTestBehavior.opaque,
                   child: connected && party.members.isNotEmpty
-                      ? PulsePartyGrid(room: room, party: party)
+                      ? PulsePartyGrid(
+                          room: room,
+                          party: party,
+                          crownUntil: crownUntil,
+                        )
                       : Center(
                           child: Text(
                             liveEnded
@@ -2105,35 +2110,12 @@ class _LiveScreenState extends State<LiveScreen> with WidgetsBindingObserver {
                           Padding(
                             padding: const EdgeInsets.fromLTRB(12, 4, 8, 10),
                             child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
                                 Expanded(
-                                  child: TextField(
+                                  child: PulseLiveMessageField(
                                     controller: composer,
-                                    enabled: canChat,
-                                    onSubmitted: (_) => send(),
-                                    textInputAction: TextInputAction.send,
-                                    maxLength: 500,
-                                    style: const TextStyle(color: Colors.white),
-                                    decoration: InputDecoration(
-                                      hintText: canChat
-                                          ? 'Say something…'
-                                          : 'Comments paused',
-                                      hintStyle: const TextStyle(
-                                        color: Colors.white60,
-                                      ),
-                                      counterText: '',
-                                      filled: true,
-                                      fillColor: Colors.black45,
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(28),
-                                        borderSide: BorderSide.none,
-                                      ),
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                            horizontal: 16,
-                                            vertical: 12,
-                                          ),
-                                    ),
+                                    enabled: canChat && !sending,
                                   ),
                                 ),
                                 IconButton(
@@ -2153,6 +2135,11 @@ class _LiveScreenState extends State<LiveScreen> with WidgetsBindingObserver {
                                   onGift: (event) {
                                     if (mounted)
                                       setState(() {
+                                        if (event['sku'] == 'crown') {
+                                          crownUntil = DateTime.now().add(
+                                            const Duration(seconds: 12),
+                                          );
+                                        }
                                         if (giftQueue.length >= 20)
                                           giftQueue.removeAt(1);
                                         giftQueue.add(event);
