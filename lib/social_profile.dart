@@ -1,3 +1,5 @@
+import 'profile_banner.dart';
+import 'offline_videos.dart';
 import 'gifter_ranks.dart';
 import 'channels.dart';
 import 'dart:async';
@@ -295,6 +297,30 @@ class _SocialProfileState extends State<SocialProfile> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       FilledButton.tonalIcon(
+                        icon: const Icon(Icons.panorama_outlined),
+                        label: const Text('Video banner · Free'),
+                        onPressed: busy
+                            ? null
+                            : () => perform(
+                                () => editFreeProfileBanner(
+                                  context,
+                                  widget.store,
+                                  p['is_private'] == true,
+                                ),
+                              ),
+                      ),
+                      FilledButton.tonalIcon(
+                        icon: const Icon(Icons.offline_bolt),
+                        label: const Text('Offline videos'),
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute<void>(
+                            builder: (_) =>
+                                PulseOfflineVideos(user: widget.store.uid),
+                          ),
+                        ),
+                      ),
+                      FilledButton.tonalIcon(
                         icon: const Icon(Icons.palette_outlined),
                         label: const Text('Background & Signal'),
                         onPressed: busy
@@ -336,7 +362,7 @@ class _SocialProfileState extends State<SocialProfile> {
                             : () => perform(() async {
                                 await widget.store.rpc('account', {
                                   'p_private': p['is_private'] != true,
-                                  'p_cover': null,
+                                  'p_cover': p['cover_path'],
                                 });
                               }),
                         child: Text(
@@ -430,6 +456,15 @@ class _SocialProfileState extends State<SocialProfile> {
         : ['Posts', 'Reels'];
     final profileHeader = Column(
       children: [
+        if ((p['cover_path']?.toString() ?? '').endsWith('.mp4'))
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: PulseProfileBanner(
+              key: ValueKey(p['cover_path']),
+              store: widget.store,
+              path: p['cover_path'],
+            ),
+          ),
         PulseProfileBackdrop(
           style: profileStyle,
           child: Padding(

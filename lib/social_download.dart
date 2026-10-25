@@ -1,3 +1,5 @@
+import 'offline_videos.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
@@ -219,6 +221,16 @@ Future<void> downloadPulseMedia(
       await ready.copy(published.path);
     } else {
       throw UnsupportedError('Downloads support Android and Windows.');
+    }
+    if (video) {
+      final owner = Supabase.instance.client.auth.currentUser?.id;
+      if (owner != null) {
+        try {
+          await keepOfflineVideo(owner, ready, safe);
+        } catch (_) {
+          /* Export still succeeded. */
+        }
+      }
     }
     progress.value = 1;
     if (context.mounted)
