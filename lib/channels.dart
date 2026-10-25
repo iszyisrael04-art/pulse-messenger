@@ -1922,7 +1922,15 @@ class _LiveScreenState extends State<LiveScreen> with WidgetsBindingObserver {
                       fast: giftQueue.length > 5,
                       onComplete: () {
                         if (mounted && giftQueue.isNotEmpty) {
-                          setState(() => giftQueue.removeAt(0));
+                          setState(() {
+                            giftQueue.removeAt(0);
+                            if (giftQueue.isNotEmpty &&
+                                giftQueue.first['sku'] == 'crown') {
+                              crownUntil = DateTime.now().add(
+                                const Duration(seconds: 12),
+                              );
+                            }
+                          });
                         }
                       },
                     ),
@@ -2135,7 +2143,8 @@ class _LiveScreenState extends State<LiveScreen> with WidgetsBindingObserver {
                                   onGift: (event) {
                                     if (mounted)
                                       setState(() {
-                                        if (event['sku'] == 'crown') {
+                                        if (giftQueue.isEmpty &&
+                                            event['sku'] == 'crown') {
                                           crownUntil = DateTime.now().add(
                                             const Duration(seconds: 12),
                                           );

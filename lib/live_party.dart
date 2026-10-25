@@ -292,17 +292,18 @@ class PulsePartyGrid extends StatelessWidget {
                         key: ValueKey('crown:${video.mediaStreamTrack.id}'),
                         until: crownUntil!,
                         sample: () => pulseSampleFace(video!),
-                        mirror:
-                            video is lk.LocalVideoTrack &&
-                            (video.mediaStreamTrack
-                                        .getSettings()['facingMode'] ==
-                                    'user' ||
-                                (video.currentOptions
-                                        is lk.CameraCaptureOptions &&
-                                    (video.currentOptions
-                                                as lk.CameraCaptureOptions)
-                                            .cameraPosition ==
-                                        lk.CameraPosition.front)),
+                        mirror: pulseCrownMirrored(
+                          local: video is lk.LocalVideoTrack,
+                          facingMode: video.mediaStreamTrack
+                              .getSettings()['facingMode']
+                              ?.toString(),
+                          frontCamera:
+                              video is lk.LocalVideoTrack &&
+                              video.currentOptions is lk.CameraCaptureOptions &&
+                              (video.currentOptions as lk.CameraCaptureOptions)
+                                      .cameraPosition ==
+                                  lk.CameraPosition.front,
+                        ),
                         child: lk.VideoTrackRenderer(video),
                       )
                     else

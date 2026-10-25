@@ -21,6 +21,28 @@ void main() {
       expect(mirror.top, 160);
     },
   );
+  test('Explicit back-camera metadata wins over the initial front default', () {
+    expect(
+      pulseCrownMirrored(
+        local: true,
+        facingMode: 'environment',
+        frontCamera: true,
+      ),
+      false,
+    );
+    expect(
+      pulseCrownMirrored(local: true, facingMode: 'user', frontCamera: false),
+      true,
+    );
+    expect(
+      pulseCrownMirrored(local: false, facingMode: 'user', frontCamera: true),
+      false,
+    );
+    expect(
+      pulseCrownMirrored(local: true, facingMode: null, frontCamera: true),
+      true,
+    );
+  });
   testWidgets(
     'Crown tracks a face, hides on loss and stops sampling on expiry',
     (tester) async {

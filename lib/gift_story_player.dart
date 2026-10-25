@@ -32,20 +32,21 @@ class _PulseGiftStoryPlayerState extends State<PulseGiftStoryPlayer>
   bool finished = false, opening = false, foreground = true, visible = true;
   String get sku => widget.event['sku'] as String;
   bool get story => ['rocket', 'castle', 'crown'].contains(sku);
-  Duration get duration => Duration(
-    milliseconds: sku == 'crown'
-        ? 3000
-        : sku == 'rocket'
-        ? 7500
-        : sku == 'castle'
-        ? 8000
-        : widget.fast
-        ? 1200
-        : 3800,
-  );
+  late final Duration duration;
   @override
   void initState() {
     super.initState();
+    duration = Duration(
+      milliseconds: sku == 'crown'
+          ? 3000
+          : sku == 'rocket'
+          ? 7500
+          : sku == 'castle'
+          ? 8000
+          : widget.fast
+          ? 1200
+          : 3800,
+    );
     WidgetsBinding.instance.addObserver(this);
     foreground =
         WidgetsBinding.instance.lifecycleState == null ||
@@ -203,7 +204,7 @@ class _PulseGiftStoryPlayerState extends State<PulseGiftStoryPlayer>
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
-                            '${widget.event['is_test'] == true ? 'TEST · ' : ''}${widget.event['display_name']} sent ${widget.event['quantity']} × ${widget.event['title']}',
+                            '${widget.event['is_test'] == true ? 'TEST · ' : ''}${widget.event['display_name']} sent ${widget.event['quantity']} × ${widget.event['title'].toString().replaceFirst('TEST · ', '')}',
                             style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.w800,

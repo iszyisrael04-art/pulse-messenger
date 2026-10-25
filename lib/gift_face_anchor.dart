@@ -19,6 +19,12 @@ class PulseFaceAnchor {
   final double roll;
 }
 
+bool pulseCrownMirrored({
+  required bool local,
+  required String? facingMode,
+  required bool frontCamera,
+}) => local && (facingMode == null ? frontCamera : facingMode == 'user');
+
 Rect pulseFaceOnVideo(
   PulseFaceAnchor face,
   Size viewport, {
