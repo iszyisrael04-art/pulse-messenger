@@ -118,10 +118,15 @@ class PulseNotifications {
   Future<void> initialize() async {
     try {
       enabled = await _vault.read(key: 'pulse.notifications.enabled') == 'true';
-      if (!Platform.isAndroid && !Platform.isWindows) return;
+      if (!Platform.isAndroid && !Platform.isWindows && !Platform.isIOS) return;
       await _plugin.initialize(
         const InitializationSettings(
           android: AndroidInitializationSettings('ic_pulse_notification'),
+          iOS: DarwinInitializationSettings(
+            requestAlertPermission: false,
+            requestBadgePermission: false,
+            requestSoundPermission: false,
+          ),
           windows: WindowsInitializationSettings(
             appName: 'Pulse',
             appUserModelId: 'com.pulsemessenger.pulse',
@@ -184,6 +189,14 @@ class PulseNotifications {
             >()
             ?.requestFullScreenIntentPermission();
       }
+    }
+    if (value && Platform.isIOS) {
+      final allowed = await _plugin
+          .resolvePlatformSpecificImplementation<
+            IOSFlutterLocalNotificationsPlugin
+          >()
+          ?.requestPermissions(alert: true, badge: true, sound: true);
+      value = allowed == true;
     }
     if (value) {
       await PulsePush.instance.enable();
@@ -257,6 +270,12 @@ class PulseNotifications {
                 ? 'pulse_activity'
                 : 'pulse_messages',
             onlyAlertOnce: true,
+          ),
+          iOS: DarwinNotificationDetails(
+            presentAlert: true,
+            presentBadge: false,
+            presentSound: true,
+            threadIdentifier: callAlert ? 'pulse_calls' : 'pulse_messages',
           ),
           windows: const WindowsNotificationDetails(),
         ),
