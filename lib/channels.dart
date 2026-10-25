@@ -2,7 +2,7 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import 'live_ui.dart';
 import 'social_profile.dart';
 import 'social_repository.dart' show SocialStore;
-import 'gift_visuals.dart';
+import 'gift_cinematic.dart';
 import 'gifter_ranks.dart';
 import 'channel_responses.dart';
 import 'notifications.dart';
@@ -94,7 +94,7 @@ class _ChannelsScreenState extends State<ChannelsScreen> {
                       ),
                     ),
                     Text(
-                      'Follow channels. Catch the moment live.',
+                      'Follow channels. Stay close to every update.',
                       style: TextStyle(color: Colors.white),
                     ),
                   ],
@@ -254,7 +254,7 @@ class ChannelDetail extends StatefulWidget {
 }
 
 class _ChannelDetailState extends State<ChannelDetail> {
-  Map<String, dynamic>? channel, live;
+  Map<String, dynamic>? channel;
   List<Map<String, dynamic>> posts = [], reactions = [];
   bool admin = false, followed = false, loading = true, busy = false;
   bool channelMuted = false;
@@ -430,7 +430,6 @@ class _ChannelDetailState extends State<ChannelDetail> {
             ...reactions.where((v) => !seen.contains(v['post_id'])),
           ];
         }
-        live = null;
         loading = false;
         error = null;
       });
@@ -1087,9 +1086,7 @@ class _ChannelDetailState extends State<ChannelDetail> {
               else
                 const Padding(
                   padding: EdgeInsets.all(16),
-                  child: Text(
-                    'Only administrators can post. Join live broadcasts to chat.',
-                  ),
+                  child: Text('Only administrators can post channel updates.'),
                 ),
             ],
           ),
@@ -1139,6 +1136,7 @@ class _LiveScreenState extends State<LiveScreen> with WidgetsBindingObserver {
   final giftQueue = <Map<String, dynamic>>[];
   Map<String, Map> chatRanks = {};
   bool likeBurst = false;
+  bool giftSounds = true;
   String liveStyle = 'classic';
   Timer? likeTimer;
   String liveOwnerLabel = 'The host';
@@ -1335,13 +1333,14 @@ class _LiveScreenState extends State<LiveScreen> with WidgetsBindingObserver {
           .from('pulse_live_sessions')
           .select()
           .eq('id', widget.sessionId)
-          .single();
-      if (session['status'] != 'live' ||
+          .maybeSingle();
+      if (session == null ||
+          session['status'] != 'live' ||
           DateTime.parse(
             session['expires_at'],
           ).isBefore(DateTime.now().toUtc())) {
         timer?.cancel();
-        await room.disconnect();
+        unawaited(room.disconnect().catchError((_) {}));
         if (mounted)
           setState(() {
             connected = false;
@@ -1485,16 +1484,35 @@ class _LiveScreenState extends State<LiveScreen> with WidgetsBindingObserver {
 
   Future<void> shutdown() async {
     timer?.cancel();
+    // Notify viewers and stop capture independently. A stalled camera method
+    // must not delay the host's end notice, nor a stalled API delay disconnect.
+    final notifyServer = leaveServer();
+    await Future.wait([
+      () async {
+        try {
+          await room.localParticipant
+              ?.setCameraEnabled(false)
+              .timeout(const Duration(seconds: 2));
+        } catch (_) {}
+      }(),
+      () async {
+        try {
+          await room.localParticipant
+              ?.setMicrophoneEnabled(false)
+              .timeout(const Duration(seconds: 2));
+        } catch (_) {}
+      }(),
+    ]);
     try {
-      await room.localParticipant
-          ?.setCameraEnabled(false)
-          .timeout(const Duration(seconds: 2));
+      await room.disconnect().timeout(const Duration(seconds: 3));
     } catch (_) {}
     try {
-      await room.localParticipant
-          ?.setMicrophoneEnabled(false)
-          .timeout(const Duration(seconds: 2));
+      await room.dispose().timeout(const Duration(seconds: 3));
     } catch (_) {}
+    await notifyServer;
+  }
+
+  Future<void> leaveServer() async {
     try {
       if (widget.host && !liveEnded) {
         try {
@@ -1522,12 +1540,6 @@ class _LiveScreenState extends State<LiveScreen> with WidgetsBindingObserver {
             )
             .timeout(const Duration(seconds: 3));
       }
-    } catch (_) {}
-    try {
-      await room.disconnect().timeout(const Duration(seconds: 3));
-    } catch (_) {}
-    try {
-      await room.dispose().timeout(const Duration(seconds: 3));
     } catch (_) {}
   }
 
@@ -1692,6 +1704,15 @@ class _LiveScreenState extends State<LiveScreen> with WidgetsBindingObserver {
                   onTap: () => Navigator.pop(c, 'gifts'),
                 ),
                 ListTile(
+                  leading: Icon(
+                    giftSounds ? Icons.volume_up : Icons.volume_off,
+                  ),
+                  title: Text(
+                    giftSounds ? 'Mute gift sounds' : 'Enable gift sounds',
+                  ),
+                  onTap: () => Navigator.pop(c, 'gift_sounds'),
+                ),
+                ListTile(
                   leading: const Icon(Icons.chat_bubble_outline),
                   title: Text(
                     liveStyle == 'cinema' ? 'Show comments' : 'Hide comments',
@@ -1726,6 +1747,9 @@ class _LiveScreenState extends State<LiveScreen> with WidgetsBindingObserver {
           break;
         case 'gifts':
           await giftsKey.currentState?.showControls(context);
+          break;
+        case 'gift_sounds':
+          setState(() => giftSounds = !giftSounds);
           break;
         case 'comments':
           setState(
@@ -1883,23 +1907,19 @@ class _LiveScreenState extends State<LiveScreen> with WidgetsBindingObserver {
               if (giftQueue.isNotEmpty)
                 Positioned.fill(
                   child: IgnorePointer(
-                    child: Center(
-                      child: SizedBox(
-                        width: 360,
-                        height: 400,
-                        child: PulseGiftEffect(
-                          key: ValueKey(
-                            '${giftQueue.first['is_test']}:${giftQueue.first['id']}',
-                          ),
-                          repo: widget.repo,
-                          event: giftQueue.first,
-                          fast: giftQueue.length > 5,
-                          onComplete: () {
-                            if (mounted && giftQueue.isNotEmpty)
-                              setState(() => giftQueue.removeAt(0));
-                          },
-                        ),
+                    child: PulseLiveGiftPresentation(
+                      key: ValueKey(
+                        '${giftQueue.first['is_test']}:${giftQueue.first['id']}',
                       ),
+                      repo: widget.repo,
+                      event: giftQueue.first,
+                      sound: giftSounds,
+                      fast: giftQueue.length > 5,
+                      onComplete: () {
+                        if (mounted && giftQueue.isNotEmpty) {
+                          setState(() => giftQueue.removeAt(0));
+                        }
+                      },
                     ),
                   ),
                 ),
@@ -2132,7 +2152,11 @@ class _LiveScreenState extends State<LiveScreen> with WidgetsBindingObserver {
                                   compact: true,
                                   onGift: (event) {
                                     if (mounted)
-                                      setState(() => giftQueue.add(event));
+                                      setState(() {
+                                        if (giftQueue.length >= 20)
+                                          giftQueue.removeAt(1);
+                                        giftQueue.add(event);
+                                      });
                                   },
                                 ),
                                 IconButton(

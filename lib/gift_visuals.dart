@@ -5,7 +5,7 @@ import 'avatar.dart';
 import 'repository.dart' hide Row;
 
 // Real perspective-projected triangle meshes, shaded and depth sorted locally.
-// No emoji, WebView, downloaded video, or paid 3D runtime is used for gifts.
+// Cinematic gifts can use bundled original renders; previews use these meshes.
 class GiftVertex {
   const GiftVertex(this.x, this.y, this.z);
   final double x, y, z;
@@ -29,8 +29,8 @@ class GiftMesh {
     double ry,
     double rz,
     Color color, {
-    int segments = 12,
-    int rings = 8,
+    int segments = 20,
+    int rings = 12,
   }) {
     GiftVertex v(int i, int j) {
       final a = i * math.pi / rings, b = j * 2 * math.pi / segments;
@@ -402,11 +402,26 @@ class _GiftPainter extends CustomPainter {
     final angle = math.sin(phase * math.pi * 2) * .45 + .3,
         ca = math.cos(angle),
         sa = math.sin(angle);
-    GiftVertex turn(GiftVertex p) => GiftVertex(
-      p.x * ca + p.z * sa,
-      p.y * .98 + (p.z * ca - p.x * sa) * .2,
-      (p.z * ca - p.x * sa) * .98 - p.y * .2,
-    );
+    GiftVertex turn(GiftVertex p) {
+      var x = p.x, y = p.y, z = p.z;
+      if (sku == 'butterfly') {
+        z += x.abs() * math.sin(phase * math.pi * 12) * .45;
+      } else if (sku == 'rose' && y > 0) {
+        final bloom =
+            .88 + .12 * Curves.easeOut.transform((phase * 3).clamp(0, 1));
+        x *= bloom;
+        z *= bloom;
+      } else if (sku == 'fire' || sku == 'fireworks') {
+        x += .055 * math.sin(y * 7 + phase * math.pi * 10);
+        y *= 1 + .045 * math.sin(phase * math.pi * 14);
+      }
+      return GiftVertex(
+        x * ca + z * sa,
+        y * .98 + (z * ca - x * sa) * .2,
+        (z * ca - x * sa) * .98 - y * .2,
+      );
+    }
+
     Offset project(GiftVertex p) {
       final f = 4 / (4 - p.z);
       return Offset(
@@ -538,7 +553,9 @@ class _PulseGiftEffectState extends State<PulseGiftEffect>
     child: AnimatedBuilder(
       animation: controller,
       builder: (_, __) {
-        final t = controller.value;
+        final t = MediaQuery.disableAnimationsOf(context)
+            ? .45
+            : controller.value;
         return Opacity(
           opacity: (math.sin(t * math.pi) * 2).clamp(0, 1),
           child: Column(
@@ -634,13 +651,44 @@ class _GiftSparkles extends CustomPainter {
         );
     canvas.drawCircle(centre, size.shortestSide * .5, p);
     p.shader = null;
-    for (var i = 0; i < 22; i++) {
+    final fade = math.sin(t * math.pi).clamp(0.0, 1.0);
+    // Sweeping light ribbons and starbursts complement the depth mesh.
+    p.style = PaintingStyle.stroke;
+    for (var ribbon = 0; ribbon < 3; ribbon++) {
+      p.strokeWidth = 1.5 + ribbon;
+      p.color = const Color(0xffffd884).withValues(alpha: fade * .35);
+      final radius = size.shortestSide * (.29 + ribbon * .075);
+      canvas.drawArc(
+        Rect.fromCircle(center: centre, radius: radius),
+        t * math.pi * 3 + ribbon * 1.8,
+        math.pi * .7,
+        false,
+        p,
+      );
+    }
+    p.style = PaintingStyle.fill;
+    for (var i = 0; i < 38; i++) {
       final a = i * 2.39996 + t * 1.6,
           r = (.15 + .7 * t) * size.shortestSide * .5 * (.5 + (i % 5) * .1);
       final pt = centre + Offset(math.cos(a) * r, math.sin(a) * r);
       p.color = (i.isEven ? const Color(0xffffdb83) : const Color(0xffa4eaff))
           .withValues(alpha: math.sin(t * math.pi).clamp(0, 1));
-      canvas.drawCircle(pt, 1.5 + (i % 3), p);
+      final twinkle = .5 + .5 * math.sin(t * 28 + i);
+      final radius = (1.5 + (i % 3)) * twinkle;
+      canvas.drawCircle(pt, radius, p);
+      if (i % 6 == 0) {
+        p.strokeWidth = 1;
+        canvas.drawLine(
+          pt - Offset(radius * 2, 0),
+          pt + Offset(radius * 2, 0),
+          p,
+        );
+        canvas.drawLine(
+          pt - Offset(0, radius * 2),
+          pt + Offset(0, radius * 2),
+          p,
+        );
+      }
     }
   }
 
