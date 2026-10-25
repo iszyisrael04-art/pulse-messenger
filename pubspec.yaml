@@ -16,7 +16,7 @@ dependencies:
   country_picker: 2.0.27
   phone_numbers_parser: 9.0.17
   livekit_client: 2.13.1
-  wakelock_plus: 1.8.2
+  wakelock_plus: 1.8.0
   flutter_local_notifications: 19.5.0
   firebase_core: 4.2.1
   firebase_messaging: 16.0.4
