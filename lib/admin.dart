@@ -1,3 +1,4 @@
+import 'admin_rewards.dart';
 import 'text_prompt.dart';
 import 'withdrawals.dart';
 import 'control.dart';
@@ -83,6 +84,16 @@ class _AdminScreenState extends State<AdminScreen> {
         : ListView(
             padding: const EdgeInsets.all(24),
             children: [
+              FilledButton.icon(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) => PulseAdminRewards(repo: widget.repo),
+                  ),
+                ),
+                icon: const Icon(Icons.redeem),
+                label: const Text('Administrators & reward codes'),
+              ),
               Text(
                 'Verification & accounts',
                 style: Theme.of(context).textTheme.titleLarge,

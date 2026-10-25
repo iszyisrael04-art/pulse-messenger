@@ -66,6 +66,16 @@ await db.exec(fs.readFileSync(root+'/test/test_coins_security.sql','utf8'));
 console.log('TEST PASS test_coins_security.sql');
 await db.exec(fs.readFileSync(root+'/test/session_revocation_security.sql','utf8'));
 console.log('TEST PASS session_revocation_security.sql');
+await db.exec(fs.readFileSync(root+'/supabase/schema/037_extra_live_gifts.sql','utf8'));
+const extra=await db.query("select count(*)::int n from pulse_private.gift_catalog where sku in('saturn','trophy','butterfly','castle','fireworks','pearl')");
+if(extra.rows[0].n!==6)throw Error('Missing new gifts');
+console.log('TEST PASS six additive gifts');
+await db.exec(fs.readFileSync(root+'/supabase/schema/038_free_video_banners.sql','utf8'));
+console.log('SCHEMA PASS 038_free_video_banners.sql');
+await db.exec(fs.readFileSync(root+'/supabase/schema/039_admin_reward_codes.sql','utf8'));
+console.log('SCHEMA PASS 039_admin_reward_codes.sql');
+await db.exec(fs.readFileSync(root+'/test/reward_codes_security.sql','utf8'));
+console.log('TEST PASS reward_codes_security.sql');
 await db.close();
 await import('../live_edge_offline.mjs');
 }catch(e){console.log('BOOTSTRAP FAIL',e.message);process.exit(1);}

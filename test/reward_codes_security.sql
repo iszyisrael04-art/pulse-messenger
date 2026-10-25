@@ -1,0 +1,21 @@
+begin;
+create temporary table reward_fixture(k text primary key,id uuid default gen_random_uuid(),code text);
+insert into reward_fixture(k)values('owner'),('staff'),('user');
+grant select,update on reward_fixture to authenticated;
+insert into auth.users(id,aud,role,email,email_confirmed_at)select id,'authenticated','authenticated',id||'@example.invalid',now()from reward_fixture;
+insert into pulse_private.admins select id from reward_fixture where k='owner';
+insert into pulse_private.staff_owners select id from reward_fixture where k='owner';
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from reward_fixture where k='owner'),'role','authenticated')::text,true);
+set local role authenticated;
+update reward_fixture set code=public.pulse_staff_rewards('create','{"kind":"coins","amount":100,"max_uses":1,"days":2,"reward_days":2}')->>'code'where k='user';
+reset role;
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select id from reward_fixture where k='user'),'role','authenticated')::text,true);
+set local role authenticated;
+select public.pulse_claim_reward((select code from reward_fixture where k='user'));
+do $$begin
+ begin perform public.pulse_claim_reward((select code from reward_fixture where k='user'));raise exception 'FAIL duplicate grant';exception when others then if sqlerrm like 'FAIL%'then raise;end if;end;
+ begin perform public.pulse_staff_rewards('grant_admin','{"username":"iszy"}');raise exception 'FAIL privilege escalation';exception when others then if sqlerrm like 'FAIL%'then raise;end if;end;
+end$$;
+reset role;
+do $$begin if(select coins from pulse_private.wallets where user_id=(select id from reward_fixture where k='user'))<>100 then raise exception 'FAIL reward amount';end if;end$$;
+rollback;

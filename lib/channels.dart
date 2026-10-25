@@ -1217,6 +1217,7 @@ class _LiveScreenState extends State<LiveScreen> {
   final giftQueue = <Map<String, dynamic>>[];
   Map<String, Map> chatRanks = {};
   bool likeBurst = false;
+  String liveStyle = 'classic';
   Timer? likeTimer;
   String liveOwnerLabel = 'The host';
   DateTime lastPermissionSync = DateTime.fromMillisecondsSinceEpoch(0);
@@ -1662,7 +1663,9 @@ class _LiveScreenState extends State<LiveScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          backgroundColor: Colors.transparent,
+          backgroundColor: liveStyle == 'neon'
+              ? const Color(0x883d1768)
+              : Colors.transparent,
           foregroundColor: Colors.white,
           elevation: 0,
           title: Text(
@@ -1673,6 +1676,26 @@ class _LiveScreenState extends State<LiveScreen> {
                 : 'Channel live',
           ),
           actions: [
+            PopupMenuButton<String>(
+              tooltip: 'LIVE style',
+              icon: const Icon(Icons.auto_awesome),
+              initialValue: liveStyle,
+              onSelected: (value) => setState(() => liveStyle = value),
+              itemBuilder: (_) => [
+                const PopupMenuItem(
+                  value: 'classic',
+                  child: Text('Classic · Full controls'),
+                ),
+                const PopupMenuItem(
+                  value: 'cinema',
+                  child: Text('Cinema · Hide comments'),
+                ),
+                const PopupMenuItem(
+                  value: 'neon',
+                  child: Text('Neon · Violet accents'),
+                ),
+              ],
+            ),
             if (widget.host && connected && !liveEnded)
               IconButton(
                 tooltip: paused ? 'Resume live' : 'Pause live',
@@ -1918,7 +1941,9 @@ class _LiveScreenState extends State<LiveScreen> {
                             SizedBox(
                               height: 110,
                               child: ListView.builder(
-                                itemCount: chat.length,
+                                itemCount: liveStyle == 'cinema'
+                                    ? 0
+                                    : chat.length,
                                 itemBuilder: (_, i) {
                                   final m = chat[i];
                                   return ListTile(

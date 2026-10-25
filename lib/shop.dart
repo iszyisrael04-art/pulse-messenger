@@ -1,3 +1,4 @@
+import 'admin_rewards.dart';
 import 'gift_visuals.dart';
 import 'package:flutter/material.dart';
 import 'repository.dart' hide Row;
@@ -65,6 +66,15 @@ class _PulseShopPageState extends State<PulseShopPage> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(44),
+        child: TextButton.icon(
+          onPressed: () =>
+              redeemPulseReward(context, widget.repo).then((_) => load()),
+          icon: const Icon(Icons.redeem),
+          label: const Text('Redeem code'),
+        ),
+      ),
       title: const Text('Pulse shop'),
       actions: [
         IconButton(
