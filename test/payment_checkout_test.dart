@@ -5,11 +5,13 @@ void main() {
   test('Checkout destinations are exact approved HTTPS hosts', () {
     expect(pulsePaymentCheckout('https://checkout.korapay.com/ref/pay'), isNotNull);
     expect(pulsePaymentCheckout('https://pay.squadco.com/ref'), isNotNull);
+    // Dart normalizes the standard HTTPS port; it is the same approved origin.
+    expect(pulsePaymentCheckout('https://checkout.korapay.com:443/ref'), isNotNull);
     for (final value in [
       'http://checkout.korapay.com/ref',
       'https://checkout.korapay.com.evil.test/ref',
       'https://evil.test@checkout.korapay.com/ref',
-      'https://checkout.korapay.com:443/ref',
+      'https://checkout.korapay.com:8443/ref',
       'https://test-checkout.korapay.com/ref',
     ]) {
       expect(pulsePaymentCheckout(value), isNull, reason: value);
