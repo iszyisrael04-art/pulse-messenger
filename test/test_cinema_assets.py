@@ -1,34 +1,28 @@
-"""Check the exact licensed production inputs and distributable media bytes."""
+"""Verify licensed wildlife payloads and removal of former effect assets."""
 import hashlib,json,struct,unittest
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
-class CinemaAssetTests(unittest.TestCase):
- def test_bundled_media_is_complete_and_matches_reviewed_bytes(self):
-  rows=json.loads((ROOT/'art/gift_sources/rendered.json').read_text(encoding='utf-8'))
-  skus={'dream','phoenix','dragon','sports_car','lion','gorilla','royal_lions','pulse_stars','thunder_falcon','galaxy','voltage_dominion','void_rift','solar_overdrive','quantum_cathedral','prism_avalanche','aurora_ascension','gravity_collapse','pulse_supernova','archmage','moon_witch','wizard_filter','witch_filter'}
-  expected={f'assets/gifts/{prefix}{sku}{ext}' for sku in skus for prefix,ext in [('cinema_','.mp4'),('thumb_','.png')]}
-  self.assertEqual({x['path'] for x in rows},expected)
-  total=0
-  for row in rows:
-   b=(ROOT/row['path']).read_bytes();total+=len(b)
+class WildlifeAssetTests(unittest.TestCase):
+ def test_media_matches_reviewed_provenance(self):
+  data=json.loads((ROOT/'art/gift_sources/wildlife.json').read_text())
+  skus={'lion','royal_lions','gorilla','thunder_falcon'}
+  expected={f'assets/gifts/{prefix}{sku}{ext}' for sku in skus for prefix,ext in [('wildlife_','.mp4'),('thumb_','.png')]}
+  self.assertEqual({x['path'] for x in data['files']},expected)
+  self.assertEqual({str(p.relative_to(ROOT)) for p in (ROOT/'assets/gifts').iterdir()},expected)
+  for row in data['files']:
+   b=(ROOT/row['path']).read_bytes()
    self.assertEqual(len(b),row['bytes']);self.assertEqual(hashlib.sha256(b).hexdigest(),row['sha256'])
+   source=data['sources'][row['source']]
+   self.assertTrue(source['page'].startswith('https://commons.wikimedia.org/wiki/'))
+   self.assertIn(source['license'],['CC0-1.0','CC-BY-4.0','CC-BY-SA-2.0'])
+   self.assertEqual(row['license'],source['license']);self.assertEqual(len(source['sha256']),64)
    if row['path'].endswith('.mp4'):
-    self.assertEqual(b[4:8],b'ftyp');self.assertIn(b'moov',b);self.assertIn(b'vide',b);self.assertIn(b'soun',b)
+    self.assertEqual(b[4:8],b'ftyp');self.assertIn(b'moov',b);self.assertIn(b'vide',b)
    else:
     self.assertEqual(b[:8],b'\x89PNG\r\n\x1a\n');self.assertEqual(struct.unpack('>II',b[16:24]),(192,192))
-  self.assertLess(total,16*1024*1024)
- def test_original_effects_have_complete_receipts(self):
-  data=json.loads((ROOT/'art/gift_sources/effects.json').read_text(encoding='utf-8'))
-  self.assertEqual(len(data['effects']),8)
-  self.assertEqual(len(data['files']),16)
-  self.assertEqual(data['author'],'Pulse')
-  for effect in data['effects']:
-   self.assertEqual((effect['width'],effect['height'],effect['fps'],effect['frames']),(480,854,24,144))
-   self.assertGreaterEqual(effect['coins'],29999)
- def test_production_inputs_have_per_asset_provenance(self):
-  rows=json.loads((ROOT/'art/gift_sources/manifest.json').read_text(encoding='utf-8'))['assets']
-  self.assertEqual(len(rows),7)
-  for row in rows:
-   self.assertTrue(row['source'].startswith('https://'));self.assertTrue(row['download'].startswith('https://'))
-   self.assertEqual(len(row['sha256']),64);self.assertTrue(row['author']);self.assertTrue(row['license'])
+  self.assertLess(sum(r['bytes'] for r in data['files']),4*1024*1024)
+ def test_no_active_synthetic_renderers(self):
+  for f in ['lib/gift_stories.dart','lib/gift_story_player.dart','lib/magic_hat.dart','lib/gift_face_anchor.dart']:
+   self.assertFalse((ROOT/f).exists())
+  self.assertFalse(list((ROOT/'art/gift_sources').glob('*.glb')))
 if __name__=='__main__':unittest.main()

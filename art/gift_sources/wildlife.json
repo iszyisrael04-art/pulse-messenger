@@ -1,0 +1,104 @@
+{
+  "sources": {
+    "lions": {
+      "url": "https://upload.wikimedia.org/wikipedia/commons/3/32/Lions_in_the_wild.webm",
+      "page": "https://commons.wikimedia.org/wiki/File:Lions_in_the_wild.webm",
+      "author": "Coverr",
+      "license": "CC0-1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "sha256": "af32d94d35890b951c047c687e62e2e33c5d5403a142c21d0648f134c5eb3ea9"
+    },
+    "gorilla": {
+      "url": "https://upload.wikimedia.org/wikipedia/commons/c/c1/Wild_Western_Lowland_gorilla_and_his_family_foraging_for_figs.webm",
+      "page": "https://commons.wikimedia.org/wiki/File:Wild_Western_Lowland_gorilla_and_his_family_foraging_for_figs.webm",
+      "author": "TheLeftCoast",
+      "license": "CC-BY-4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "sha256": "f157026de4f8248ef4afc90063879183a7974bbb9f00547e7274b2d9ef2b044e"
+    },
+    "falcon": {
+      "url": "https://upload.wikimedia.org/wikipedia/commons/f/f6/Peregrine_falcon_(Falco_peregrinus)_in_West_Reno,_Nevada,_USA.webm",
+      "page": "https://commons.wikimedia.org/wiki/File:Peregrine_falcon_(Falco_peregrinus)_in_West_Reno,_Nevada,_USA.webm",
+      "author": "Paul Hurtado",
+      "license": "CC-BY-SA-2.0",
+      "license_url": "https://creativecommons.org/licenses/by-sa/2.0/",
+      "sha256": "77e54d8300ac7fd18166425cfa1dca7961e7bbbf29498378db54a3ca54c1d0de"
+    }
+  },
+  "files": [
+    {
+      "path": "assets/gifts/wildlife_lion.mp4",
+      "bytes": 241402,
+      "sha256": "e90e4b61a33d5f8008e4f9a49dae2167087882a94ebf66e3f69dc01754cce6bd",
+      "source": "lions",
+      "start": 0,
+      "duration": 5,
+      "license": "CC0-1.0"
+    },
+    {
+      "path": "assets/gifts/thumb_lion.png",
+      "bytes": 66940,
+      "sha256": "0293924d8dc8321bc4acc5800c4c70ba555f042a4726a09103fe5bea0d1c76be",
+      "source": "lions",
+      "start": 0,
+      "duration": 5,
+      "license": "CC0-1.0"
+    },
+    {
+      "path": "assets/gifts/wildlife_royal_lions.mp4",
+      "bytes": 204293,
+      "sha256": "cdd93830a5689f22692db252faebd3d6a48936d8301e58b244c5bcb3d591f812",
+      "source": "lions",
+      "start": 7,
+      "duration": 5,
+      "license": "CC0-1.0"
+    },
+    {
+      "path": "assets/gifts/thumb_royal_lions.png",
+      "bytes": 68995,
+      "sha256": "a020a324bc221b901fb4147b41cc30a731287d5fe1ed192de50bb01a4062116d",
+      "source": "lions",
+      "start": 7,
+      "duration": 5,
+      "license": "CC0-1.0"
+    },
+    {
+      "path": "assets/gifts/wildlife_gorilla.mp4",
+      "bytes": 905718,
+      "sha256": "622c95af01fc14bc2ebfe299914c6baf87ccc6106eacce6849b738df6d2172b9",
+      "source": "gorilla",
+      "start": 6.5,
+      "duration": 5,
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "assets/gifts/thumb_gorilla.png",
+      "bytes": 101448,
+      "sha256": "bc5b50e91b2e0c378598c65818dbb73ebed8c85bdb7567b124434a6954e1eacc",
+      "source": "gorilla",
+      "start": 6.5,
+      "duration": 5,
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "assets/gifts/wildlife_thunder_falcon.mp4",
+      "bytes": 171369,
+      "sha256": "fc91c8d8af621b72b1c9d3aa6c34bf3a4634df247057d95e5ac7f5a5ad3b4a6b",
+      "source": "falcon",
+      "start": 2,
+      "duration": 5,
+      "license": "CC-BY-SA-2.0"
+    },
+    {
+      "path": "assets/gifts/thumb_thunder_falcon.png",
+      "bytes": 41996,
+      "sha256": "4d0a3609d76f6e86d7d6929fb275056152b34cd3b684a1d32cdab73ba51d53ff",
+      "source": "falcon",
+      "start": 2,
+      "duration": 5,
+      "license": "CC-BY-SA-2.0"
+    }
+  ],
+  "changes": "Trimmed to 5 seconds, resized, re-encoded to H264/AAC where audio exists; square thumbnails extracted. No watermarks removed. CC BY-SA derivatives retain CC BY-SA 2.0.",
+  "reviewed": "2026-10-26"
+}

@@ -1163,8 +1163,6 @@ class _LiveScreenState extends State<LiveScreen> with WidgetsBindingObserver {
       paused = false,
       connecting = false;
   final giftQueue = <Map<String, dynamic>>[];
-  DateTime? crownUntil;
-  String headGift = 'crown';
   Map<String, Map> chatRanks = {};
   bool likeBurst = false;
   bool giftSounds = true;
@@ -1919,8 +1917,6 @@ class _LiveScreenState extends State<LiveScreen> with WidgetsBindingObserver {
                       ? PulsePartyGrid(
                           room: room,
                           party: party,
-                          crownUntil: crownUntil,
-                          headGift: headGift,
                         )
                       : Center(
                           child: Text(
@@ -2011,7 +2007,7 @@ class _LiveScreenState extends State<LiveScreen> with WidgetsBindingObserver {
                   child: IgnorePointer(
                     child: PulseLiveGiftPresentation(
                       key: ValueKey(
-                        '${giftQueue.first['is_test']}:${giftQueue.first['id']}',
+                        '${giftQueue.first['is_test']}:${giftQueue.first['combo_id'] ?? giftQueue.first['id']}',
                       ),
                       repo: widget.repo,
                       event: giftQueue.first,
@@ -2021,13 +2017,7 @@ class _LiveScreenState extends State<LiveScreen> with WidgetsBindingObserver {
                         if (mounted && giftQueue.isNotEmpty) {
                           setState(() {
                             giftQueue.removeAt(0);
-                            if (giftQueue.isNotEmpty &&
-                                ['crown', 'wizard_filter', 'witch_filter'].contains(giftQueue.first['sku'])) {
-                              headGift = giftQueue.first['sku'] as String;
-                              crownUntil = DateTime.now().add(
-                                const Duration(seconds: 12),
-                              );
-                            }
+
                           });
                         }
                       },
@@ -2191,16 +2181,14 @@ class _LiveScreenState extends State<LiveScreen> with WidgetsBindingObserver {
                                   onGift: (event) {
                                     if (mounted)
                                       setState(() {
-                                        if (giftQueue.isEmpty &&
-                                            ['crown', 'wizard_filter', 'witch_filter'].contains(event['sku'])) {
-                                          headGift = event['sku'] as String;
-                                          crownUntil = DateTime.now().add(
-                                            const Duration(seconds: 12),
-                                          );
+                                        final combo = event['combo_id'];
+                                        final index = combo == null ? -1 : giftQueue.indexWhere((g) => g['combo_id'] == combo && g['is_test'] == event['is_test']);
+                                        if (index >= 0) {
+                                          giftQueue[index] = event;
+                                        } else {
+                                          if (giftQueue.length >= 20) giftQueue.removeAt(1);
+                                          giftQueue.add(event);
                                         }
-                                        if (giftQueue.length >= 20)
-                                          giftQueue.removeAt(1);
-                                        giftQueue.add(event);
                                       });
                                   },
                                 ),

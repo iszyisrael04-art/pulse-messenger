@@ -1,4 +1,3 @@
-import 'gift_face_anchor.dart';
 import 'package:flutter/material.dart';
 import 'package:livekit_client/livekit_client.dart' as lk;
 import 'repository.dart' hide Row;
@@ -225,11 +224,7 @@ class PulsePartyGrid extends StatelessWidget {
     super.key,
     required this.room,
     required this.party,
-    this.crownUntil,
-    this.headGift = 'crown',
   });
-  final DateTime? crownUntil;
-  final String headGift;
   final lk.Room room;
   final PulseLiveParty party;
   @override
@@ -287,30 +282,7 @@ class PulsePartyGrid extends StatelessWidget {
                 children: [
                   const ColoredBox(color: Color(0xff151b29)),
                   if (video != null)
-                    if (member['host'] == true &&
-                        crownUntil != null &&
-                        crownUntil!.isAfter(DateTime.now()))
-                      PulseHeadCrown(
-                        key: ValueKey('crown:${video.mediaStreamTrack.id}'),
-                        until: crownUntil!,
-                        sku: headGift,
-                        sample: () => pulseSampleFace(video!),
-                        mirror: pulseCrownMirrored(
-                          local: video is lk.LocalVideoTrack,
-                          facingMode: video.mediaStreamTrack
-                              .getSettings()['facingMode']
-                              ?.toString(),
-                          frontCamera:
-                              video is lk.LocalVideoTrack &&
-                              video.currentOptions is lk.CameraCaptureOptions &&
-                              (video.currentOptions as lk.CameraCaptureOptions)
-                                      .cameraPosition ==
-                                  lk.CameraPosition.front,
-                        ),
-                        child: lk.VideoTrackRenderer(video),
-                      )
-                    else
-                      lk.VideoTrackRenderer(video)
+                    lk.VideoTrackRenderer(video)
                   else
                     Center(
                       child: Column(

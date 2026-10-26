@@ -1,6 +1,6 @@
+import 'gift_combo_feed.dart';
 import 'gift_gallery.dart';
 import 'gift_cinematic.dart';
-import 'gift_visuals.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
@@ -36,7 +36,13 @@ class PulseLiveGiftsState extends State<PulseLiveGifts> {
   bool readingFeed = false, pendingTest = false;
   int testCoins = 0;
   final seenGifts = <String>{};
+  final comboFeed = PulseGiftComboFeed();
   Map<String, dynamic>? pendingGift;
+  Map? comboGift;
+  bool comboTest = false;
+  int comboCount = 0;
+  DateTime? comboUntil;
+  bool get showCombo => comboGift != null && comboUntil != null && comboUntil!.isAfter(DateTime.now());
   String? get hostId => (party['host'] as Map?)?['user_id'] as String?;
   List<Map> get people => [
     if (party['host'] is Map) party['host'] as Map,
@@ -72,7 +78,7 @@ class PulseLiveGiftsState extends State<PulseLiveGifts> {
         if (seenGifts.add(
           '${event['is_test'] == true ? 'test:' : 'real:'}${event['id']}',
         ))
-          widget.onGift?.call(event);
+          widget.onGift?.call(comboFeed.add(event));
       }
       if (seenGifts.length > 1000)
         seenGifts.removeAll(seenGifts.take(seenGifts.length - 1000).toList());
@@ -151,6 +157,8 @@ class PulseLiveGiftsState extends State<PulseLiveGifts> {
       if (mounted)
         setState(() {
           pendingGift = null;
+          comboCount++;
+          comboUntil = DateTime.now().add(const Duration(seconds: 12));
           error = null;
         });
       await load();
@@ -275,66 +283,14 @@ class PulseLiveGiftsState extends State<PulseLiveGifts> {
       ),
     );
     if (choice == null || !mounted) return;
-    final quantityInput = TextEditingController(text: '1');
-    final amountForm = GlobalKey<FormState>();
-    final quantity = await showDialog<int>(
-      context: context,
-      builder: (dialog) => AlertDialog(
-        title: Text('How many ${choice['title']} gifts?'),
-        content: Form(
-          key: amountForm,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                height: 120,
-                width: 160,
-                child: PulseGiftModel(sku: choice['sku']),
-              ),
-              TextFormField(
-                controller: quantityInput,
-                keyboardType: TextInputType.number,
-                autofocus: true,
-                decoration: const InputDecoration(
-                  labelText: 'Quantity · 1–100',
-                ),
-                validator: (v) {
-                  final q = int.tryParse(v ?? '');
-                  return q == null || q < 1 || q > 100 ? 'Enter 1–100' : null;
-                },
-              ),
-              ValueListenableBuilder(
-                valueListenable: quantityInput,
-                builder: (_, value, __) {
-                  final q = int.tryParse(value.text) ?? 0;
-                  return Text(
-                    test
-                        ? 'Total: ${q * (choice['coins'] as num)} test coins\nNo P-coins or rank credit'
-                        : 'Total: ${q * (choice['coins'] as num)} normal coins\nRecipient: ${q * (choice['p_coins'] as num)} P-coins',
-                  );
-                },
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialog),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () {
-              if (amountForm.currentState!.validate())
-                Navigator.pop(dialog, int.parse(quantityInput.text));
-            },
-            child: Text(test ? 'Send TEST gifts' : 'Send gifts'),
-          ),
-        ],
-      ),
-    );
-    // Dispose after the dialog exit animation has detached its text field.
-    Future<void>.delayed(const Duration(seconds: 1), quantityInput.dispose);
-    if (quantity == null || !mounted) return;
+    await sendOne(choice, test: test);
+  }
+
+  Future<void> sendOne(Map choice, {required bool test}) async {
+    if (busy || pendingGift != null) return;
+    if (comboGift?['sku'] != choice['sku'] || comboGift?['recipient'] != choice['recipient'] || comboTest != test || !showCombo) comboCount = 0;
+    comboGift = Map.from(choice);
+    comboTest = test;
     pendingTest = test;
     setState(
       () => pendingGift = {
@@ -342,7 +298,7 @@ class PulseLiveGiftsState extends State<PulseLiveGifts> {
         'p_session': widget.session,
         'p_recipient': choice['recipient'],
         'p_sku': choice['sku'],
-        'p_quantity': quantity,
+        'p_quantity': 1,
         'p_id': const Uuid().v4(),
       },
     );
@@ -395,16 +351,25 @@ class PulseLiveGiftsState extends State<PulseLiveGifts> {
     ),
   );
 
+  Widget comboButton() => Tooltip(
+    message: 'Send one more ${comboGift?['title']} for ${comboGift?['coins']} ${comboTest ? 'test' : 'normal'} coins',
+    child: FilledButton(
+      style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4)),
+      onPressed: busy || pendingGift != null || choosing ? null : () => sendOne(comboGift!, test: comboTest),
+      child: Text('+1 · ${comboGift?['coins']} coins\nCombo ×$comboCount', textAlign: TextAlign.center, style: const TextStyle(fontSize: 11)),
+    ),
+  );
+
   @override
   Widget build(BuildContext context) => widget.compact
-      ? IconButton(
-          tooltip: 'Send gift',
-          onPressed:
-              busy || choosing || pendingGift != null || feedCursor == null
-              ? null
-              : () => chooseGift(),
-          icon: const Icon(Icons.card_giftcard, color: Color(0xffff4e91)),
-        )
+      ? Row(mainAxisSize: MainAxisSize.min, children: [
+          IconButton(
+            tooltip: 'Send gift',
+            onPressed: busy || choosing || pendingGift != null || feedCursor == null ? null : () => chooseGift(),
+            icon: const Icon(Icons.card_giftcard, color: Color(0xffff4e91)),
+          ),
+          if (showCombo) comboButton(),
+        ])
       : controls(context);
 
   Widget controls(BuildContext context) {
@@ -430,6 +395,7 @@ class PulseLiveGiftsState extends State<PulseLiveGifts> {
           spacing: 8,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
+            if (showCombo) comboButton(),
             TextButton.icon(
               onPressed:
                   busy || choosing || pendingGift != null || feedCursor == null

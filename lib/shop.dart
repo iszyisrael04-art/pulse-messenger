@@ -1,3 +1,4 @@
+import 'gift_assets.dart';
 import 'pulse_coin.dart';
 import 'gift_cinematic.dart';
 import 'admin_rewards.dart';
@@ -287,6 +288,14 @@ class _PulseShopPageState extends State<PulseShopPage> {
             'Gift collection',
             style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
           ),
+          TextButton.icon(
+            onPressed: () => showDialog<void>(context: context, builder: (c) => AlertDialog(
+              title: const Text('Footage credits'),
+              content: SingleChildScrollView(child: SelectableText(pulseGiftCredits.values.join('\n\n'))),
+              actions: [TextButton(onPressed: () => Navigator.pop(c), child: const Text('Close'))],
+            )),
+            icon: const Icon(Icons.info_outline), label: const Text('Footage credits'),
+          ),
           for (final gift in wallet?['gifts'] as List? ?? [])
             ListTile(
               leading: SizedBox(
@@ -300,7 +309,7 @@ class _PulseShopPageState extends State<PulseShopPage> {
                 child: const Text('Preview'),
               ),
               subtitle: Text(
-                '${gift['coins']} coins → ${gift['p_coins']} P-coins for the recipient',
+                '${gift['coins']} coins → ${gift['p_coins']} P-coins for the recipient\n${pulseGiftHasVideo(gift as Map) ? 'Wildlife video' : 'Notification only'}',
               ),
             ),
           if (error != null) Text(error!),

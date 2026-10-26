@@ -1,14 +1,14 @@
+import 'gift_assets.dart';
 import 'package:flutter/material.dart';
 import 'gift_visuals.dart';
 import 'pulse_coin.dart';
 
-const pulseCinematicGifts = <String>{'galaxy', 'archmage', 'moon_witch'};
-const pulseFilterGifts = <String>{'wizard_filter', 'witch_filter'};
+
 
 String pulseGiftTitle(String sku, String title) =>
     sku == 'galaxy' ? 'Pulse Universe' : title;
 
-/// Selection and preview never spend coins. The existing confirmation submits.
+/// Selection and preview never spend coins. Send submits one gift immediately.
 class PulseGiftGallery extends StatefulWidget {
   const PulseGiftGallery({
     super.key,
@@ -38,9 +38,7 @@ class _PulseGiftGalleryState extends State<PulseGiftGallery> {
   Map? selected;
   @override
   Widget build(BuildContext context) {
-    final items = widget.gifts
-        .where((g) => tab == 'Filters' ? pulseFilterGifts.contains(g['sku']) : tab != 'Cinema' || pulseCinematicGifts.contains(g['sku']))
-        .toList();
+    final items = widget.gifts.where((g) => tab == 'All' || (tab == 'Videos' ? pulseGiftHasVideo(g) : !pulseGiftHasVideo(g))).toList();
     final content = Column(
       children: [
         Padding(
@@ -98,7 +96,7 @@ class _PulseGiftGalleryState extends State<PulseGiftGallery> {
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
           child: Row(
             children: [
-              for (final value in ['All', 'Cinema', 'Filters'])
+              for (final value in ['All', 'Videos', 'Notifications'])
                 Padding(
                   padding: const EdgeInsets.only(right: 8),
                   child: ChoiceChip(
@@ -107,7 +105,7 @@ class _PulseGiftGalleryState extends State<PulseGiftGallery> {
                     onSelected: (_) => setState(() => tab = value),
                   ),
                 ),
-              const Text('Preview first', style: TextStyle(fontSize: 11)),
+              const Text('Send = 1 gift', style: TextStyle(fontSize: 11)),
             ],
           ),
         ),
@@ -253,7 +251,7 @@ class _PulseGiftGalleryState extends State<PulseGiftGallery> {
                             'recipient': recipient,
                           }),
                     child: const Text(
-                      'Continue',
+                      'Send 1 now',
                       style: TextStyle(fontSize: 12),
                     ),
                   ),
