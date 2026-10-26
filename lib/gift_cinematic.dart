@@ -28,7 +28,7 @@ class PulseLiveGiftPresentation extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (['wizard_filter', 'witch_filter'].contains(event['sku']) && event['preview_only'] != true) {
-      return _FilterGiftNotice(event: event, onComplete: onComplete);
+      return _FilterGiftNotice(repo: repo, event: event, onComplete: onComplete);
     }
     if (['rocket', 'castle', 'crown'].contains(event['sku']) &&
         !MediaQuery.disableAnimationsOf(context)) {
@@ -273,7 +273,8 @@ class _AssetCinematicState extends State<_AssetCinematic>
 }
 
 class _FilterGiftNotice extends StatefulWidget {
-  const _FilterGiftNotice({required this.event, required this.onComplete});
+  const _FilterGiftNotice({required this.repo, required this.event, required this.onComplete});
+  final PulseRepository repo;
   final Map event;
   final VoidCallback onComplete;
   @override
@@ -292,8 +293,17 @@ class _FilterGiftNoticeState extends State<_FilterGiftNotice> {
       margin: const EdgeInsets.symmetric(horizontal: 24),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(color: Colors.black87, borderRadius: BorderRadius.circular(18)),
-      child: Text('${widget.event['display_name'] ?? 'Viewer'} sent ${widget.event['quantity'] ?? 1} × ${widget.event['title'] ?? 'Magic head filter'}',
-        style: const TextStyle(color: Colors.white), textAlign: TextAlign.center),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          PulseAvatar(repo: widget.repo, path: widget.event['avatar_path'], userId: widget.event['sender_id'], name: widget.event['display_name'] ?? 'Viewer', radius: 18),
+          const SizedBox(width: 10),
+          Flexible(
+            child: Text('${widget.event['display_name'] ?? 'Viewer'} sent ${widget.event['quantity'] ?? 1} × ${widget.event['title'] ?? 'Magic head filter'}',
+              style: const TextStyle(color: Colors.white), textAlign: TextAlign.center),
+          ),
+        ],
+      ),
     ),
   );
 }
