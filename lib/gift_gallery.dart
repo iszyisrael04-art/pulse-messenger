@@ -3,16 +3,15 @@ import 'gift_visuals.dart';
 import 'pulse_coin.dart';
 
 const pulseCinematicGifts = <String>{
-  'lion',
   'galaxy',
-  'dragon',
-  'phoenix',
-  'sports_car',
-  'gorilla',
-  'royal_lions',
-  'dream',
-  'pulse_stars',
-  'thunder_falcon',
+  'voltage_dominion',
+  'void_rift',
+  'solar_overdrive',
+  'quantum_cathedral',
+  'prism_avalanche',
+  'aurora_ascension',
+  'gravity_collapse',
+  'pulse_supernova',
 };
 
 String pulseGiftTitle(String sku, String title) =>

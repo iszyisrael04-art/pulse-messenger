@@ -10,4 +10,12 @@ const pulseGiftMovies = <String, String>{
   'pulse_stars': 'pulse_stars',
   'thunder_falcon': 'thunder_falcon',
   'galaxy': 'galaxy',
+  'voltage_dominion': 'voltage_dominion',
+  'void_rift': 'void_rift',
+  'solar_overdrive': 'solar_overdrive',
+  'quantum_cathedral': 'quantum_cathedral',
+  'prism_avalanche': 'prism_avalanche',
+  'aurora_ascension': 'aurora_ascension',
+  'gravity_collapse': 'gravity_collapse',
+  'pulse_supernova': 'pulse_supernova',
 };

@@ -1,4 +1,5 @@
 import 'pulse_coin.dart';
+import 'gift_cinematic.dart';
 import 'admin_rewards.dart';
 import 'gift_visuals.dart';
 import 'package:flutter/material.dart';
@@ -18,6 +19,76 @@ class PulseShopPage extends StatefulWidget {
 }
 
 class _PulseShopPageState extends State<PulseShopPage> {
+  Future<void> previewGift(Map gift) async {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        var revision = 0;
+        var sound = true;
+        var finished = false;
+        return StatefulBuilder(
+          builder: (context, update) => Dialog.fullscreen(
+            backgroundColor: Colors.black,
+            child: SafeArea(
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  IgnorePointer(
+                    child: PulseLiveGiftPresentation(
+                      key: ValueKey(revision),
+                      repo: widget.repo,
+                      event: {
+                        ...gift,
+                        'quantity': 1,
+                        'display_name': 'Preview',
+                        'avatar_path': null,
+                        'sender_id': null,
+                      },
+                      sound: sound,
+                      onComplete: () {
+                        if (context.mounted) update(() => finished = true);
+                      },
+                    ),
+                  ),
+                  Positioned(
+                    top: 8, left: 12, right: 12,
+                    child: Row(
+                      children: [
+                        Expanded(child: Text('Free gift preview', style: const TextStyle(color: Colors.white, fontSize: 18))),
+                        IconButton(
+                          tooltip: sound ? 'Mute preview' : 'Enable preview sound',
+                          onPressed: () => update(() => sound = !sound),
+                          icon: Icon(sound ? Icons.volume_up : Icons.volume_off, color: Colors.white),
+                        ),
+                        IconButton(
+                          tooltip: 'Close preview',
+                          onPressed: () => Navigator.pop(dialogContext),
+                          icon: const Icon(Icons.close, color: Colors.white),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (finished)
+                    Center(
+                      child: FilledButton.icon(
+                        onPressed: () => update(() { revision++; finished = false; }),
+                        icon: const Icon(Icons.replay),
+                        label: const Text('Replay'),
+                      ),
+                    ),
+                  const Positioned(
+                    bottom: 18, left: 16, right: 16,
+                    child: Text('No gift is sent. No coins are spent.', textAlign: TextAlign.center, style: TextStyle(color: Colors.white70)),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Map<String, dynamic>? wallet;
   int testCoins = 0;
   String? error;
@@ -220,6 +291,10 @@ class _PulseShopPageState extends State<PulseShopPage> {
                 child: PulseGiftModel(sku: gift['sku']),
               ),
               title: Text('${gift['title']}'),
+              trailing: TextButton(
+                onPressed: () => previewGift(gift as Map),
+                child: const Text('Preview'),
+              ),
               subtitle: Text(
                 '${gift['coins']} coins → ${gift['p_coins']} P-coins for the recipient',
               ),

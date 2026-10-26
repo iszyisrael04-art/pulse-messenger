@@ -152,61 +152,15 @@ void main() {
     });
     final key = GlobalKey();
     const demo = <Map>[
-      {
-        'sku': 'galaxy',
-        'title': 'Pulse Universe',
-        'coins': 2500,
-        'p_coins': 1000,
-      },
-      {'sku': 'lion', 'title': 'Lion', 'coins': 5000, 'p_coins': 2000},
-      {
-        'sku': 'dream',
-        'title': 'Pulse Dream',
-        'coins': 25999,
-        'p_coins': 1299.95,
-      },
-      {
-        'sku': 'phoenix',
-        'title': 'Solar Phoenix',
-        'coins': 25999,
-        'p_coins': 1299.95,
-      },
-      {
-        'sku': 'dragon',
-        'title': 'Dragon Flame',
-        'coins': 26999,
-        'p_coins': 1349.95,
-      },
-      {
-        'sku': 'sports_car',
-        'title': 'Golden Sports Car',
-        'coins': 29999,
-        'p_coins': 1499.95,
-      },
-      {
-        'sku': 'gorilla',
-        'title': 'Jungle Silverback',
-        'coins': 30000,
-        'p_coins': 1500,
-      },
-      {
-        'sku': 'royal_lions',
-        'title': 'Royal Lions',
-        'coins': 34000,
-        'p_coins': 1700,
-      },
-      {
-        'sku': 'pulse_stars',
-        'title': 'Pulse Stars',
-        'coins': 39999,
-        'p_coins': 1999.95,
-      },
-      {
-        'sku': 'thunder_falcon',
-        'title': 'Thunder Falcon',
-        'coins': 39999,
-        'p_coins': 1999.95,
-      },
+      {'sku': 'galaxy', 'title': 'Pulse Universe', 'coins': 2500, 'p_coins': 1000},
+      {'sku': 'voltage_dominion', 'title': 'Voltage Dominion', 'coins': 29999, 'p_coins': 1499.95},
+      {'sku': 'void_rift', 'title': 'Void Rift', 'coins': 34999, 'p_coins': 1749.95},
+      {'sku': 'solar_overdrive', 'title': 'Solar Overdrive', 'coins': 39999, 'p_coins': 1999.95},
+      {'sku': 'quantum_cathedral', 'title': 'Quantum Cathedral', 'coins': 49999, 'p_coins': 2499.95},
+      {'sku': 'prism_avalanche', 'title': 'Prism Avalanche', 'coins': 59999, 'p_coins': 2999.95},
+      {'sku': 'aurora_ascension', 'title': 'Aurora Ascension', 'coins': 69999, 'p_coins': 3499.95},
+      {'sku': 'gravity_collapse', 'title': 'Gravity Collapse', 'coins': 79999, 'p_coins': 3999.95},
+      {'sku': 'pulse_supernova', 'title': 'Pulse Supernova', 'coins': 99999, 'p_coins': 4999.95},
     ];
     await tester.pumpWidget(
       MaterialApp(

@@ -1,0 +1,170 @@
+{
+  "author": "Pulse",
+  "license": "Original Pulse procedural artwork and synthesized audio",
+  "generator": "scripts/render_super_effects.py",
+  "seed_base": 700,
+  "effects": [
+    {
+      "sku": "voltage_dominion",
+      "title": "Voltage Dominion",
+      "coins": 29999,
+      "duration": 6,
+      "fps": 24,
+      "frames": 144,
+      "width": 480,
+      "height": 854
+    },
+    {
+      "sku": "void_rift",
+      "title": "Void Rift",
+      "coins": 34999,
+      "duration": 6,
+      "fps": 24,
+      "frames": 144,
+      "width": 480,
+      "height": 854
+    },
+    {
+      "sku": "solar_overdrive",
+      "title": "Solar Overdrive",
+      "coins": 39999,
+      "duration": 6,
+      "fps": 24,
+      "frames": 144,
+      "width": 480,
+      "height": 854
+    },
+    {
+      "sku": "quantum_cathedral",
+      "title": "Quantum Cathedral",
+      "coins": 49999,
+      "duration": 6,
+      "fps": 24,
+      "frames": 144,
+      "width": 480,
+      "height": 854
+    },
+    {
+      "sku": "prism_avalanche",
+      "title": "Prism Avalanche",
+      "coins": 59999,
+      "duration": 6,
+      "fps": 24,
+      "frames": 144,
+      "width": 480,
+      "height": 854
+    },
+    {
+      "sku": "aurora_ascension",
+      "title": "Aurora Ascension",
+      "coins": 69999,
+      "duration": 6,
+      "fps": 24,
+      "frames": 144,
+      "width": 480,
+      "height": 854
+    },
+    {
+      "sku": "gravity_collapse",
+      "title": "Gravity Collapse",
+      "coins": 79999,
+      "duration": 6,
+      "fps": 24,
+      "frames": 144,
+      "width": 480,
+      "height": 854
+    },
+    {
+      "sku": "pulse_supernova",
+      "title": "Pulse Supernova",
+      "coins": 99999,
+      "duration": 6,
+      "fps": 24,
+      "frames": 144,
+      "width": 480,
+      "height": 854
+    }
+  ],
+  "files": [
+    {
+      "path": "assets/gifts/cinema_voltage_dominion.mp4",
+      "bytes": 956887,
+      "sha256": "79c0294faf688ec05cf5f901fee964b53c58f6e0e15fdaeca80437cc87de02f2"
+    },
+    {
+      "path": "assets/gifts/thumb_voltage_dominion.png",
+      "bytes": 64289,
+      "sha256": "54ad7795f23df81e2963453f97543b2c8df1628263a8334b0caa57eb73b530e8"
+    },
+    {
+      "path": "assets/gifts/cinema_void_rift.mp4",
+      "bytes": 902164,
+      "sha256": "ada6775178045f66003e51d63f2e80864e77d1b68638c5765a167000292c6390"
+    },
+    {
+      "path": "assets/gifts/thumb_void_rift.png",
+      "bytes": 46904,
+      "sha256": "1a366cccb166265d03677ff8d14f297519de6ee3f2793c3e260ca949bfe6c56e"
+    },
+    {
+      "path": "assets/gifts/cinema_solar_overdrive.mp4",
+      "bytes": 715475,
+      "sha256": "da037f1710f10506fc0261c61fe4005621f73941d34f46acd8a3b206bf565567"
+    },
+    {
+      "path": "assets/gifts/thumb_solar_overdrive.png",
+      "bytes": 45055,
+      "sha256": "4d7288165199c4b80801a19af95de6fc5fac06395951de725f11b9023ee5836d"
+    },
+    {
+      "path": "assets/gifts/cinema_quantum_cathedral.mp4",
+      "bytes": 946923,
+      "sha256": "f7c9cb37801a5560dde9e4519a4068fa2255c763a2a1ba72234a5317889d4abe"
+    },
+    {
+      "path": "assets/gifts/thumb_quantum_cathedral.png",
+      "bytes": 53553,
+      "sha256": "f1a997faf43de6f1c83d19d8cf59c8f33d3a32dd339c4588d05a7277a3346164"
+    },
+    {
+      "path": "assets/gifts/cinema_prism_avalanche.mp4",
+      "bytes": 952959,
+      "sha256": "18c133162ca21dca79c55091765528eebf46b904a74b83fbaf04678ed1baaa36"
+    },
+    {
+      "path": "assets/gifts/thumb_prism_avalanche.png",
+      "bytes": 50734,
+      "sha256": "af0eaad7948410bf626eb8df11599e61610e49e95437e03055a10721010186a2"
+    },
+    {
+      "path": "assets/gifts/cinema_aurora_ascension.mp4",
+      "bytes": 875539,
+      "sha256": "107ef3b82b421ac8d1a778105104822239d242557f5f2b3eb31d94910abaf31d"
+    },
+    {
+      "path": "assets/gifts/thumb_aurora_ascension.png",
+      "bytes": 43453,
+      "sha256": "e51836e31981de22bf512154be9ae280c01c9b8efacc6bb6ac367849701591e1"
+    },
+    {
+      "path": "assets/gifts/cinema_gravity_collapse.mp4",
+      "bytes": 582485,
+      "sha256": "25f24c2d15ce6c8ed46c1004d20df3e6bf9a7ec5198a6f3554af02eba280922f"
+    },
+    {
+      "path": "assets/gifts/thumb_gravity_collapse.png",
+      "bytes": 38381,
+      "sha256": "cc694435e70bb1d0a813d27d7006feeb4c6e480949e21ef6c66023f9487e2cfe"
+    },
+    {
+      "path": "assets/gifts/cinema_pulse_supernova.mp4",
+      "bytes": 954691,
+      "sha256": "d81395db953972aa5b880d7c4642124173f671156718c62ddff8c941158301c1"
+    },
+    {
+      "path": "assets/gifts/thumb_pulse_supernova.png",
+      "bytes": 67428,
+      "sha256": "a65c8c26c1b7c3cf042b948de7adbe1ce2019b089812e5376d78f147c34bff42"
+    }
+  ]
+}
