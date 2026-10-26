@@ -3,6 +3,7 @@ import 'offline_settings.dart';
 import 'gifter_ranks.dart';
 import 'text_prompt.dart';
 import 'chat_display.dart';
+import 'chat_preview_line.dart';
 import 'message_selection.dart';
 import 'channel_updates.dart';
 import 'chat_composer.dart';
@@ -1342,24 +1343,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        subtitle: Text(
-                          pulseChatPreview(
-                            repo.chatSummaries[c['id']],
-                            repo.uid,
-                            senderName:
-                                repo.profiles[repo
-                                    .chatSummaries[c['id']]?['sender_id']]?['display_name'] ??
-                                'Pulse user',
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            height: 1.6,
-                            fontSize: 13,
-                            fontWeight: (repo.unread[c['id']] ?? 0) > 0
-                                ? FontWeight.w600
-                                : FontWeight.normal,
-                          ),
+                        subtitle: PulseChatPreviewLine(
+                          message: repo.chatSummaries[c['id']],
+                          owner: repo.uid,
+                          group: c['kind'] == 'group',
+                          senderName: repo.profiles[repo.chatSummaries[c['id']]?['sender_id']]?['display_name'],
+                          unread: (repo.unread[c['id']] ?? 0) > 0,
                         ),
                         onTap: () {
                           repo.openChat(c['id']);

@@ -96,6 +96,9 @@ console.log('TEST PASS channel_moderation_security.sql');
 await db.exec(fs.readFileSync(root+'/supabase/schema/045_original_super_effects.sql','utf8'));
 await db.exec(fs.readFileSync(root+'/test/super_effects_catalog_security.sql','utf8'));
 console.log('TEST PASS super_effects_catalog_security.sql');
+await db.exec(fs.readFileSync(root+'/supabase/schema/046_magic_gifts_chat_previews.sql','utf8'));
+await db.exec(fs.readFileSync(root+'/test/chat_summary_receipts_security.sql','utf8'));
+console.log('TEST PASS chat_summary_receipts_security.sql');
 await db.close();
 await import('../live_edge_offline.mjs');
 }catch(e){console.log('BOOTSTRAP FAIL',e.message);process.exit(1);}

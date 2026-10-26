@@ -226,8 +226,10 @@ class PulsePartyGrid extends StatelessWidget {
     required this.room,
     required this.party,
     this.crownUntil,
+    this.headGift = 'crown',
   });
   final DateTime? crownUntil;
+  final String headGift;
   final lk.Room room;
   final PulseLiveParty party;
   @override
@@ -291,6 +293,7 @@ class PulsePartyGrid extends StatelessWidget {
                       PulseHeadCrown(
                         key: ValueKey('crown:${video.mediaStreamTrack.id}'),
                         until: crownUntil!,
+                        sku: headGift,
                         sample: () => pulseSampleFace(video!),
                         mirror: pulseCrownMirrored(
                           local: video is lk.LocalVideoTrack,

@@ -241,6 +241,7 @@ class PulseLiveGiftsState extends State<PulseLiveGifts> {
                         ...gift,
                         'quantity': 1,
                         'display_name': 'Preview',
+                        'preview_only': true,
                         'is_test': true,
                       },
                       sound: true,

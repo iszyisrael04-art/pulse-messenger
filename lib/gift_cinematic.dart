@@ -27,6 +27,9 @@ class PulseLiveGiftPresentation extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (['wizard_filter', 'witch_filter'].contains(event['sku']) && event['preview_only'] != true) {
+      return _FilterGiftNotice(event: event, onComplete: onComplete);
+    }
     if (['rocket', 'castle', 'crown'].contains(event['sku']) &&
         !MediaQuery.disableAnimationsOf(context)) {
       return PulseGiftStoryPlayer(
@@ -267,4 +270,30 @@ class _AssetCinematicState extends State<_AssetCinematic>
       ),
     );
   }
+}
+
+class _FilterGiftNotice extends StatefulWidget {
+  const _FilterGiftNotice({required this.event, required this.onComplete});
+  final Map event;
+  final VoidCallback onComplete;
+  @override
+  State<_FilterGiftNotice> createState() => _FilterGiftNoticeState();
+}
+class _FilterGiftNoticeState extends State<_FilterGiftNotice> {
+  Timer? timer;
+  @override
+  void initState() { super.initState(); timer = Timer(const Duration(seconds: 3), widget.onComplete); }
+  @override
+  void dispose() { timer?.cancel(); super.dispose(); }
+  @override
+  Widget build(BuildContext context) => Align(
+    alignment: const Alignment(0, .6),
+    child: Container(
+      margin: const EdgeInsets.symmetric(horizontal: 24),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(color: Colors.black87, borderRadius: BorderRadius.circular(18)),
+      child: Text('${widget.event['display_name'] ?? 'Viewer'} sent ${widget.event['quantity'] ?? 1} × ${widget.event['title'] ?? 'Magic head filter'}',
+        style: const TextStyle(color: Colors.white), textAlign: TextAlign.center),
+    ),
+  );
 }

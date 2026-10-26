@@ -1,0 +1,26 @@
+[
+  {
+    "name": "wizard_scene",
+    "transparent_background": false,
+    "prompt": "Use case: stylized-concept. Asset type: portrait cinematic background for an original Pulse livestream magic gift. A visually sophisticated dark-fantasy wizard, adult man, realistic human proportions and convincing face, wearing heavily textured midnight-blue velvet robes with aged silver embroidery, layered weathered leather belts, ornate bracers, a tall bent wizard hat, wielding a carved obsidian staff whose tip is a luminous icy blue crystal. Medium full-body three-quarter view, head through boots visible with comfortable margins, wizard centered slightly left, staff on the right, one hand extended casting. An ancient stone observatory with ruined arches and mist, cold moonlight, intricate floor sigil. Realistic cinematic VFX concept art with rich tactile materials, atmospheric depth, strong restrained cyan rim light, extraordinary visual detail, serious mysterious expression. Leave dark negative space along bottom for app controls. No existing franchise character, no text, no logo, no UI, no watermark, no cartoon, no toy, no plastic, no simple geometric outlines, no neon wireframe. Vertical portrait composition, production artwork.",
+    "mode": "built-in image generation"
+  },
+  {
+    "name": "witch_scene",
+    "transparent_background": false,
+    "prompt": "Use case: stylized-concept. Asset type: portrait cinematic background for an original Pulse livestream magic gift. A sophisticated adult witch, realistic human proportions and convincing face, in a dramatic black and deep-plum layered silk-and-brocade gown, ornate silver crescent clasps, long windswept dark hair, sculptural tall crooked black witch hat with broad curled brim and aged silver ornaments. Medium full-body three-quarter view, centered slightly right, head through boots visible with comfortable margins, left hand extended above an antique floating grimoire. A ruined moonlit greenhouse with gothic arches, purple mist and tiny luminous motes. Serious, powerful and mysterious, cinematic realistic fantasy VFX concept art, highly detailed tactile cloth, elegant silhouette, extraordinary material realism and dramatic violet rim lighting. Reserve clear dark negative space along bottom for app controls. No known franchise character, no text, no logos, no UI, no watermark, no cartoon, no plastic toy appearance, no geometric stick figure, no neon wireframe. Vertical portrait production artwork.",
+    "mode": "built-in image generation"
+  },
+  {
+    "name": "wizard_hat",
+    "transparent_background": true,
+    "prompt": "Use case: stylized-concept. Asset type: transparent camera face-filter overlay, one ornate wizard hat only. A richly detailed cinematic midnight-blue velvet wizard hat with a wide elliptical brim, a tall slightly bent cone with soft cloth folds, finely stitched silver constellation embroidery, a sculpted antique silver buckle and one luminous blue faceted crystal. A believable real costume prop photographed from front with a slight view down onto the brim, symmetrical centered base, full hat visible with generous transparent margins, the opening beneath the brim should be unobstructed so it can sit naturally on a person's head. Detailed velvet weave and weathered silver, soft cool edge lighting, high realism and elegant craftsmanship. Isolated on genuinely transparent background. No head, no person, no stand, no background, no cast shadow outside the prop, no labels, no text, no watermark, no cartoon, no toy, no extra objects. Square composition.",
+    "mode": "built-in image generation"
+  },
+  {
+    "name": "witch_hat",
+    "transparent_background": true,
+    "prompt": "Use case: stylized-concept. Asset type: transparent camera face-filter overlay, one witch hat only. A magnificent realistic black and plum silk witch hat, very tall elegantly crooked tip, broad curled elliptical brim, aged silver crescent brooch and subtle dangling crescent jewelry, exquisite embroidery and layered cloth creases. Front view with slight downward view onto the brim, base centered so it can sit naturally on a person's head, full hat and generous transparent margins. Cinematic fantasy costume prop photography, realistic textured fabric and metal, restrained purple rim light. Isolated on genuinely transparent background. No head, no person, no stand, no background, no labels, no writing, no watermark, no cartoon, no plastic, no toy, no extra objects. Square composition.",
+    "mode": "built-in image generation"
+  }
+]

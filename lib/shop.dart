@@ -41,6 +41,7 @@ class _PulseShopPageState extends State<PulseShopPage> {
                         ...gift,
                         'quantity': 1,
                         'display_name': 'Preview',
+                        'preview_only': true,
                         'avatar_path': null,
                         'sender_id': null,
                       },

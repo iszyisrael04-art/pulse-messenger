@@ -1,4 +1,4 @@
-String pulseChatPreview(Map? message, String owner, {String? senderName}) {
+String pulseChatPreview(Map? message, String owner, {String? senderName, bool showOwnLabel = true}) {
   if (message == null ||
       message['body'] == null && message['created_at'] == null)
     return 'Start the conversation';
@@ -19,7 +19,7 @@ String pulseChatPreview(Map? message, String owner, {String? senderName}) {
       ? 'Status reply'
       : '';
   return '${message['sender_id'] == owner
-      ? 'You: '
+      ? (showOwnLabel ? 'You: ' : '')
       : senderName != null && senderName.trim().isNotEmpty
       ? '${senderName.trim()}: '
       : ''}${label.isEmpty ? '' : '$label${body.isEmpty ? '' : ' · '}'}$body';
@@ -42,4 +42,10 @@ String pulseChatDay(DateTime time, DateTime now) {
   final yesterday = DateTime(now.year, now.month, now.day - 1);
   if (day == yesterday) return 'Yesterday';
   return '${time.day.toString().padLeft(2, '0')}/${time.month.toString().padLeft(2, '0')}/${time.year}';
+}
+
+String? pulseChatDelivery(Map? message, String owner) {
+  if (message == null || message['sender_id'] != owner || message['created_at'] == null) return null;
+  final value = message['delivery'];
+  return value == 'read' || value == 'delivered' ? value as String : 'sent';
 }

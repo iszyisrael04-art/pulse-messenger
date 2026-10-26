@@ -1164,6 +1164,7 @@ class _LiveScreenState extends State<LiveScreen> with WidgetsBindingObserver {
       connecting = false;
   final giftQueue = <Map<String, dynamic>>[];
   DateTime? crownUntil;
+  String headGift = 'crown';
   Map<String, Map> chatRanks = {};
   bool likeBurst = false;
   bool giftSounds = true;
@@ -1919,6 +1920,7 @@ class _LiveScreenState extends State<LiveScreen> with WidgetsBindingObserver {
                           room: room,
                           party: party,
                           crownUntil: crownUntil,
+                          headGift: headGift,
                         )
                       : Center(
                           child: Text(
@@ -2020,7 +2022,8 @@ class _LiveScreenState extends State<LiveScreen> with WidgetsBindingObserver {
                           setState(() {
                             giftQueue.removeAt(0);
                             if (giftQueue.isNotEmpty &&
-                                giftQueue.first['sku'] == 'crown') {
+                                ['crown', 'wizard_filter', 'witch_filter'].contains(giftQueue.first['sku'])) {
+                              headGift = giftQueue.first['sku'] as String;
                               crownUntil = DateTime.now().add(
                                 const Duration(seconds: 12),
                               );
@@ -2189,7 +2192,8 @@ class _LiveScreenState extends State<LiveScreen> with WidgetsBindingObserver {
                                     if (mounted)
                                       setState(() {
                                         if (giftQueue.isEmpty &&
-                                            event['sku'] == 'crown') {
+                                            ['crown', 'wizard_filter', 'witch_filter'].contains(event['sku'])) {
+                                          headGift = event['sku'] as String;
                                           crownUntil = DateTime.now().add(
                                             const Duration(seconds: 12),
                                           );

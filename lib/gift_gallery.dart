@@ -2,17 +2,8 @@ import 'package:flutter/material.dart';
 import 'gift_visuals.dart';
 import 'pulse_coin.dart';
 
-const pulseCinematicGifts = <String>{
-  'galaxy',
-  'voltage_dominion',
-  'void_rift',
-  'solar_overdrive',
-  'quantum_cathedral',
-  'prism_avalanche',
-  'aurora_ascension',
-  'gravity_collapse',
-  'pulse_supernova',
-};
+const pulseCinematicGifts = <String>{'galaxy', 'archmage', 'moon_witch'};
+const pulseFilterGifts = <String>{'wizard_filter', 'witch_filter'};
 
 String pulseGiftTitle(String sku, String title) =>
     sku == 'galaxy' ? 'Pulse Universe' : title;
@@ -48,7 +39,7 @@ class _PulseGiftGalleryState extends State<PulseGiftGallery> {
   @override
   Widget build(BuildContext context) {
     final items = widget.gifts
-        .where((g) => tab != 'Cinema' || pulseCinematicGifts.contains(g['sku']))
+        .where((g) => tab == 'Filters' ? pulseFilterGifts.contains(g['sku']) : tab != 'Cinema' || pulseCinematicGifts.contains(g['sku']))
         .toList();
     final content = Column(
       children: [
@@ -107,7 +98,7 @@ class _PulseGiftGalleryState extends State<PulseGiftGallery> {
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
           child: Row(
             children: [
-              for (final value in ['All', 'Cinema'])
+              for (final value in ['All', 'Cinema', 'Filters'])
                 Padding(
                   padding: const EdgeInsets.only(right: 8),
                   child: ChoiceChip(

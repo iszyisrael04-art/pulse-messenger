@@ -1,0 +1,117 @@
+{
+  "generator": "scripts/render_magic_gifts.py",
+  "effects": [
+    {
+      "sku": "archmage",
+      "title": "The Archmage",
+      "coins": 79999,
+      "type": "cinematic_scene",
+      "frames": 144,
+      "fps": 24,
+      "width": 480,
+      "height": 854,
+      "duration": 6
+    },
+    {
+      "sku": "moon_witch",
+      "title": "Moonlight Witch",
+      "coins": 84999,
+      "type": "cinematic_scene",
+      "frames": 144,
+      "fps": 24,
+      "width": 480,
+      "height": 854,
+      "duration": 6
+    },
+    {
+      "sku": "wizard_filter",
+      "title": "Wizard Head Filter",
+      "coins": 15999,
+      "type": "head_filter",
+      "frames": 144,
+      "fps": 24,
+      "width": 480,
+      "height": 854,
+      "duration": 6
+    },
+    {
+      "sku": "witch_filter",
+      "title": "Witch Head Filter",
+      "coins": 18999,
+      "type": "head_filter",
+      "frames": 144,
+      "fps": 24,
+      "width": 480,
+      "height": 854,
+      "duration": 6
+    }
+  ],
+  "files": [
+    {
+      "path": "assets/gifts/cinema_archmage.mp4",
+      "bytes": 812586,
+      "sha256": "62a90bc3a8af983142f83561b9fdd642ce5f96d3aad98bf5840ba03866d62a65"
+    },
+    {
+      "path": "assets/gifts/thumb_archmage.png",
+      "bytes": 86102,
+      "sha256": "12d6b7474b0a07528df354474037a941e732dc7f65d6a396a3632aa654f64ff6"
+    },
+    {
+      "path": "assets/gifts/cinema_moon_witch.mp4",
+      "bytes": 808642,
+      "sha256": "866300f82e57d688b5ccd2fc306aca9b70338b84970b0eea8c8ff44eaec0d27b"
+    },
+    {
+      "path": "assets/gifts/thumb_moon_witch.png",
+      "bytes": 85476,
+      "sha256": "cdbef3526d4c79d614fcae647fbd627fd18af2ff2018dad20834397b7d1e4a7a"
+    },
+    {
+      "path": "assets/gifts/cinema_wizard_filter.mp4",
+      "bytes": 694217,
+      "sha256": "4294610849dee1afda6ea1a1911bec42f8c66341f007ab133347bc01d78c80a1"
+    },
+    {
+      "path": "assets/gifts/thumb_wizard_filter.png",
+      "bytes": 48509,
+      "sha256": "07742efe014357610fb21926d9fd9e99eae76029ef0547d3c770654be347ed8c"
+    },
+    {
+      "path": "assets/gifts/cinema_witch_filter.mp4",
+      "bytes": 643408,
+      "sha256": "97f5f032ec19a78a9ea4692c37f10f1932ed8aa749aa83ffd2b89998ea0cf05e"
+    },
+    {
+      "path": "assets/gifts/thumb_witch_filter.png",
+      "bytes": 52765,
+      "sha256": "44f9e767b47733a52ceb1a584ace4fe982042b0b0564e22725b4fa55e8c6c316"
+    }
+  ],
+  "sources": [
+    {
+      "path": "art/magic/wizard_hat.webp",
+      "sha256": "8f9ced5b7f0be5bc83e9611688840ddb63a3fc9bad3be8b8c71991562828c71e",
+      "bytes": 74498,
+      "origin": "Built-in image generation; original Pulse fantasy artwork"
+    },
+    {
+      "path": "art/magic/witch_hat.webp",
+      "sha256": "040e274c6ea81520aa07aeb25beaf4dd5fdd14e3f0c60f479bd2762be4a819de",
+      "bytes": 76884,
+      "origin": "Built-in image generation; original Pulse fantasy artwork"
+    },
+    {
+      "path": "art/magic/wizard_scene.webp",
+      "sha256": "8bce4e12418afe547a3a2817621dca3ee59eeac1a95f9d983239ef4d6870f5d5",
+      "bytes": 244164,
+      "origin": "Built-in image generation; original Pulse fantasy artwork"
+    },
+    {
+      "path": "art/magic/witch_scene.webp",
+      "sha256": "a96c5276d77c4f8b220c9d5475945b37ce9050b8c674a9f4c6eba5ccd495b042",
+      "bytes": 234798,
+      "origin": "Built-in image generation; original Pulse fantasy artwork"
+    }
+  ]
+}

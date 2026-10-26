@@ -11,6 +11,7 @@ import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:livekit_client/livekit_client.dart' as lk;
 import 'gift_visuals.dart';
+import 'magic_hat.dart';
 
 class PulseFaceAnchor {
   const PulseFaceAnchor(this.bounds, this.frame, this.roll);
@@ -145,11 +146,13 @@ class PulseHeadCrown extends StatefulWidget {
     required this.sample,
     required this.child,
     this.mirror = false,
+    this.sku = 'crown',
   });
   final DateTime until;
   final Future<PulseFaceAnchor?> Function() sample;
   final Widget child;
   final bool mirror;
+  final String sku;
   @override
   State<PulseHeadCrown> createState() => _PulseHeadCrownState();
 }
@@ -181,7 +184,7 @@ class _PulseHeadCrownState extends State<PulseHeadCrown>
   @override
   void didUpdateWidget(covariant PulseHeadCrown oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.until != widget.until) schedule();
+    if (oldWidget.until != widget.until || oldWidget.sku != widget.sku) schedule();
   }
 
   @override
@@ -236,12 +239,7 @@ class _PulseHeadCrownState extends State<PulseHeadCrown>
       Rect? crown;
       if (a != null && active) {
         final face = pulseFaceOnVideo(a, bounds.biggest, mirror: widget.mirror);
-        final width = face.width * 1.38;
-        crown = Rect.fromCenter(
-          center: Offset(face.center.dx, face.top - face.width * .10),
-          width: width,
-          height: width * .62,
-        );
+        crown = pulseHeadGiftBounds(face, widget.sku);
       }
       return Stack(
         fit: StackFit.expand,
@@ -263,7 +261,9 @@ class _PulseHeadCrownState extends State<PulseHeadCrown>
                     -math.pi / 3,
                     math.pi / 3,
                   ),
-                  child: const PulseGiftModel(sku: 'crown', phase: .1),
+                  child: widget.sku == 'wizard_filter' || widget.sku == 'witch_filter'
+                      ? PulseMagicHat(sku: widget.sku)
+                      : const PulseGiftModel(sku: 'crown', phase: .1),
                 ),
               ),
             ),
@@ -271,4 +271,13 @@ class _PulseHeadCrownState extends State<PulseHeadCrown>
       );
     },
   );
+}
+
+Rect pulseHeadGiftBounds(Rect face, String sku) {
+  if (sku == 'wizard_filter' || sku == 'witch_filter') {
+    final width = face.width * 2;
+    return Rect.fromLTWH(face.center.dx - width / 2, face.top - width * .86, width, width);
+  }
+  final width = face.width * 1.38;
+  return Rect.fromCenter(center: Offset(face.center.dx, face.top - face.width * .10), width: width, height: width * .62);
 }
