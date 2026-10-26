@@ -484,6 +484,33 @@ class _ChannelDetailState extends State<ChannelDetail> {
     }
   }
 
+  Future<void> deleteChannel() async {
+    if (busy || !admin) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('Permanently delete channel?'),
+        content: Text(
+          '${channel?['name'] ?? 'This channel'} and its posts, followers and history will be removed. This cannot be undone.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Delete channel')),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted || busy) return;
+    setState(() => busy = true);
+    try {
+      await widget.repo.rpc('channel_delete', {'p_channel': widget.channelId});
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      if (mounted) channelError(context, e);
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
   Future<void> edit() async {
     final name = await channelPrompt(
       context,
@@ -805,9 +832,11 @@ class _ChannelDetailState extends State<ChannelDetail> {
               if (value == 'edit') edit();
               if (value == 'photo') photo();
               if (value == 'admin') promote();
+              if (value == 'delete') deleteChannel();
             },
             itemBuilder: (_) => [
               const PopupMenuItem(value: 'edit', child: Text('Edit channel')),
+              const PopupMenuItem(value: 'delete', child: Text('Delete channel')),
               const PopupMenuItem(
                 value: 'photo',
                 child: Text('Change channel photo'),

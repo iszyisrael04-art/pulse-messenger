@@ -90,6 +90,9 @@ console.log('TEST PASS cinematic_catalog_security.sql');
 await db.exec(fs.readFileSync(root+'/supabase/schema/043_staff_channel_deletion.sql','utf8'));
 await db.exec(fs.readFileSync(root+'/test/channel_deletion_security.sql','utf8'));
 console.log('TEST PASS channel_deletion_security.sql');
+await db.exec(fs.readFileSync(root+'/supabase/schema/044_channel_roles_moderation.sql','utf8'));
+await db.exec(fs.readFileSync(root+'/test/channel_moderation_security.sql','utf8'));
+console.log('TEST PASS channel_moderation_security.sql');
 await db.close();
 await import('../live_edge_offline.mjs');
 }catch(e){console.log('BOOTSTRAP FAIL',e.message);process.exit(1);}

@@ -35,18 +35,13 @@ class _PulseControlChannelsState extends State<PulseControlChannels> {
       if (await widget.repo.rpc('is_admin', {}) != true) {
         throw StateError('Staff access required');
       }
-      final term = search.text
-          .trim()
-          .replaceAll('\\', '\\\\')
-          .replaceAll('%', r'\%')
-          .replaceAll('_', r'\_');
-      var query = widget.repo.db
-          .from('pulse_channels')
-          .select('id,name,description,avatar_path,verified')
-          .ilike('name', '%$term%');
-      if (!reset && channels.isNotEmpty)
-        query = query.gt('id', channels.last['id']);
-      final rows = await query.order('id').limit(50);
+      final rows = await widget.repo.rpc('channel_moderation', {
+        'p_action': 'list',
+        'p_data': {
+          'query': search.text.trim(),
+          if (!reset && channels.isNotEmpty) 'after': channels.last['id'],
+        },
+      }) as List;
       if (!mounted) return;
       setState(() {
         if (reset) channels = [];
@@ -118,47 +113,69 @@ class _PulseControlChannelsState extends State<PulseControlChannels> {
     }
   }
 
-  Future<void> deleteChannel(Map<String, dynamic> channel) async {
+  Future<void> moderate(Map<String, dynamic> channel, String action) async {
     if (changing || loading) return;
+    String? reason;
+    int? days;
+    if (action != 'release') {
+      reason = await showPulseTextPrompt(
+        context,
+        action == 'ban' ? 'Ban channel: reason' : 'Suspend channel: reason',
+        maxLength: 1000,
+        validator: (v) => v.trim().length < 5 ? 'Enter at least 5 characters.' : null,
+      );
+      if (reason == null || !mounted) return;
+      if (action == 'suspend') {
+        final value = await showPulseTextPrompt(
+          context,
+          'Suspension days',
+          maxLength: 3,
+          maxLines: 1,
+          keyboardType: TextInputType.number,
+          validator: (v) {
+            final n = int.tryParse(v);
+            return n == null || n < 1 || n > 365 ? 'Enter 1–365 days.' : null;
+          },
+        );
+        if (value == null || !mounted) return;
+        days = int.parse(value);
+      }
+    }
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
-        title: const Text('Permanently delete channel?'),
+        title: Text(
+          action == 'release' ? 'Restore channel?' : action == 'ban' ? 'Ban channel?' : 'Suspend channel?',
+        ),
         content: Text(
-          '${channel['name']} and its posts, followers and channel history '
-          'will be removed. This cannot be undone.',
+          '${channel['name']}\n'
+          '${action == 'release' ? 'Make the channel available again.' : 'Hide the channel and prevent posts, follows and media access. History is preserved.'}',
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(c, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(c, true),
-            child: const Text('Delete channel'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Confirm')),
         ],
       ),
     );
     if (confirmed != true || !mounted || changing) return;
     setState(() => changing = true);
     try {
-      await widget.repo.rpc('channel_delete', {'p_channel': channel['id']});
+      await widget.repo.rpc('channel_moderation', {
+        'p_action': action,
+        'p_channel': channel['id'],
+        'p_data': {if (reason != null) 'reason': reason, if (days != null) 'days': days},
+      });
       if (!mounted) return;
-      setState(() => channels.removeWhere((c) => c['id'] == channel['id']));
+      setState(() {
+        channel['state'] = action == 'release' ? 'active' : action == 'ban' ? 'banned' : 'suspended';
+      });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Channel deleted')),
+        const SnackBar(content: Text('Channel moderation updated')),
       );
     } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Channel was not deleted. Check your connection and Pulse administrator access.',
-            ),
-          ),
-        );
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not update channel. Check your connection and Pulse administrator access.')),
+      );
     } finally {
       if (mounted) setState(() => changing = false);
     }
@@ -300,7 +317,7 @@ class _PulseControlChannelsState extends State<PulseControlChannels> {
                     subtitle: Padding(
                       padding: const EdgeInsets.only(top: 6),
                       child: Text(
-                        c['description'] ?? '',
+                        '${c['state'] ?? 'active'} · ${c['description'] ?? ''}',
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -310,7 +327,7 @@ class _PulseControlChannelsState extends State<PulseControlChannels> {
                       tooltip: 'Channel actions',
                       onSelected: (value) {
                         if (value == 'verify') verify(c);
-                        if (value == 'delete') deleteChannel(c);
+                        if (value == 'ban' || value == 'suspend' || value == 'release') moderate(c, value);
                       },
                       itemBuilder: (_) => [
                         PopupMenuItem(
@@ -321,10 +338,10 @@ class _PulseControlChannelsState extends State<PulseControlChannels> {
                                 : 'Verify channel',
                           ),
                         ),
-                        const PopupMenuItem(
-                          value: 'delete',
-                          child: Text('Delete channel'),
-                        ),
+                        const PopupMenuItem(value: 'ban', child: Text('Ban channel')),
+                        const PopupMenuItem(value: 'suspend', child: Text('Suspend channel')),
+                        if (c['state'] != 'active')
+                          const PopupMenuItem(value: 'release', child: Text('Restore channel')),
                       ],
                     ),
                   ),
