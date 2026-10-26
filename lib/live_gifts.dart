@@ -16,12 +16,14 @@ class PulseLiveGifts extends StatefulWidget {
     required this.session,
     required this.host,
     this.onGift,
+    this.onBattle,
     this.compact = false,
   });
   final PulseRepository repo;
   final String session;
   final bool host, compact;
   final ValueChanged<Map<String, dynamic>>? onGift;
+  final ValueChanged<Map<String, dynamic>>? onBattle;
   @override
   State<PulseLiveGifts> createState() => PulseLiveGiftsState();
 }
@@ -29,7 +31,7 @@ class PulseLiveGifts extends StatefulWidget {
 class PulseLiveGiftsState extends State<PulseLiveGifts> {
   Map<String, dynamic> gifts = {}, battle = {}, party = {};
   Timer? timer;
-  bool loading = false, busy = false;
+  bool loading = false, busy = false, choosing = false;
   String? error, feedAfter, feedCursor;
   bool readingFeed = false, pendingTest = false;
   int testCoins = 0;
@@ -106,6 +108,7 @@ class PulseLiveGiftsState extends State<PulseLiveGifts> {
           battle = Map<String, dynamic>.from(result[1] as Map);
           party = Map<String, dynamic>.from(result[2] as Map);
           testCoins = ((result[3] as Map)['coins'] as num).toInt();
+          widget.onBattle?.call(battle);
         });
     } catch (e) {
       if (mounted) setState(() => error = socialError(e));
@@ -152,13 +155,32 @@ class PulseLiveGiftsState extends State<PulseLiveGifts> {
         });
       await load();
     } catch (e) {
-      if (mounted) setState(() => error = socialError(e));
+      if (mounted) {
+        setState(() => error = socialError(e));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '${error!} Open LIVE menu → Gifts to retry the same gift.',
+            ),
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => busy = false);
     }
   }
 
   Future<void> chooseGift({bool test = false}) async {
+    if (choosing || busy || pendingGift != null || feedCursor == null) return;
+    setState(() => choosing = true);
+    try {
+      await chooseGiftFlow(test: test);
+    } finally {
+      if (mounted) setState(() => choosing = false);
+    }
+  }
+
+  Future<void> chooseGiftFlow({bool test = false}) async {
     if (busy || pendingGift != null || feedCursor == null) return;
     var recipient = hostId;
     if (recipient == null) return;
@@ -177,7 +199,9 @@ class PulseLiveGiftsState extends State<PulseLiveGifts> {
     }
     int? balance;
     try {
-      final wallet = await widget.repo.rpc('wallet', {});
+      final wallet = await widget.repo
+          .rpc('wallet', {})
+          .timeout(const Duration(seconds: 8));
       balance = test ? testCoins : (wallet['coins'] as num?)?.toInt();
     } catch (_) {
       balance = test ? testCoins : null;
@@ -374,7 +398,8 @@ class PulseLiveGiftsState extends State<PulseLiveGifts> {
   Widget build(BuildContext context) => widget.compact
       ? IconButton(
           tooltip: 'Send gift',
-          onPressed: busy || pendingGift != null || feedCursor == null
+          onPressed:
+              busy || choosing || pendingGift != null || feedCursor == null
               ? null
               : () => chooseGift(),
           icon: const Icon(Icons.card_giftcard, color: Color(0xffff4e91)),
@@ -405,7 +430,8 @@ class PulseLiveGiftsState extends State<PulseLiveGifts> {
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             TextButton.icon(
-              onPressed: busy || pendingGift != null || feedCursor == null
+              onPressed:
+                  busy || choosing || pendingGift != null || feedCursor == null
                   ? null
                   : () => chooseGift(),
               icon: const Icon(Icons.card_giftcard),
@@ -413,7 +439,11 @@ class PulseLiveGiftsState extends State<PulseLiveGifts> {
             ),
             if (testCoins > 0)
               TextButton.icon(
-                onPressed: busy || pendingGift != null || feedCursor == null
+                onPressed:
+                    busy ||
+                        choosing ||
+                        pendingGift != null ||
+                        feedCursor == null
                     ? null
                     : () => chooseGift(test: true),
                 icon: const Icon(Icons.science_outlined),

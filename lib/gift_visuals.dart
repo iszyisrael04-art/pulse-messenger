@@ -1,3 +1,4 @@
+import 'gift_assets.dart';
 import 'gifter_ranks.dart';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
@@ -389,7 +390,17 @@ class PulseGiftModel extends StatelessWidget {
   final double phase;
   @override
   Widget build(BuildContext context) => RepaintBoundary(
-    child: CustomPaint(painter: _GiftPainter(sku, phase), size: Size.infinite),
+    child: pulseGiftMovies.containsKey(sku)
+        ? Image.asset(
+            'assets/gifts/thumb_${pulseGiftMovies[sku]}.png',
+            fit: BoxFit.contain,
+            gaplessPlayback: true,
+            errorBuilder: (_, __, ___) => CustomPaint(
+              painter: _GiftPainter(sku, phase),
+              size: Size.infinite,
+            ),
+          )
+        : CustomPaint(painter: _GiftPainter(sku, phase), size: Size.infinite),
   );
 }
 

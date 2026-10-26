@@ -1,3 +1,4 @@
+import 'pulse_coin.dart';
 import 'admin_rewards.dart';
 import 'gift_visuals.dart';
 import 'package:flutter/material.dart';
@@ -158,7 +159,7 @@ class _PulseShopPageState extends State<PulseShopPage> {
           ),
           for (final pack in wallet?['coin_packs'] as List? ?? [])
             ListTile(
-              leading: const Icon(Icons.toll_rounded),
+              leading: const PulseCoin(),
               title: Text('${pack['coins']} coins'),
               subtitle: Text(pulseUsd(pack['usd_cents'] as int)),
               trailing: TextButton(

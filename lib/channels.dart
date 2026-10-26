@@ -1138,6 +1138,7 @@ class _LiveScreenState extends State<LiveScreen> with WidgetsBindingObserver {
   Map<String, Map> chatRanks = {};
   bool likeBurst = false;
   bool giftSounds = true;
+  Map<String, dynamic> liveBattle = {};
   String liveStyle = 'classic';
   Timer? likeTimer;
   String liveOwnerLabel = 'The host';
@@ -1901,6 +1902,58 @@ class _LiveScreenState extends State<LiveScreen> with WidgetsBindingObserver {
                         ),
                 ),
               ),
+              if (liveBattle['state'] == 'active')
+                Positioned(
+                  left: 16,
+                  right: 16,
+                  top: MediaQuery.paddingOf(context).top + 84,
+                  child: InkWell(
+                    onTap: () => giftsKey.currentState?.showControls(context),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 7,
+                      ),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(20),
+                        gradient: const LinearGradient(
+                          colors: [Color(0xbbdd326b), Color(0xbb2585bb)],
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '${liveBattle['host_score'] ?? 0}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            'BATTLE · ${liveBattle['remaining'] ?? 0}s',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 12,
+                            ),
+                          ),
+                          Expanded(
+                            child: Text(
+                              '${liveBattle['opponent_score'] ?? 0}',
+                              textAlign: TextAlign.end,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
               if (paused)
                 const Center(
                   child: Text(
@@ -1971,6 +2024,7 @@ class _LiveScreenState extends State<LiveScreen> with WidgetsBindingObserver {
                     ),
                     name: liveOwnerLabel,
                     viewers: viewers,
+                    likes: (tools['likes'] as num? ?? 0).toInt(),
                     openProfile: () {
                       if (hostId != null) openProfile(hostId!);
                     },
@@ -2098,6 +2152,10 @@ class _LiveScreenState extends State<LiveScreen> with WidgetsBindingObserver {
                                   session: widget.sessionId,
                                   host: widget.host,
                                   compact: true,
+                                  onBattle: (value) {
+                                    if (mounted)
+                                      setState(() => liveBattle = value);
+                                  },
                                   onGift: (event) {
                                     if (mounted)
                                       setState(() {

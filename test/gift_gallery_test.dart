@@ -1,8 +1,14 @@
+import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import '../lib/gift_gallery.dart';
-import '../lib/live_ui.dart';
-import '../lib/pulse_coin.dart';
+import 'package:pulse_messenger/gift_gallery.dart';
+import 'package:pulse_messenger/live_ui.dart';
+import 'package:pulse_messenger/pulse_coin.dart';
 
 void main() {
   const gifts = <Map>[
@@ -98,9 +104,11 @@ void main() {
           child: Scaffold(
             body: PulseGiftGallery(
               gifts: gifts,
-              people: const [],
+              people: const [
+                {'user_id': 'host', 'display_name': 'A livestream creator'},
+              ],
               recipient: 'host',
-              test: true,
+              test: false,
               onChoose: (_) {},
               onPreview: (_) {},
               onRecharge: () {},
@@ -112,5 +120,156 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     expect(find.text('Continue'), findsOneWidget);
+  });
+  testWidgets('Gift gallery visual QA uses bundled artwork', (tester) async {
+    if (!Platform.isLinux) return;
+    tester.view.physicalSize = const Size(360, 780);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.runAsync(() async {
+      final sdk = Platform.environment['FLUTTER_ROOT'];
+      if (sdk != null) {
+        final file = File(
+          '$sdk/bin/cache/artifacts/material_fonts/Roboto-Regular.ttf',
+        );
+        if (await file.exists()) {
+          await (FontLoader('PulseGiftQA')..addFont(
+                Future.value(ByteData.sublistView(await file.readAsBytes())),
+              ))
+              .load();
+        }
+      }
+      final icons = File(
+        'build/unit_test_assets/fonts/MaterialIcons-Regular.otf',
+      );
+      if (await icons.exists()) {
+        await (FontLoader('MaterialIcons')..addFont(
+              Future.value(ByteData.sublistView(await icons.readAsBytes())),
+            ))
+            .load();
+      }
+    });
+    final key = GlobalKey();
+    const demo = <Map>[
+      {
+        'sku': 'galaxy',
+        'title': 'Pulse Universe',
+        'coins': 2500,
+        'p_coins': 1000,
+      },
+      {'sku': 'lion', 'title': 'Lion', 'coins': 5000, 'p_coins': 2000},
+      {
+        'sku': 'dream',
+        'title': 'Pulse Dream',
+        'coins': 25999,
+        'p_coins': 1299.95,
+      },
+      {
+        'sku': 'phoenix',
+        'title': 'Solar Phoenix',
+        'coins': 25999,
+        'p_coins': 1299.95,
+      },
+      {
+        'sku': 'dragon',
+        'title': 'Dragon Flame',
+        'coins': 26999,
+        'p_coins': 1349.95,
+      },
+      {
+        'sku': 'sports_car',
+        'title': 'Golden Sports Car',
+        'coins': 29999,
+        'p_coins': 1499.95,
+      },
+      {
+        'sku': 'gorilla',
+        'title': 'Jungle Silverback',
+        'coins': 30000,
+        'p_coins': 1500,
+      },
+      {
+        'sku': 'royal_lions',
+        'title': 'Royal Lions',
+        'coins': 34000,
+        'p_coins': 1700,
+      },
+      {
+        'sku': 'pulse_stars',
+        'title': 'Pulse Stars',
+        'coins': 39999,
+        'p_coins': 1999.95,
+      },
+      {
+        'sku': 'thunder_falcon',
+        'title': 'Thunder Falcon',
+        'coins': 39999,
+        'p_coins': 1999.95,
+      },
+    ];
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData.dark().copyWith(
+          scaffoldBackgroundColor: const Color(0xff10151c),
+          textTheme: ThemeData.dark().textTheme.apply(
+            fontFamily: 'PulseGiftQA',
+          ),
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: const Color(0xff81d5c2),
+            brightness: Brightness.dark,
+          ),
+        ),
+        home: Scaffold(
+          body: Align(
+            alignment: Alignment.bottomCenter,
+            child: RepaintBoundary(
+              key: key,
+              child: PulseGiftGallery(
+                gifts: demo,
+                people: const [
+                  {'user_id': 'demo', 'display_name': 'LIVE creator'},
+                ],
+                recipient: 'demo',
+                test: false,
+                balance: 2000000,
+                onChoose: (_) {},
+                onPreview: (_) {},
+                onRecharge: () {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.runAsync(() async {
+      for (final g in demo) {
+        await precacheImage(
+          AssetImage('assets/gifts/thumb_${g['sku']}.png'),
+          key.currentContext!,
+        );
+      }
+    });
+    await tester.tap(find.text('Cinema'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Pulse Universe'));
+    await tester.pumpAndSettle();
+    final data = await tester.runAsync(() async {
+      final image =
+          await (key.currentContext!.findRenderObject()
+                  as RenderRepaintBoundary)
+              .toImage();
+      final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+      image.dispose();
+      return bytes!.buffer.asUint8List();
+    });
+    final b64 = base64Encode(data!);
+    for (var i = 0; i < b64.length; i += 8000) {
+      print(
+        'PULSE_GIFT_GALLERY:${i ~/ 8000}:${b64.substring(i, (i + 8000).clamp(0, b64.length))}',
+      );
+    }
+    expect(tester.takeException(), isNull);
   });
 }

@@ -83,6 +83,11 @@ console.log('TEST PASS event_reward_mail_security.sql');
 await db.exec(fs.readFileSync(root+'/supabase/schema/041_personal_live_only.sql','utf8'));
 await db.exec(fs.readFileSync(root+'/test/personal_only_live_security.sql','utf8'));
 console.log('TEST PASS personal_only_live_security.sql');
+await db.exec(fs.readFileSync(root+'/supabase/schema/042_cinematic_gifts.sql','utf8'));
+console.log('SCHEMA PASS 042_cinematic_gifts.sql');
+await db.exec(fs.readFileSync(root+'/test/cinematic_catalog_security.sql','utf8'));
+console.log('TEST PASS cinematic_catalog_security.sql');
 await db.close();
 await import('../live_edge_offline.mjs');
 }catch(e){console.log('BOOTSTRAP FAIL',e.message);process.exit(1);}
+

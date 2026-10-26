@@ -1,0 +1,5 @@
+# Production inputs are fetched and verified using manifest.json.
+*.glb
+*.ogg
+*.partial
+*.blend

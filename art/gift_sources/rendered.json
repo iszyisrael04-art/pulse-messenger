@@ -1,0 +1,102 @@
+[
+  {
+    "path": "assets/gifts/cinema_dream.mp4",
+    "bytes": 109575,
+    "sha256": "40d8726fd37cc5084f8abf9c43571ab4562dfc089ca097e2b4a0720388294345"
+  },
+  {
+    "path": "assets/gifts/thumb_dream.png",
+    "bytes": 48312,
+    "sha256": "528955837941f198fa19e3e4369e0a43e4373e19f7835bc3db9e5cc7907bff03"
+  },
+  {
+    "path": "assets/gifts/cinema_phoenix.mp4",
+    "bytes": 258128,
+    "sha256": "fbeab4a21c4ba5576c26cc35e42ea29bf2a6daa13def9b4d31ed11ab7b3c5a90"
+  },
+  {
+    "path": "assets/gifts/thumb_phoenix.png",
+    "bytes": 47449,
+    "sha256": "ae6363bef1af87b9b7ab02b0d468dc696de5f80bbffb444ad893a5423a88900a"
+  },
+  {
+    "path": "assets/gifts/cinema_dragon.mp4",
+    "bytes": 329116,
+    "sha256": "d35decca288c1b568e3d34f4952d876d07d33a030b5b2f9a3a45c80c1f0d2dbf"
+  },
+  {
+    "path": "assets/gifts/thumb_dragon.png",
+    "bytes": 48484,
+    "sha256": "cf539bc6481ab0e8a285a73c2bf9637c506fbfc5c570a46ac430882fddd96387"
+  },
+  {
+    "path": "assets/gifts/cinema_sports_car.mp4",
+    "bytes": 173553,
+    "sha256": "4f56d62a88df1706a69dd37d98fd80baf5aa7183081354566ebec91baa95630e"
+  },
+  {
+    "path": "assets/gifts/thumb_sports_car.png",
+    "bytes": 48907,
+    "sha256": "f00ab7126d5a7e9fcb68419315f233a142c54f1207b5fbc2820ae29edc44533a"
+  },
+  {
+    "path": "assets/gifts/cinema_lion.mp4",
+    "bytes": 166604,
+    "sha256": "99a75213dd8aae067689292cac6ccf491c7e3728b2bb0ea083afb65d0245a580"
+  },
+  {
+    "path": "assets/gifts/thumb_lion.png",
+    "bytes": 47845,
+    "sha256": "8e7d4ca41cba2d6ef4dd5a878730d171fb03134585a970e1462a8de6eb06b53b"
+  },
+  {
+    "path": "assets/gifts/cinema_gorilla.mp4",
+    "bytes": 148862,
+    "sha256": "7fc7eda5876f29514688007c54e67706c4d76b4f4c9d4f17bbf2b9e10cc1c48c"
+  },
+  {
+    "path": "assets/gifts/thumb_gorilla.png",
+    "bytes": 46267,
+    "sha256": "94b07989c0e2e31357477dede2f0e9040d0b7944835e297b531836399305b91f"
+  },
+  {
+    "path": "assets/gifts/cinema_royal_lions.mp4",
+    "bytes": 182253,
+    "sha256": "7fa1147365b2b6a1a77c5c6b0f21e0a202122d215c614ce0e2cab48830849077"
+  },
+  {
+    "path": "assets/gifts/thumb_royal_lions.png",
+    "bytes": 52569,
+    "sha256": "53da4e94213f81fb4d926c09985a9ae29b95b9560a6e7e56faad53a705bb0ce5"
+  },
+  {
+    "path": "assets/gifts/cinema_pulse_stars.mp4",
+    "bytes": 189142,
+    "sha256": "a1ecbdec9f3c569554e3ea8c42198f28e057c251c947b63c94dc996a1ca87cf4"
+  },
+  {
+    "path": "assets/gifts/thumb_pulse_stars.png",
+    "bytes": 53944,
+    "sha256": "2d7851d23f52136085b0fd1241b969de37dfb29980a8cb35a7676ff8c24fde6f"
+  },
+  {
+    "path": "assets/gifts/cinema_thunder_falcon.mp4",
+    "bytes": 278146,
+    "sha256": "4d09defe8fa474211dfeec00a7612d3fef831dd6315684e297326507d1705b72"
+  },
+  {
+    "path": "assets/gifts/thumb_thunder_falcon.png",
+    "bytes": 46729,
+    "sha256": "486f5ab6f876120f6d3e48c5c96166f27abd40466bed76eb1928e88f89a105e5"
+  },
+  {
+    "path": "assets/gifts/cinema_galaxy.mp4",
+    "bytes": 206537,
+    "sha256": "b7cce13c6303f82e8f8379fbdbb5262264a3b55f3682cec782be49fe35d694f6"
+  },
+  {
+    "path": "assets/gifts/thumb_galaxy.png",
+    "bytes": 58161,
+    "sha256": "b46d36aec0eb60a8ccc002c5de250264ea27823283ecc63c57ed726909246a31"
+  }
+]

@@ -1,3 +1,4 @@
+import 'gift_assets.dart';
 import 'gift_story_player.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -35,8 +36,9 @@ class PulseLiveGiftPresentation extends StatelessWidget {
         onComplete: onComplete,
       );
     }
-    if (event['sku'] == 'lion' && !MediaQuery.disableAnimationsOf(context)) {
-      return _LionCinematic(
+    if (pulseGiftMovies.containsKey(event['sku']) &&
+        !MediaQuery.disableAnimationsOf(context)) {
+      return _AssetCinematic(
         repo: repo,
         event: event,
         sound: sound,
@@ -67,8 +69,8 @@ class PulseLiveGiftPresentation extends StatelessWidget {
   }
 }
 
-class _LionCinematic extends StatefulWidget {
-  const _LionCinematic({
+class _AssetCinematic extends StatefulWidget {
+  const _AssetCinematic({
     required this.repo,
     required this.event,
     required this.sound,
@@ -79,10 +81,10 @@ class _LionCinematic extends StatefulWidget {
   final bool sound;
   final VoidCallback onComplete;
   @override
-  State<_LionCinematic> createState() => _LionCinematicState();
+  State<_AssetCinematic> createState() => _AssetCinematicState();
 }
 
-class _LionCinematicState extends State<_LionCinematic>
+class _AssetCinematicState extends State<_AssetCinematic>
     with WidgetsBindingObserver {
   late final Player player;
   late final VideoController video;
@@ -117,7 +119,9 @@ class _LionCinematicState extends State<_LionCinematic>
       await player.setVolume(widget.sound ? 45 : 0);
       if (!mounted) return;
       await player.open(
-        Media('asset:///assets/gifts/lion_jungle.mp4'),
+        Media(
+          'asset:///assets/gifts/cinema_${pulseGiftMovies[widget.event['sku']]}.mp4',
+        ),
         play: foreground && routeVisible,
       );
     } catch (_) {
@@ -149,7 +153,7 @@ class _LionCinematicState extends State<_LionCinematic>
   }
 
   @override
-  void didUpdateWidget(covariant _LionCinematic oldWidget) {
+  void didUpdateWidget(covariant _AssetCinematic oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.sound != widget.sound) {
       unawaited(player.setVolume(widget.sound ? 45 : 0).catchError((_) {}));
@@ -246,7 +250,7 @@ class _LionCinematicState extends State<_LionCinematic>
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        '${widget.event['is_test'] == true ? 'TEST · ' : ''}${widget.event['display_name']} sent ${widget.event['quantity']} × Lion',
+                        '${widget.event['is_test'] == true ? 'TEST · ' : ''}${widget.event['display_name']} sent ${widget.event['quantity']} × ${widget.event['sku'] == 'galaxy' ? 'Pulse Universe' : widget.event['title'] ?? widget.event['sku']}',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 18,

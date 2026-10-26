@@ -1,0 +1,81 @@
+{
+  "assets": [
+    {
+      "name": "dragon",
+      "file": "dragon.glb",
+      "author": "afk.ai",
+      "license": "CC0-1.0",
+      "source": "https://afk.ai/auto-rig/dragon",
+      "download": "https://afk.ai/rig/animations/dragon-animations.glb",
+      "sha256": "29fc560083504d22e67a29ef1ab60fbde3d4f232d658d1bd92560324891212b0",
+      "bytes": 696796,
+      "downloaded": "2026-10-26"
+    },
+    {
+      "name": "bird",
+      "file": "bird.glb",
+      "author": "afk.ai",
+      "license": "CC0-1.0",
+      "source": "https://afk.ai/auto-rig/bird",
+      "download": "https://afk.ai/rig/animations/bird-animations.glb",
+      "sha256": "369ec807409a6fd397dacc60e81573e7276a63a369455302bb64bf1499940977",
+      "bytes": 332548,
+      "downloaded": "2026-10-26"
+    },
+    {
+      "name": "gorilla",
+      "file": "gorilla.glb",
+      "author": "Innerscene",
+      "license": "CC0-1.0",
+      "source": "https://www.innerscene.com/tools/library/3d-parts/gorilla-2ad2b9c5",
+      "download": "https://www.innerscene.com/api/library/gorilla-2ad2b9c5/download",
+      "sha256": "1305b7dad507ec8deaaf1e0bef8c171199253a396746f80630a1bb23e268f2c7",
+      "bytes": 8631628,
+      "downloaded": "2026-10-26"
+    },
+    {
+      "name": "lion",
+      "file": "lion.glb",
+      "author": "Innerscene",
+      "license": "CC0-1.0",
+      "source": "https://www.innerscene.com/tools/library/3d-parts/male-lion-ac8abb18",
+      "download": "https://www.innerscene.com/api/library/male-lion-ac8abb18/download",
+      "sha256": "145dd218c59fe618fec8088238ef584a58f7feff113dba6c0322d78da4d5a994",
+      "bytes": 8180140,
+      "downloaded": "2026-10-26"
+    },
+    {
+      "name": "car",
+      "file": "car.glb",
+      "author": "Innerscene",
+      "license": "CC0-1.0",
+      "source": "https://www.innerscene.com/tools/library/3d-parts/generic-front-engine-grand-tourer-coupe-9a08f635",
+      "download": "https://www.innerscene.com/api/library/generic-front-engine-grand-tourer-coupe-9a08f635/download",
+      "sha256": "9c3665bb5914d324bebac01b8feff202d1c96bbb988657fc765cd2f1f210033b",
+      "bytes": 4309628,
+      "downloaded": "2026-10-26"
+    },
+    {
+      "name": "astronaut",
+      "file": "astronaut.glb",
+      "author": "NASA via Innerscene",
+      "license": "LicenseRef-US-Government-Public-Domain",
+      "source": "https://www.innerscene.com/tools/library/3d-parts/astronaut-in-a-spacewalk-suit-bf3bab6c",
+      "download": "https://www.innerscene.com/api/library/astronaut-in-a-spacewalk-suit-bf3bab6c/download",
+      "sha256": "d18c141410542b935113d1c25a9271d90c40d44015a64295b7b68a30f0ce2820",
+      "bytes": 762988,
+      "downloaded": "2026-10-26"
+    },
+    {
+      "name": "lion-roar",
+      "file": "lion-roar.ogg",
+      "author": "தகவலுழவன் / Info-farmer",
+      "license": "LicenseRef-Public-Domain-dedication",
+      "source": "https://commons.wikimedia.org/wiki/File:Lion_raring-sound1TamilNadu178.ogg",
+      "download": "https://upload.wikimedia.org/wikipedia/commons/7/7d/Lion_raring-sound1TamilNadu178.ogg",
+      "sha256": "ab237d0f960e83412251d0c11f69959f3c2e8d3b14595f7181c3056f7fa18bf7",
+      "bytes": 77611,
+      "downloaded": "2026-10-26"
+    }
+  ]
+}

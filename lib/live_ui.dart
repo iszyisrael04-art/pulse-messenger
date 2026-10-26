@@ -139,10 +139,11 @@ class PulseLiveHeader extends StatelessWidget {
     required this.leave,
     this.follow,
     this.followLabel = '+ Follow',
+    this.likes = 0,
   });
   final Widget avatar;
   final String name, followLabel;
-  final int viewers;
+  final int viewers, likes;
   final VoidCallback openProfile;
   final VoidCallback? leave, follow;
   @override
@@ -179,8 +180,8 @@ class PulseLiveHeader extends StatelessWidget {
                               fontWeight: FontWeight.w800,
                             ),
                           ),
-                          const Text(
-                            'LIVE',
+                          Text(
+                            '♥ $likes · LIVE',
                             style: TextStyle(
                               color: Color(0xffff7198),
                               fontSize: 10,
