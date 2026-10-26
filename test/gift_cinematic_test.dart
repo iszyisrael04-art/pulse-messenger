@@ -12,7 +12,7 @@ class UnusedClient implements SupabaseClient {
 }
 
 void main() {
-  testWidgets('Reduced motion uses silent mesh and gifts cannot block exit', (
+  testWidgets('Reduced motion uses a plain silent notice and gifts cannot block exit', (
     tester,
   ) async {
     final repo = PulseRepository(UnusedClient());
@@ -53,7 +53,8 @@ void main() {
     );
     await tester.pump();
     expect(find.byType(Video), findsNothing);
-    expect(find.textContaining('Viewer sent 2'), findsOneWidget);
+    expect(find.text('Viewer'), findsOneWidget);
+    expect(find.text('×2'), findsOneWidget);
     await tester.tap(find.text('Leave live'));
     expect(exited, true);
     await tester.pump(const Duration(seconds: 4));
@@ -63,3 +64,4 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 }
+
