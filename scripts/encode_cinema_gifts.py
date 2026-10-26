@@ -41,4 +41,4 @@ for sku in skus:
  for prefix,ext in [('cinema_','.mp4'),('thumb_','.png')]:
   p=assets/(prefix+sku+ext);manifest.append({'path':'assets/gifts/'+p.name,'bytes':p.stat().st_size,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()})
 metadata=(assets/'rendered.json') if len(sys.argv)>2 else root/'art/gift_sources/rendered.json'
-metadata.write_text(json.dumps(manifest,indent=2)+'\n')
+metadata.write_text(json.dumps(manifest,indent=2)+'\n',encoding='utf-8')

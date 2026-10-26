@@ -5,7 +5,7 @@ Run once before render_cinema_gifts.py. Existing matching bytes are reused.
 from pathlib import Path
 import hashlib,json,urllib.request,struct
 root=Path(__file__).resolve().parents[1]/'art/gift_sources'
-for item in json.loads((root/'manifest.json').read_text())['assets']:
+for item in json.loads((root/'manifest.json').read_text(encoding='utf-8'))['assets']:
  path=root/item['file']
  data=path.read_bytes() if path.exists() else b''
  if hashlib.sha256(data).hexdigest()!=item['sha256']:

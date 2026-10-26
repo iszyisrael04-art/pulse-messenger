@@ -4,7 +4,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 class CinemaAssetTests(unittest.TestCase):
  def test_bundled_media_is_complete_and_matches_reviewed_bytes(self):
-  rows=json.loads((ROOT/'art/gift_sources/rendered.json').read_text())
+  rows=json.loads((ROOT/'art/gift_sources/rendered.json').read_text(encoding='utf-8'))
   skus={'dream','phoenix','dragon','sports_car','lion','gorilla','royal_lions','pulse_stars','thunder_falcon','galaxy'}
   expected={f'assets/gifts/{prefix}{sku}{ext}' for sku in skus for prefix,ext in [('cinema_','.mp4'),('thumb_','.png')]}
   self.assertEqual({x['path'] for x in rows},expected)
@@ -18,7 +18,7 @@ class CinemaAssetTests(unittest.TestCase):
     self.assertEqual(b[:8],b'\x89PNG\r\n\x1a\n');self.assertEqual(struct.unpack('>II',b[16:24]),(192,192))
   self.assertLess(total,10*1024*1024)
  def test_production_inputs_have_per_asset_provenance(self):
-  rows=json.loads((ROOT/'art/gift_sources/manifest.json').read_text())['assets']
+  rows=json.loads((ROOT/'art/gift_sources/manifest.json').read_text(encoding='utf-8'))['assets']
   self.assertEqual(len(rows),7)
   for row in rows:
    self.assertTrue(row['source'].startswith('https://'));self.assertTrue(row['download'].startswith('https://'))

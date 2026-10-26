@@ -20,10 +20,10 @@ idempotency UUID, and the retry path. Tests do not spend money or call real user
 - Pulse Dream: a rigged floating astronaut in front of an orbiting world.
 - Solar Phoenix: skeletal wingbeats through a solar portal and embers.
 - Dragon Flame: a 100-joint dragon flight over volcanic rocks and a bone-attached flame plume.
-- Golden Sports Car: metallic coupe on a neon night road with a moving camera.
+- Golden Sports Car: metallic coupe passing along a neon night road.
 - Lion: a rigged jungle approach and head/jaw motion with the credited roar.
 - Jungle Silverback: a rigged jungle approach, head and limb motion.
-- Royal Lions: two lions, a crown and jungle camera approach.
+- Royal Lions: two lions, a crown and jungle approach.
 - Pulse Stars: lion and gorilla ensemble with star fountain.
 - Thunder Falcon: skeletal flight, storm forks and a blue portal.
 - Pulse Universe: layered worlds, orbital rings and original extruded Pulse lettering.
