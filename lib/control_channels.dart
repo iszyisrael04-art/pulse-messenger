@@ -118,6 +118,52 @@ class _PulseControlChannelsState extends State<PulseControlChannels> {
     }
   }
 
+  Future<void> deleteChannel(Map<String, dynamic> channel) async {
+    if (changing || loading) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('Permanently delete channel?'),
+        content: Text(
+          '${channel['name']} and its posts, followers and channel history '
+          'will be removed. This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(c, true),
+            child: const Text('Delete channel'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted || changing) return;
+    setState(() => changing = true);
+    try {
+      await widget.repo.rpc('channel_delete', {'p_channel': channel['id']});
+      if (!mounted) return;
+      setState(() => channels.removeWhere((c) => c['id'] == channel['id']));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Channel deleted')),
+      );
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Channel was not deleted. Check your connection and Pulse administrator access.',
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => changing = false);
+    }
+  }
+
   Future<void> livePolicy() async {
     try {
       final current =
@@ -167,7 +213,7 @@ class _PulseControlChannelsState extends State<PulseControlChannels> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      title: const Text('Channel verification'),
+      title: const Text('Manage channels'),
       actions: [
         IconButton(
           tooltip: 'LIVE follower minimum',
@@ -259,17 +305,27 @@ class _PulseControlChannelsState extends State<PulseControlChannels> {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    trailing: IconButton(
-                      tooltip: c['verified'] == true
-                          ? 'Remove verification'
-                          : 'Verify channel',
-                      onPressed: loading || changing ? null : () => verify(c),
-                      icon: Icon(
-                        c['verified'] == true
-                            ? Icons.verified
-                            : Icons.verified_outlined,
-                        color: c['verified'] == true ? Colors.blue : null,
-                      ),
+                    trailing: PopupMenuButton<String>(
+                      enabled: !loading && !changing,
+                      tooltip: 'Channel actions',
+                      onSelected: (value) {
+                        if (value == 'verify') verify(c);
+                        if (value == 'delete') deleteChannel(c);
+                      },
+                      itemBuilder: (_) => [
+                        PopupMenuItem(
+                          value: 'verify',
+                          child: Text(
+                            c['verified'] == true
+                                ? 'Remove verification'
+                                : 'Verify channel',
+                          ),
+                        ),
+                        const PopupMenuItem(
+                          value: 'delete',
+                          child: Text('Delete channel'),
+                        ),
+                      ],
                     ),
                   ),
                 if (more && channels.isNotEmpty)
