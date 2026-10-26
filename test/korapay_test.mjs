@@ -8,7 +8,7 @@ const key='sk_live_fixture_only';
 const values={KORAPAY_SECRET_KEY:key,KORAPAY_MODE:'live',KORAPAY_LIVE_ENABLED:'true',KORAPAY_NGN_PER_USD:'1500',SUPABASE_URL:'https://example.supabase.co',SUPABASE_ANON_KEY:'anon',SUPABASE_SERVICE_ROLE_KEY:'service'};
 const env=n=>values[n];
 assert(koraConfig(env).enabled);
-for(const patch of [{KORAPAY_SECRET_KEY:'sk_test_fixture'},{KORAPAY_MODE:'test'},{KORAPAY_LIVE_ENABLED:'false'},{KORAPAY_NGN_PER_USD:'bad'}]){
+for(const patch of [{KORAPAY_SECRET_KEY:'sk_test_fixture'},{KORAPAY_MODE:'test'},{KORAPAY_LIVE_ENABLED:'false'}]){
  assert(!koraConfig(n=>({...values,...patch})[n]).enabled);
 }
 assert.equal(koraMinor('1500.20'),150020);assert.equal(koraMinor(1500),150000);
@@ -52,7 +52,7 @@ const handler=makeKoraHandler(env,factory,provider);
 const request=(body,headers={Authorization:'Bearer fixture'})=>new Request('https://example.supabase.co/functions/v1/pulse-payments',{method:'POST',headers,body:JSON.stringify(body)});
 let response=await handler(request({action:'checkout',order_id:id,sku:'coins_100',email:'fixture@example.invalid'}));
 assert.equal(response.status,200);let data=await response.json();
-assert.equal(data.amount,150000);assert.equal(data.currency,'NGN');assert.equal(quoteRate,'1500');
+assert.equal(data.amount,150000);assert.equal(data.currency,'NGN');assert.equal(quoteRate,'450');
 assert.equal(posted.amount,1500);assert.equal(posted.merchant_bears_cost,true);assert.equal(fulfilments,0);
 const count=providerCalls;
 await handler(request({action:'checkout',order_id:id,sku:'coins_100',email:'fixture@example.invalid'}));
@@ -77,3 +77,20 @@ response=await testHandler(request({action:'health'}));data=await response.json(
 assert.equal(data.purchases_enabled,false);assert.equal(data.provider_verified,false);
 response=await handler(request({action:'checkout'},{}));assert.equal(response.status,401);
 console.log('PASS Korapay mode gates, safe URLs, exact money, data-only HMAC, immutable quote reuse, signed webhook re-query, ownership and duplicate protection');
+
+// Display pricing cannot call the payment API or service-role order RPC.
+let priceCalls=0;
+const priceHandler=makeKoraHandler(env,(_url,k)=>{assert.notEqual(k,'service');return client;},async(url,options)=>{
+ priceCalls++;
+ assert.equal(url,'https://api.frankfurter.dev/v2/rate/ngn/usd');
+ assert.equal(options.headers.Authorization,undefined);
+ return new Response(JSON.stringify({base:'NGN',quote:'USD',rate:.0007,date:new Date().toISOString().slice(0,10)}));
+});
+response=await priceHandler(request({action:'pricing',currency:'NGN'}));
+assert.equal(response.status,200);data=await response.json();
+assert.equal(data.ngn_per_catalog_usd,450);assert.equal(data.display.approximate,false);assert.equal(priceCalls,0);
+response=await priceHandler(request({action:'pricing',currency:'USD'}));
+assert.equal(response.status,200);data=await response.json();assert.equal(data.display.approximate,true);assert.equal(priceCalls,1);
+response=await priceHandler(request({action:'pricing',currency:'USD/evil'}));assert.equal(response.status,400);assert.equal(priceCalls,1);
+response=await priceHandler(request({action:'pricing',currency:'NGN'},{}));assert.equal(response.status,401);
+console.log('PASS regional display authentication, approved price, no settlement side effects and no credential forwarding');

@@ -1,3 +1,4 @@
+import 'regional_pricing.dart';
 import 'package:flutter/material.dart';
 import 'creator_products.dart';
 import 'payment_test.dart';
@@ -57,11 +58,14 @@ class _PulseCreatorAccessPageState extends State<PulseCreatorAccessPage> {
     final purchases = (data?['purchases'] as List? ?? []).cast<Map>();
     return Scaffold(
       appBar: AppBar(title: const Text('Animated profile & Boost')),
-      body: RefreshIndicator(
+      body: PulseRegionalPrices(
+        repo: widget.store.repo,
+        builder: (context, prices, currencyPicker) => RefreshIndicator(
         onRefresh: load,
         child: ListView(
           padding: const EdgeInsets.all(24),
           children: [
+            currencyPicker,
             if (widget.reason != null)
               Text(
                 widget.reason!,
@@ -88,7 +92,7 @@ class _PulseCreatorAccessPageState extends State<PulseCreatorAccessPage> {
                 title: Text('Animated profiles unlocked'),
               ),
             for (final product in products.where((p) => p['sku'] == 'motion'))
-              productCard(product, motion: true),
+              productCard(product, prices, motion: true),
             const SizedBox(height: 28),
             const Text(
               'Boost your account',
@@ -100,7 +104,7 @@ class _PulseCreatorAccessPageState extends State<PulseCreatorAccessPage> {
             ),
             const SizedBox(height: 12),
             for (final product in products.where((p) => p['sku'] != 'motion'))
-              productCard(product),
+              productCard(product, prices),
             if (data != null) ...[
               const SizedBox(height: 12),
               ListTile(
@@ -108,12 +112,12 @@ class _PulseCreatorAccessPageState extends State<PulseCreatorAccessPage> {
                 contentPadding: EdgeInsets.zero,
                 title: Text(
                   paymentsEnabled
-                      ? 'Secure Squad checkout'
+                      ? 'Secure checkout'
                       : 'Payment setup pending',
                 ),
                 subtitle: Text(
                   paymentsEnabled
-                      ? 'Check the USD total on checkout. Boost plans do not automatically renew.'
+                      ? 'Review the exact total and currency before paying. Boost plans do not automatically renew.'
                       : 'Real purchases are disabled until the live payment provider is configured and tested.',
                 ),
               ),
@@ -125,7 +129,7 @@ class _PulseCreatorAccessPageState extends State<PulseCreatorAccessPage> {
                 ),
               ),
               icon: const Icon(Icons.science_outlined),
-              label: const Text('Test Squad checkout (no real money)'),
+              label: const Text('Test checkout (no real money)'),
             ),
             if (purchases.isNotEmpty) ...[
               const Divider(height: 40),
@@ -164,10 +168,11 @@ class _PulseCreatorAccessPageState extends State<PulseCreatorAccessPage> {
           ],
         ),
       ),
+      ),
     );
   }
 
-  Widget productCard(Map product, {bool motion = false}) {
+  Widget productCard(Map product, PulseRegionalPrice prices, {bool motion = false}) {
     final owned = motion && access?['motion'] == true;
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8),
@@ -189,7 +194,7 @@ class _PulseCreatorAccessPageState extends State<PulseCreatorAccessPage> {
             ),
             const SizedBox(height: 8),
             Text(
-              '${pulseUsd(product['usd_cents'] as int)} · ${pulseProductPeriod(product['period'] as String)}',
+              '${prices.label(product['usd_cents'] as int)} · ${pulseProductPeriod(product['period'] as String)}',
             ),
             if (!motion)
               Text(

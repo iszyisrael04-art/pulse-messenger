@@ -1,10 +1,11 @@
+import {pulseNgnPerCatalogUsd} from './regional-pricing.mjs';
 export const koraApi='https://api.korapay.com/merchant/api/v1';
 export const koraUuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export function koraConfig(env) {
  const key=env('KORAPAY_SECRET_KEY')??'',mode=env('KORAPAY_MODE')??'';
  const live=mode==='live'&&/^sk_live_[A-Za-z0-9_-]+$/.test(key);
  const test=mode==='test'&&/^sk_test_[A-Za-z0-9_-]+$/.test(key);
- const rate=env('KORAPAY_NGN_PER_USD')??'';
+ const rate=pulseNgnPerCatalogUsd;
  const rateReady=/^\d{1,6}(\.\d{1,6})?$/.test(rate)&&Number(rate)>0&&Number(rate)<=100000;
  return {key,live,test,rate,enabled:live&&env('KORAPAY_LIVE_ENABLED')==='true'&&rateReady};
 }

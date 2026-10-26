@@ -1,7 +1,9 @@
+import {makeRegionalPricing} from './regional-pricing.mjs';
 import {koraApi,koraConfig,koraUrl,koraMatches,koraSignature,koraUuid,koraTestRef} from './korapay-rules.mjs';
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json','Cache-Control':'no-store'}});
 const emailOk=x=>typeof x==='string'&&x.length<=254&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x);
 export function makeKoraHandler(env,createClient,request=fetch) {
+ const regionalPricing=makeRegionalPricing(request);
  return async(req)=>{
   if(req.method!=='POST')return json({error:'POST required'},405);
   const cfg=koraConfig(env),signed=req.headers.has('x-korapay-signature');
@@ -23,6 +25,11 @@ export function makeKoraHandler(env,createClient,request=fetch) {
     if(account.error||account.data?.active!==true)return json({error:'Active account required'},403);
     if(body.action==='health')return json({provider:'korapay',sandbox:cfg.test,configured:cfg.test||cfg.live,purchases_enabled:cfg.enabled,provider_verified:false,currency:'NGN'});
     const limited=await client.rpc('pulse_live_probe');if(limited.error)return json({error:'Please wait before retrying'},429);
+    if(body.action==='pricing') {
+     if(typeof body.currency!=='string'||!/^[A-Z]{3}$/.test(body.currency))return json({error:'Select a currency'},400);
+     const display=await regionalPricing(body.currency);
+     return json({provider:'korapay',charge_currency:'NGN',ngn_per_catalog_usd:Number(cfg.rate),display,display_unavailable:display===null});
+    }
    }
    const headers={Authorization:'Bearer '+cfg.key,'Content-Type':'application/json'};
    const provider=async(path,options={})=>{
@@ -86,3 +93,4 @@ export function makeKoraHandler(env,createClient,request=fetch) {
   } catch{return json({error:'Korapay is temporarily unavailable. Keep your reference and verify before paying again.'},503);}
  };
 }
+

@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'repository.dart' hide Row;
 import 'social_repository.dart';
 import 'creator_access.dart';
-import 'creator_products.dart';
+import 'regional_pricing.dart';
 import 'payment_test.dart';
 import 'purchase.dart';
 import 'withdrawals.dart';
@@ -156,7 +156,9 @@ class _PulseShopPageState extends State<PulseShopPage> {
         ),
       ],
     ),
-    body: RefreshIndicator(
+    body: PulseRegionalPrices(
+      repo: widget.repo,
+      builder: (context, prices, currencyPicker) => RefreshIndicator(
       onRefresh: load,
       child: ListView(
         padding: const EdgeInsets.all(20),
@@ -229,11 +231,12 @@ class _PulseShopPageState extends State<PulseShopPage> {
             'Buy coins',
             style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
           ),
+          currencyPicker,
           for (final pack in wallet?['coin_packs'] as List? ?? [])
             ListTile(
               leading: const PulseCoin(),
               title: Text('${pack['coins']} coins'),
-              subtitle: Text(pulseUsd(pack['usd_cents'] as int)),
+              subtitle: Text(prices.label(pack['usd_cents'] as int)),
               trailing: TextButton(
                 onPressed: !paymentsEnabled
                     ? null
@@ -304,6 +307,7 @@ class _PulseShopPageState extends State<PulseShopPage> {
           if (busy) const LinearProgressIndicator(),
         ],
       ),
+    ),
     ),
   );
 }

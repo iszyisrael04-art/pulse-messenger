@@ -3,7 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' show FunctionException;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 import 'repository.dart' hide Row;
-import 'creator_products.dart';
+import 'regional_pricing.dart';
 import 'payment_checkout.dart';
 
 class PulsePurchasePage extends StatefulWidget {
@@ -125,17 +125,20 @@ class _PulsePurchasePageState extends State<PulsePurchasePage> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: Text(widget.title)),
-    body: ListView(
+    body: PulseRegionalPrices(
+      repo: widget.repo,
+      builder: (context, prices, currencyPicker) => ListView(
       padding: const EdgeInsets.all(24),
       children: [
         Text(
-          pulseUsd(widget.usdCents),
+          prices.label(widget.usdCents),
           style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold),
         ),
         const Text(
-          'Catalog prices are in USD. Your fixed payment amount and currency are shown before checkout. Time-limited Boost plans do not automatically renew.',
+          'Your fixed payment amount and currency are shown before checkout. Time-limited Boost plans do not automatically renew.',
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 12),
+        currencyPicker,
         TextField(
           controller: email,
           enabled: !busy && !started,
@@ -164,6 +167,7 @@ class _PulsePurchasePageState extends State<PulsePurchasePage> {
           'Keep this reference if you need payment support. Never share card details or banking OTPs in chat.',
         ),
       ],
+    ),
     ),
   );
 }
