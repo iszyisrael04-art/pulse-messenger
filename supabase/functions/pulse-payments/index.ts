@@ -1,9 +1,12 @@
+import {makeKoraHandler} from './korapay-handler.mjs';
 import { checkout } from './checkout.ts';
 import { liveEnabled, webhookValid } from './live.mjs';
 import { createClient } from 'npm:@supabase/supabase-js@2.99.1';
 import { sandboxBase, testAmount, sandboxKey, ownsReference, checkoutUrl, verifiedTest } from './rules.mjs';
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+const korapay=makeKoraHandler((name: string)=>Deno.env.get(name),createClient);
 Deno.serve(async (req: Request) => {
+  if (req.headers.has('x-korapay-signature') || (!req.headers.has('x-squad-encrypted-body') && Deno.env.get('PULSE_PAYMENT_PROVIDER')==='korapay')) return korapay(req);
   if (req.method !== 'POST') return json({error:'POST required'},405);
   const key = Deno.env.get('SQUAD_SECRET_KEY') ?? ''; 
   const live = liveEnabled(key, (name: string) => Deno.env.get(name));

@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 import 'repository.dart' hide Row;
 import 'creator_products.dart';
+import 'payment_checkout.dart';
 
 class PulsePurchasePage extends StatefulWidget {
   const PulsePurchasePage({
@@ -25,7 +26,7 @@ class _PulsePurchasePageState extends State<PulsePurchasePage> {
   final order = const Uuid().v4();
   bool busy = false, started = false, paid = false;
   String message =
-      'The final amount and currency appear on Squad checkout. Do not pay if they differ.';
+      'Review the exact amount and currency before opening checkout.';
   @override
   void initState() {
     super.initState();
@@ -70,13 +71,22 @@ class _PulsePurchasePageState extends State<PulsePurchasePage> {
                 'Not confirmed. Do not pay again while checking.',
           );
       } else {
-        final url = Uri.parse(data['checkout_url'] as String);
-        if (url.scheme != 'https' ||
-            url.host != 'pay.squadco.com' ||
-            url.userInfo.isNotEmpty ||
-            url.hasPort)
-          throw const FormatException('Unexpected checkout URL');
+        final url = pulsePaymentCheckout(data['checkout_url'] as String);
+        final price = pulseCheckoutPrice(data);
+        if (url == null || price == null) throw const FormatException('Unexpected checkout quote');
         if (!mounted) return;
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (c) => AlertDialog(
+            title: Text('Pay $price?'),
+            content: Text('${widget.title}\nCheckout: ${url.host}\nThis is a one-time payment.'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
+              FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Open checkout')),
+            ],
+          ),
+        );
+        if (confirmed != true || !mounted) return;
         final opened = await launchUrl(
           url,
           mode: LaunchMode.externalApplication,
@@ -123,7 +133,7 @@ class _PulsePurchasePageState extends State<PulsePurchasePage> {
           style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold),
         ),
         const Text(
-          'Charged in USD. This is a one-time payment; time-limited Boost plans do not automatically renew.',
+          'Catalog prices are in USD. Your fixed payment amount and currency are shown before checkout. Time-limited Boost plans do not automatically renew.',
         ),
         const SizedBox(height: 20),
         TextField(
@@ -132,13 +142,13 @@ class _PulsePurchasePageState extends State<PulsePurchasePage> {
           keyboardType: TextInputType.emailAddress,
           decoration: const InputDecoration(
             labelText: 'Receipt email',
-            helperText: 'Shared with Squad when checkout starts.',
+            helperText: 'Shared with the payment provider when checkout starts.',
           ),
         ),
         const SizedBox(height: 20),
         FilledButton(
           onPressed: busy || paid ? null : () => run(false),
-          child: const Text('Continue to Squad'),
+          child: const Text('Continue to checkout'),
         ),
         if (started)
           OutlinedButton(

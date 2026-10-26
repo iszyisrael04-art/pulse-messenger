@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show FunctionException;
 import 'package:url_launcher/url_launcher.dart';
 import 'repository.dart';
+import 'payment_checkout.dart';
 
 /// Sandbox transactions never credit coins or unlock real purchases.
 class PulsePaymentTestPage extends StatefulWidget {
@@ -47,13 +48,8 @@ class _PulsePaymentTestPageState extends State<PulsePaymentTestPage> {
       } else {
         if (!mounted) return;
         setState(() => reference = data['reference'] as String);
-        final url = Uri.parse(data['checkout_url'] as String);
-        if (url.scheme != 'https' ||
-            url.host != 'sandbox-pay.squadco.com' ||
-            url.userInfo.isNotEmpty ||
-            url.hasPort) {
-          throw const FormatException('Unexpected checkout address');
-        }
+        final url = pulsePaymentCheckout(data['checkout_url'] as String, test: true);
+        if (url == null) throw const FormatException('Unexpected checkout address');
         final opened = await launchUrl(
           url,
           mode: LaunchMode.externalApplication,
@@ -61,7 +57,7 @@ class _PulsePaymentTestPageState extends State<PulsePaymentTestPage> {
         if (mounted)
           setState(
             () => result = opened
-                ? 'Complete the sandbox checkout, then return and tap Verify test. Use Squad test details only.'
+                ? 'Complete the sandbox checkout, then return and tap Verify test. Use the provider’s test details only.'
                 : 'Could not open checkout. Retry when your browser is available.',
           );
       }
@@ -92,7 +88,7 @@ class _PulsePaymentTestPageState extends State<PulsePaymentTestPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Squad payment test')),
+    appBar: AppBar(title: const Text('Payment sandbox test')),
     body: ListView(
       padding: const EdgeInsets.all(24),
       children: [
@@ -104,7 +100,7 @@ class _PulsePaymentTestPageState extends State<PulsePaymentTestPage> {
         ),
         const SizedBox(height: 12),
         const Text(
-          'Simulated ₦100 checkout. This amount is for testing, not the price of an animated profile or Boost. Your receipt email will be sent to Squad when you start.',
+          'Simulated ₦100 checkout. This amount is for testing, not the price of an animated profile or Boost. Your receipt email will be sent to the selected payment provider when you start.',
         ),
         const SizedBox(height: 24),
         TextField(
@@ -134,7 +130,7 @@ class _PulsePaymentTestPageState extends State<PulsePaymentTestPage> {
         Text(result),
         const SizedBox(height: 20),
         const Text(
-          'Never enter a real card, bank PIN or banking OTP in this sandbox test. Real purchases remain disabled.',
+          'Never enter a real card, bank PIN or banking OTP in this sandbox test. Simulated tests never grant coins or paid features.',
         ),
       ],
     ),

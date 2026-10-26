@@ -202,5 +202,6 @@ jobs:
       - run: node test/isolated_backend/run.mjs
       - run: node test/squad_sandbox_test.mjs
       - run: node test/payment_live_test.mjs
+      - run: node test/korapay_test.mjs
       - run: node test/call_push_offline.mjs
       - run: node test/withdrawal_rules_test.mjs
