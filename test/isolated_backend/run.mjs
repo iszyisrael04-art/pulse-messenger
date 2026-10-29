@@ -105,6 +105,9 @@ console.log('TEST PASS korapay_orders_security.sql');
 await db.exec(fs.readFileSync(root+'/supabase/schema/048_wildlife_gifts.sql','utf8'));
 await db.exec(fs.readFileSync(root+'/test/wildlife_gifts_security.sql','utf8'));
 console.log('TEST PASS wildlife_gifts_security.sql');
+await db.exec(fs.readFileSync(root+'/supabase/schema/049_legendary_gifts.sql','utf8'));
+await db.exec(fs.readFileSync(root+'/test/legendary_gifts_security.sql','utf8'));
+console.log('TEST PASS legendary_gifts_security.sql');
 await db.close();
 await import('../live_edge_offline.mjs');
 }catch(e){console.log('BOOTSTRAP FAIL',e.message);process.exit(1);}

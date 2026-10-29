@@ -1,0 +1,13 @@
+.dart_tool/
+.packages
+.pub-cache/
+/build/
+/android/
+/ios/
+/windows/
+/linux/
+/macos/
+/web/
+__pycache__/
+*.pyc
+/test/isolated_backend/node_modules/

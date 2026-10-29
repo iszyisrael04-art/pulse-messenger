@@ -1,9 +1,12 @@
 import 'gift_combo_feed.dart';
 import 'gift_gallery.dart';
 import 'gift_cinematic.dart';
+
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
+
 import 'repository.dart' hide Row;
 import 'social_repository.dart' show socialError;
 import 'shop.dart';
@@ -42,7 +45,10 @@ class PulseLiveGiftsState extends State<PulseLiveGifts> {
   bool comboTest = false;
   int comboCount = 0;
   DateTime? comboUntil;
-  bool get showCombo => comboGift != null && comboUntil != null && comboUntil!.isAfter(DateTime.now());
+  bool get showCombo =>
+      comboGift != null &&
+      comboUntil != null &&
+      comboUntil!.isAfter(DateTime.now());
   String? get hostId => (party['host'] as Map?)?['user_id'] as String?;
   List<Map> get people => [
     if (party['host'] is Map) party['host'] as Map,
@@ -63,13 +69,11 @@ class PulseLiveGiftsState extends State<PulseLiveGifts> {
     if (readingFeed) return;
     readingFeed = true;
     try {
-      final result =
-          await widget.repo.rpc('gift_feed', {
-                'p_session': widget.session,
-                if (feedAfter != null) 'p_after': feedAfter,
-                if (feedCursor != null) 'p_cursor': feedCursor,
-              })
-              as Map;
+      final result = await widget.repo.rpc('gift_feed', {
+        'p_session': widget.session,
+        if (feedAfter != null) 'p_after': feedAfter,
+        if (feedCursor != null) 'p_cursor': feedCursor,
+      }) as Map;
       if (!mounted) return;
       feedAfter = result['after'] as String;
       feedCursor = result['cursor'] as String;
@@ -288,7 +292,11 @@ class PulseLiveGiftsState extends State<PulseLiveGifts> {
 
   Future<void> sendOne(Map choice, {required bool test}) async {
     if (busy || pendingGift != null) return;
-    if (comboGift?['sku'] != choice['sku'] || comboGift?['recipient'] != choice['recipient'] || comboTest != test || !showCombo) comboCount = 0;
+    if (comboGift?['sku'] != choice['sku'] ||
+        comboGift?['recipient'] != choice['recipient'] ||
+        comboTest != test ||
+        !showCombo)
+      comboCount = 0;
     comboGift = Map.from(choice);
     comboTest = test;
     pendingTest = test;
@@ -352,24 +360,39 @@ class PulseLiveGiftsState extends State<PulseLiveGifts> {
   );
 
   Widget comboButton() => Tooltip(
-    message: 'Send one more ${comboGift?['title']} for ${comboGift?['coins']} ${comboTest ? 'test' : 'normal'} coins',
+    message:
+        'Send one more ${comboGift?['title']} for ${comboGift?['coins']} ${comboTest ? 'test' : 'normal'} coins',
     child: FilledButton(
-      style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4)),
-      onPressed: busy || pendingGift != null || choosing ? null : () => sendOne(comboGift!, test: comboTest),
-      child: Text('+1 · ${comboGift?['coins']} coins\nCombo ×$comboCount', textAlign: TextAlign.center, style: const TextStyle(fontSize: 11)),
+      style: FilledButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      ),
+      onPressed: busy || pendingGift != null || choosing
+          ? null
+          : () => sendOne(comboGift!, test: comboTest),
+      child: Text(
+        '+1 · ${comboGift?['coins']} coins\nCombo ×${comboCount + (busy && pendingGift != null ? 1 : 0)}${busy && pendingGift != null ? ' · sending' : ''}',
+        textAlign: TextAlign.center,
+        style: const TextStyle(fontSize: 11),
+      ),
     ),
   );
 
   @override
   Widget build(BuildContext context) => widget.compact
-      ? Row(mainAxisSize: MainAxisSize.min, children: [
-          IconButton(
-            tooltip: 'Send gift',
-            onPressed: busy || choosing || pendingGift != null || feedCursor == null ? null : () => chooseGift(),
-            icon: const Icon(Icons.card_giftcard, color: Color(0xffff4e91)),
-          ),
-          if (showCombo) comboButton(),
-        ])
+      ? Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              tooltip: 'Send gift',
+              onPressed:
+                  busy || choosing || pendingGift != null || feedCursor == null
+                  ? null
+                  : () => chooseGift(),
+              icon: const Icon(Icons.card_giftcard, color: Color(0xffff4e91)),
+            ),
+            if (showCombo) comboButton(),
+          ],
+        )
       : controls(context);
 
   Widget controls(BuildContext context) {

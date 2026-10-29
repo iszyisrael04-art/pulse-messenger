@@ -1,0 +1,370 @@
+{
+  "gifts": [
+    {
+      "sku": "legend_lion_king",
+      "title": "Lion King",
+      "coins": 1000,
+      "source": "ffd1aaaa-2219-4062-9511-b4559f92ac79.mp4",
+      "source_sha256": "11f1e02c678aa0c7344b92fe0d2f7e0e08f64da754b653d6ae8666ca0d68594c",
+      "source_bytes": 8055511,
+      "duration_ms": 5167,
+      "width": 480,
+      "height": 267,
+      "frames": 124,
+      "mask": "subject",
+      "decode_warnings": "",
+      "packed_duration_ms": 5167
+    },
+    {
+      "sku": "legend_phoenix",
+      "title": "Phoenix",
+      "coins": 5000,
+      "source": "ca47c3ab-9646-4fba-b558-779d09c4db7e.mp4",
+      "source_sha256": "29b65ada24e8aa25867c6f570c5f8097ac98b64d3d36df75e470a9502722a33a",
+      "source_bytes": 7407949,
+      "duration_ms": 5167,
+      "width": 480,
+      "height": 267,
+      "frames": 123,
+      "mask": "subject",
+      "decode_warnings": "[NULL @ 0x5591c088db00] Invalid NAL unit size (0 > 108148).\n[NULL @ 0x5591c088db00] missing picture in access unit with size 108152\n[NULL @ 0x5591c088db00] Invalid NAL unit size (0 > 72905).\n[NULL @ 0x5591c088db00] missing picture in access unit with size 72909\n[NULL @ 0x5591c088db00] Invalid NAL unit size (0 > 78263).\n[NULL @ 0x5591c088db00] missing picture in access unit with size 78267\n[h264 @ 0x5591c09ac880] Invalid NAL unit size (0 > 108148).\n[h264 @ 0x5591c09ac880] Error splitting the input into NAL units.\n[NULL @ 0x5591c088db00] Invalid NAL unit size (0 > 57130).\n[NULL @ 0x5591c088db00] missing picture in access unit with size 57134\n[h264 @ 0x5591c09987c0] error while decoding MB 23 18, bytestream -64\n[h264 @ 0x5591c09c2880] Invalid NAL unit size (0 > 72905).\n[h264 @ 0x5591c09c2880] Error splitting the input into NAL units.\n[h264 @ 0x5591c09d6740] Invalid NAL unit size (0 > 78263).\n[h264 @ 0x5591c09d6740] Error splitting the input into NAL units.\n[h264 @ 0x5591c0931040] Invalid NAL unit size (0 > 57130).\n[h264 @ 0x5591c0931040] Error splitting the input into NAL units.\n[h264 @ 0x5591c0945080] co located POCs unavailable\n[vist#0:0/h264 @ 0x5591c08904c0] Error submitting packet to decoder: Invalid data found when processing input\n    Last message repeated 3 times\n[vist#0:0/h264 @ 0x5591c08904c0] corrupt decoded frame\n",
+      "packed_duration_ms": 5167
+    },
+    {
+      "sku": "legend_thunder_god",
+      "title": "Thunder God",
+      "coins": 7500,
+      "source": "6e9adf0d-2201-4cb1-a781-3f56015ed321.mp4",
+      "source_sha256": "5ecad708e33f62c28f0ee50fad5a66bdd54550390fc3592bc9df9fb5da3b7065",
+      "source_bytes": 6892214,
+      "duration_ms": 5167,
+      "width": 480,
+      "height": 267,
+      "frames": 124,
+      "mask": "subject",
+      "decode_warnings": "",
+      "packed_duration_ms": 5167
+    },
+    {
+      "sku": "legend_phantom_supercar",
+      "title": "Phantom Supercar",
+      "coins": 10000,
+      "source": "9e19526c-3c29-4dbb-b335-a6c8c1ce42de.mp4",
+      "source_sha256": "682343267125a034bd23dd850a08c7c0c000ca32516912660eb1364e405121ac",
+      "source_bytes": 17017904,
+      "duration_ms": 5042,
+      "width": 480,
+      "height": 264,
+      "frames": 121,
+      "mask": "car",
+      "decode_warnings": "",
+      "packed_duration_ms": 5042
+    },
+    {
+      "sku": "legend_cosmic_rocket",
+      "title": "Cosmic Rocket",
+      "coins": 15000,
+      "source": "6dc23c0f-1fa5-422a-85f8-fd0b828d3405.mp4",
+      "source_sha256": "510b98de331c700cd4f02348a7693291d44fdfe54cf630731166952e7f0f4fe9",
+      "source_bytes": 7128192,
+      "duration_ms": 5042,
+      "width": 480,
+      "height": 275,
+      "frames": 121,
+      "mask": "luma",
+      "decode_warnings": "",
+      "packed_duration_ms": 5042
+    },
+    {
+      "sku": "legend_royal_palace",
+      "title": "Royal Palace",
+      "coins": 20000,
+      "source": "1471b828-18ad-40c4-80c0-2577f3d6627b.mp4",
+      "source_sha256": "6b882cbeb578bef18eaa99dff9651ce5926db6db6c99eaf6872543fcb9a38056",
+      "source_bytes": 13706726,
+      "duration_ms": 5042,
+      "width": 480,
+      "height": 275,
+      "frames": 121,
+      "mask": "palace",
+      "decode_warnings": "",
+      "packed_duration_ms": 5042
+    },
+    {
+      "sku": "legend_galaxy_dragon",
+      "title": "Galaxy Dragon",
+      "coins": 30000,
+      "source": "e64ea1cc-aef8-4569-b411-0b381411119e.mp4",
+      "source_sha256": "2d805a200065683eb9671662834ae56a416f32b1e5d86fa195d8e1e339d4b349",
+      "source_bytes": 8625586,
+      "duration_ms": 5167,
+      "width": 480,
+      "height": 267,
+      "frames": 124,
+      "mask": "subject",
+      "decode_warnings": "",
+      "packed_duration_ms": 5167
+    },
+    {
+      "sku": "legend_pulse_legend",
+      "title": "Pulse Legend",
+      "coins": 50000,
+      "source": "f68f190e-2153-4422-a892-1f6fe8b5c77c.mp4",
+      "source_sha256": "73a29472c344f773364a211fb9144098629e4fd4ccc8cbf272c0c1ccfccbaf81",
+      "source_bytes": 16397660,
+      "duration_ms": 5042,
+      "width": 480,
+      "height": 264,
+      "frames": 121,
+      "mask": "gold",
+      "decode_warnings": "",
+      "packed_duration_ms": 5042
+    },
+    {
+      "sku": "legend_pulse_universe",
+      "title": "Pulse Universe",
+      "coins": 60000,
+      "source": "949c1282-f0e9-4345-8b5b-a13b25a715ea.mp4",
+      "source_sha256": "9ec1f5b13a13351433e0adb805ddd0ffe9fbb4bce3fb268814e33974a19f8e9d",
+      "source_bytes": 9212942,
+      "duration_ms": 5042,
+      "width": 480,
+      "height": 275,
+      "frames": 121,
+      "mask": "space",
+      "decode_warnings": "",
+      "packed_duration_ms": 5042
+    }
+  ],
+  "files": [
+    {
+      "path": "assets/gifts/legend_lion_king.webp",
+      "sku": "legend_lion_king",
+      "bytes": 2691686,
+      "sha256": "38206ad12ba7d1f82373ea2313e3fb5e8b0f71f0d732588d81323b9e0c007235"
+    },
+    {
+      "path": "assets/gifts/legend_lion_king.m4a",
+      "sku": "legend_lion_king",
+      "bytes": 66139,
+      "sha256": "3331e69ad9bcf71669c7654341955d94e3af39bc656f3f057270493793775a72"
+    },
+    {
+      "path": "assets/gifts/thumb_legend_lion_king.png",
+      "sku": "legend_lion_king",
+      "bytes": 19464,
+      "sha256": "1a8445657437ac5f6b7d22664ee6e686b934bb0d90b91dd0a941a4b184cf16ab"
+    },
+    {
+      "path": "assets/gifts/legend_phoenix.webp",
+      "sku": "legend_phoenix",
+      "bytes": 2164534,
+      "sha256": "0b4da95e6ad96a56d2a933680a0c48baafb53ce98f0f3c39373ea9693555463e"
+    },
+    {
+      "path": "assets/gifts/legend_phoenix.m4a",
+      "sku": "legend_phoenix",
+      "bytes": 64271,
+      "sha256": "37f2d09592a78176864796d6fdf985e14d004509f05959dd4876af7c912ceaa1"
+    },
+    {
+      "path": "assets/gifts/thumb_legend_phoenix.png",
+      "sku": "legend_phoenix",
+      "bytes": 35073,
+      "sha256": "f5ae8d5d692cb4d8426a72713fa0d4cccc5f73255ec449cf9ae1ebd39f29c1ba"
+    },
+    {
+      "path": "assets/gifts/legend_thunder_god.webp",
+      "sku": "legend_thunder_god",
+      "bytes": 3323820,
+      "sha256": "6cda82fef5def57ac3aa82847a1aa03a4e090751b083f2ed241b7a85efe9a5a2"
+    },
+    {
+      "path": "assets/gifts/legend_thunder_god.m4a",
+      "sku": "legend_thunder_god",
+      "bytes": 66109,
+      "sha256": "fd7e2a1a29912ae2b5f8b875cf7a10b784460cef64800070a524a99d217204d8"
+    },
+    {
+      "path": "assets/gifts/thumb_legend_thunder_god.png",
+      "sku": "legend_thunder_god",
+      "bytes": 30005,
+      "sha256": "33b928aac71d270f868bd6ecaad49fad8c457b8ea5c2f1d88c921fb8abf85bc8"
+    },
+    {
+      "path": "assets/gifts/legend_phantom_supercar.webp",
+      "sku": "legend_phantom_supercar",
+      "bytes": 1156862,
+      "sha256": "debe710729ecd901ace76ca52f80d6d680c63f74c1a5fa8d52a680483dd3a4b8"
+    },
+    {
+      "path": "assets/gifts/legend_phantom_supercar.m4a",
+      "sku": "legend_phantom_supercar",
+      "bytes": 64449,
+      "sha256": "653cb40ba0d41696712cf5c496a1bc8e774142eabe4e41d8e15d1e49cf1aa4ac"
+    },
+    {
+      "path": "assets/gifts/thumb_legend_phantom_supercar.png",
+      "sku": "legend_phantom_supercar",
+      "bytes": 16791,
+      "sha256": "8a928f806fa4bb0eb2860e5c0f239b318dcc6f44bc85a753b26a1e1a2342ca63"
+    },
+    {
+      "path": "assets/gifts/legend_cosmic_rocket.webp",
+      "sku": "legend_cosmic_rocket",
+      "bytes": 5025046,
+      "sha256": "7a31dfc2988eeb8ae00f582c3a8ee1090a62cb2d8d58311cbbcfcae2237f2cef"
+    },
+    {
+      "path": "assets/gifts/legend_cosmic_rocket.m4a",
+      "sku": "legend_cosmic_rocket",
+      "bytes": 64576,
+      "sha256": "165d32a01be741c0ba4daaff97f987e048bc784364f474d0965dff269fefa5de"
+    },
+    {
+      "path": "assets/gifts/thumb_legend_cosmic_rocket.png",
+      "sku": "legend_cosmic_rocket",
+      "bytes": 38177,
+      "sha256": "7f03efb98e9195f09faae74c3bde5917d57a0198c9628fe28e6270c83d41b89b"
+    },
+    {
+      "path": "assets/gifts/legend_royal_palace.webp",
+      "sku": "legend_royal_palace",
+      "bytes": 6956696,
+      "sha256": "34ba06c79b6ca296e66fb9293f9854da1a76bf67f76f253fa0fe084791f9ec10"
+    },
+    {
+      "path": "assets/gifts/legend_royal_palace.m4a",
+      "sku": "legend_royal_palace",
+      "bytes": 64632,
+      "sha256": "713e977dd2a7cc8774c4f27f806c52e775ee60f019fcd5fe3ef1af0082f7925e"
+    },
+    {
+      "path": "assets/gifts/thumb_legend_royal_palace.png",
+      "sku": "legend_royal_palace",
+      "bytes": 58335,
+      "sha256": "68f369d7eb131427374acb824f7e6561041f4716574ba56c11ae2464dd61d492"
+    },
+    {
+      "path": "assets/gifts/legend_galaxy_dragon.webp",
+      "sku": "legend_galaxy_dragon",
+      "bytes": 3068328,
+      "sha256": "70ae0804b0c00e6f77cfa15a77779bd9d801649ade2f487cf3a0a9cd45ee6e04"
+    },
+    {
+      "path": "assets/gifts/legend_galaxy_dragon.m4a",
+      "sku": "legend_galaxy_dragon",
+      "bytes": 66803,
+      "sha256": "beca3ca180da3cb86f3066c0a9043494f8fb753c9f63c06039ac03d7abbb3645"
+    },
+    {
+      "path": "assets/gifts/thumb_legend_galaxy_dragon.png",
+      "sku": "legend_galaxy_dragon",
+      "bytes": 13620,
+      "sha256": "d694ae07eeb775bbc28bb64eaef9ecee51243de8f781e77865d7cb3e5f026f41"
+    },
+    {
+      "path": "assets/gifts/legend_pulse_legend.webp",
+      "sku": "legend_pulse_legend",
+      "bytes": 2597600,
+      "sha256": "18f7379e2484c820640e48c64e5810df41470063920bc11f85d49a09011dbe0c"
+    },
+    {
+      "path": "assets/gifts/legend_pulse_legend.m4a",
+      "sku": "legend_pulse_legend",
+      "bytes": 64594,
+      "sha256": "7257cdd095dd5c7b9115172b3a3f66d0d6ae88ee7782d941ffb45e8b0e908857"
+    },
+    {
+      "path": "assets/gifts/thumb_legend_pulse_legend.png",
+      "sku": "legend_pulse_legend",
+      "bytes": 48247,
+      "sha256": "25bcc60d657c5e2692e640518c58b23cfde46f0ad3db0da931cc06aee99c523c"
+    },
+    {
+      "path": "assets/gifts/legend_pulse_universe.webp",
+      "sku": "legend_pulse_universe",
+      "bytes": 5793258,
+      "sha256": "05b58c427c4ba8b6a184a68b2ae9199afff99474e90137451fd0f3d617702feb"
+    },
+    {
+      "path": "assets/gifts/legend_pulse_universe.m4a",
+      "sku": "legend_pulse_universe",
+      "bytes": 64875,
+      "sha256": "3b052c380b6481e7378c2ffe5c03bcb1df7ca71cf9fbb1a1b58a3e8c3c9f533b"
+    },
+    {
+      "path": "assets/gifts/thumb_legend_pulse_universe.png",
+      "sku": "legend_pulse_universe",
+      "bytes": 52261,
+      "sha256": "709cef94e194c51a6abc8b72c97765a6bbe87a09f37e7b1ffcad846eef1205cc"
+    },
+    {
+      "path": "assets/gifts/legend_lion_king_packed.mp4",
+      "sku": "legend_lion_king",
+      "bytes": 825110,
+      "sha256": "9c5a39505b7855913425d0f8c847aef8e4012076625f2747d873f1de846bcec0"
+    },
+    {
+      "path": "assets/gifts/legend_phoenix_packed.mp4",
+      "sku": "legend_phoenix",
+      "bytes": 782458,
+      "sha256": "c800221a9c88fb77cd63880a280ec335e9d2356c8bec2c51b9c0f5a1f247ab6b"
+    },
+    {
+      "path": "assets/gifts/legend_thunder_god_packed.mp4",
+      "sku": "legend_thunder_god",
+      "bytes": 926432,
+      "sha256": "14353850a95224c37eb9e2e2a5f6e869bd69b16197287ebe30769dce64662b06"
+    },
+    {
+      "path": "assets/gifts/legend_phantom_supercar_packed.mp4",
+      "sku": "legend_phantom_supercar",
+      "bytes": 599070,
+      "sha256": "8df7d880c16b93ba8d88b8d09255fd94bf131a1470f82fadddabf7112383d241"
+    },
+    {
+      "path": "assets/gifts/legend_cosmic_rocket_packed.mp4",
+      "sku": "legend_cosmic_rocket",
+      "bytes": 1313313,
+      "sha256": "01e8f7860775bcf71dda0e2b77faf084de04587adefff5ebba07867ddd5bfb35"
+    },
+    {
+      "path": "assets/gifts/legend_royal_palace_packed.mp4",
+      "sku": "legend_royal_palace",
+      "bytes": 2299314,
+      "sha256": "eed2297c25a3fd1cd08fbc146403f719445b4a39f2c6a0e56f3d0945ff96f3f9"
+    },
+    {
+      "path": "assets/gifts/legend_galaxy_dragon_packed.mp4",
+      "sku": "legend_galaxy_dragon",
+      "bytes": 973393,
+      "sha256": "e82d2698c3a1ebfef374d78c4284450b288f1a6e3c6a71101b805357fe047b07"
+    },
+    {
+      "path": "assets/gifts/legend_pulse_legend_packed.mp4",
+      "sku": "legend_pulse_legend",
+      "bytes": 1287408,
+      "sha256": "2d76a53c415f7ecad29168ebc0513e55a544f6189641035c7f145efb5a75496a"
+    },
+    {
+      "path": "assets/gifts/legend_pulse_universe_packed.mp4",
+      "sku": "legend_pulse_universe",
+      "bytes": 2068533,
+      "sha256": "00af7643df37d72b51c6c5c5d5c38b88be28b3f6dc1da02cab4f54b8dd1107be"
+    }
+  ],
+  "model": {
+    "url": "https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2netp.onnx",
+    "sha256": "309c8469258dda742793dce0ebea8e6dd393174f89934733ecc8b14c76f4ddd8",
+    "license": "Apache-2.0",
+    "runtime": "offline processing only"
+  },
+  "notes": "User-supplied generated MP4s; inferred foreground plus mode-specific luminance/chroma protection and spatial edge feather. Strong subject cores stay opaque. Not depth/face tracked AR. No original frames trimmed; frame timing preserves source duration.",
+  "refinement_model": {
+    "isnet_url": "https://github.com/danielgatis/rembg/releases/download/v0.0.0/isnet-general-use.onnx",
+    "sha256": "60920e99c45464f2ba57bee2ad08c919a52bbf852739e96947fbb4358c0d964a",
+    "scope": "offline car matting only"
+  },
+  "validation": "All nine final packed H264/AAC videos and separate AAC tracks decode with ffmpeg -xerror; recovered source corruption is not present in the bundled media."
+}

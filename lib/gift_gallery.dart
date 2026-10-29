@@ -1,9 +1,14 @@
+import 'dart:async';
+import 'dart:ui' as ui;
+
+import 'legendary_overlay.dart';
+import 'legendary_catalog.dart';
 import 'gift_assets.dart';
+
 import 'package:flutter/material.dart';
+
 import 'gift_visuals.dart';
 import 'pulse_coin.dart';
-
-
 
 String pulseGiftTitle(String sku, String title) =>
     sku == 'galaxy' ? 'Pulse Universe' : title;
@@ -37,8 +42,31 @@ class _PulseGiftGalleryState extends State<PulseGiftGallery> {
   String tab = 'All';
   Map? selected;
   @override
+  void initState() {
+    super.initState();
+    if (!ui.ImageFilter.isShaderFilterSupported &&
+        widget.gifts.any((g) => g['sku'] == 'legend_lion_king')) {
+      unawaited(() async {
+        try {
+          await PulseLegendaryBytes.load('legend_lion_king');
+        } catch (_) {}
+      }());
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final items = widget.gifts.where((g) => tab == 'All' || (tab == 'Videos' ? pulseGiftHasVideo(g) : !pulseGiftHasVideo(g))).toList();
+    final items = widget.gifts
+        .where(
+          (g) =>
+              tab == 'All' ||
+              (tab == 'Legendary'
+                  ? pulseLegendaryGifts.containsKey(g['sku'])
+                  : tab == 'Videos'
+                  ? pulseGiftHasVideo(g)
+                  : !pulseGiftHasVideo(g)),
+        )
+        .toList();
     final content = Column(
       children: [
         Padding(
@@ -96,7 +124,12 @@ class _PulseGiftGalleryState extends State<PulseGiftGallery> {
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
           child: Row(
             children: [
-              for (final value in ['All', 'Videos', 'Notifications'])
+              for (final value in [
+                'All',
+                'Legendary',
+                'Videos',
+                'Notifications',
+              ])
                 Padding(
                   padding: const EdgeInsets.only(right: 8),
                   child: ChoiceChip(
@@ -105,7 +138,7 @@ class _PulseGiftGalleryState extends State<PulseGiftGallery> {
                     onSelected: (_) => setState(() => tab = value),
                   ),
                 ),
-              const Text('Send = 1 gift', style: TextStyle(fontSize: 11)),
+              const Text('Tap gift = send 1', style: TextStyle(fontSize: 11)),
             ],
           ),
         ),
@@ -121,7 +154,7 @@ class _PulseGiftGalleryState extends State<PulseGiftGallery> {
                 padding: const EdgeInsets.all(12),
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: columns,
-                  mainAxisExtent: scale > 1.4 ? 178 : 136,
+                  mainAxisExtent: scale > 1.4 ? 210 : 166,
                   crossAxisSpacing: 6,
                   mainAxisSpacing: 6,
                 ),
@@ -135,7 +168,11 @@ class _PulseGiftGalleryState extends State<PulseGiftGallery> {
                     label:
                         '${pulseGiftTitle(sku, gift['title'])}, ${gift['coins']} coins',
                     child: InkWell(
-                      onTap: () => setState(() => selected = gift),
+                      onTap: () => widget.onChoose({
+                        ...gift,
+                        'title': pulseGiftTitle(sku, gift['title']),
+                        'recipient': recipient,
+                      }),
                       borderRadius: BorderRadius.circular(16),
                       child: Container(
                         padding: const EdgeInsets.all(6),
@@ -177,6 +214,19 @@ class _PulseGiftGalleryState extends State<PulseGiftGallery> {
                                   ),
                                 ),
                               ],
+                            ),
+                            IconButton(
+                              tooltip:
+                                  'Preview ${pulseGiftTitle(sku, gift['title'])}',
+                              visualDensity: VisualDensity.compact,
+                              onPressed: () {
+                                setState(() => selected = gift);
+                                widget.onPreview(gift);
+                              },
+                              icon: const Icon(
+                                Icons.play_circle_outline,
+                                size: 20,
+                              ),
                             ),
                           ],
                         ),
@@ -236,25 +286,6 @@ class _PulseGiftGalleryState extends State<PulseGiftGallery> {
                       onPressed: widget.onRecharge,
                       child: const Text('Recharge'),
                     ),
-                  FilledButton(
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                    ),
-                    onPressed: selected == null
-                        ? null
-                        : () => widget.onChoose({
-                            ...selected!,
-                            'title': pulseGiftTitle(
-                              selected!['sku'],
-                              selected!['title'],
-                            ),
-                            'recipient': recipient,
-                          }),
-                    child: const Text(
-                      'Send 1 now',
-                      style: TextStyle(fontSize: 12),
-                    ),
-                  ),
                 ],
               ),
             ],
