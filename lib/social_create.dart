@@ -610,6 +610,16 @@ class _SocialComposerState extends State<SocialComposer> {
                           icon: const Icon(Icons.add_rounded),
                           label: const Text('Choose media'),
                         ),
+                        const SizedBox(height: 10),
+                        FilledButton.icon(
+                          onPressed: busy ? null : openPersonalLive,
+                          style: FilledButton.styleFrom(
+                            backgroundColor: const Color(0xffed476f),
+                            foregroundColor: Colors.white,
+                          ),
+                          icon: const Icon(Icons.live_tv_rounded),
+                          label: const Text('Go LIVE'),
+                        ),
                       ],
                     ),
                   ),
