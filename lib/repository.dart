@@ -73,6 +73,16 @@ class PulseRepository extends ChangeNotifier {
   String get uid => db.auth.currentUser!.id;
   String get _queueKey => 'pulse.outbox.$uid';
   String get _cacheKey => 'pulse.cache.$uid';
+  Future<void> _outboxWrites = Future<void>.value();
+
+  Future<void> _persistOutbox(String key) {
+    final snapshot = jsonEncode(pending);
+    final write = _outboxWrites
+        .catchError((_) {})
+        .then((_) => vault.write(key: key, value: snapshot));
+    _outboxWrites = write;
+    return write;
+  }
 
   Future<void> initialize() async {
     final saved = await vault.read(key: _queueKey);
@@ -403,11 +413,16 @@ class PulseRepository extends ChangeNotifier {
       'created_at': DateTime.now().toUtc().toIso8601String(),
       'pending': true,
     };
+    final owner = uid;
+    final queueKey = 'pulse.outbox.$owner';
     pending.add(row);
-    await vault.write(key: _queueKey, value: jsonEncode(pending));
     notifyListeners();
-    await flush();
-    await refresh();
+    await _persistOutbox(queueKey);
+    unawaited(() async {
+      if (db.auth.currentUser?.id != owner) return;
+      await flush();
+      if (db.auth.currentUser?.id == owner) await refresh();
+    }());
   }
 
   Future<void> flush() async {
@@ -441,13 +456,13 @@ class PulseRepository extends ChangeNotifier {
           if (generation != _generation || db.auth.currentUser?.id != owner)
             break;
           pending.remove(p);
-          await vault.write(key: queueKey, value: jsonEncode(pending));
+          await _persistOutbox(queueKey);
         } on PostgrestException catch (e) {
           // Authorization/validation failures need the user's attention, not endless retries.
           if (generation != _generation || db.auth.currentUser?.id != owner)
             break;
           p['failure'] = e.message;
-          await vault.write(key: queueKey, value: jsonEncode(pending));
+          await _persistOutbox(queueKey);
         } catch (_) {
           break;
         }
@@ -460,7 +475,7 @@ class PulseRepository extends ChangeNotifier {
 
   Future<void> discardPending(String id) async {
     pending.removeWhere((p) => p['id'] == id);
-    await vault.write(key: _queueKey, value: jsonEncode(pending));
+    await _persistOutbox(_queueKey);
     notifyListeners();
   }
 
