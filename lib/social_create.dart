@@ -605,29 +605,10 @@ class _SocialComposerState extends State<SocialComposer> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            FilledButton.icon(
-                              onPressed: busy ? null : pick,
-                              icon: const Icon(Icons.add_rounded),
-                              label: const Text(
-                                'Choose media',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            FilledButton.icon(
-                              onPressed: busy ? null : openPersonalLive,
-                              style: FilledButton.styleFrom(
-                                backgroundColor: const Color(0xffed476f),
-                                foregroundColor: Colors.white,
-                              ),
-                              icon: const Icon(Icons.live_tv_rounded),
-                              label: const Text('Go LIVE'),
-                            ),
-                          ],
+                        FilledButton.icon(
+                          onPressed: busy ? null : pick,
+                          icon: const Icon(Icons.add_rounded),
+                          label: const Text('Choose media'),
                         ),
                       ],
                     ),
@@ -938,14 +919,22 @@ class _SocialComposerState extends State<SocialComposer> {
           ],
         ),
         actions: [
-          IconButton(
-            tooltip: 'Go LIVE / Resume',
+          FilledButton.icon(
             onPressed: busy ? null : openPersonalLive,
-            icon: const Icon(Icons.live_tv_rounded),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xffed476f),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              minimumSize: const Size(0, 36),
+            ),
+            icon: const Icon(Icons.live_tv_rounded, size: 18),
+            label: const Text('Go LIVE'),
           ),
-          TextButton(
+          IconButton(
+            tooltip: 'Save draft',
             onPressed: busy ? null : () => submit(true),
-            child: const Text('Save draft'),
+            visualDensity: VisualDensity.compact,
+            icon: const Icon(Icons.bookmark_add_outlined),
           ),
           const SizedBox(width: 6),
         ],
