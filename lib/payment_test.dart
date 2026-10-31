@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show FunctionException;
 import 'package:url_launcher/url_launcher.dart';
@@ -15,6 +16,8 @@ class PulsePaymentTestPage extends StatefulWidget {
 class _PulsePaymentTestPageState extends State<PulsePaymentTestPage> {
   final email = TextEditingController();
   String? reference;
+  Uri? checkoutUrl;
+  bool verifying = false;
   String result =
       'No real money is charged. This does not unlock paid features.';
   bool busy = false;
@@ -32,8 +35,16 @@ class _PulsePaymentTestPageState extends State<PulsePaymentTestPage> {
       setState(() => result = 'Enter a valid email for the test receipt.');
       return;
     }
-    setState(() => busy = true);
+    setState(() {
+      busy = true;
+      verifying = verify;
+      result = verify ? 'Checking the test payment…' : 'Opening Korapay sandbox… Please wait.';
+    });
     try {
+      if (!verify && checkoutUrl != null) {
+        await openCheckout();
+        return;
+      }
       final response = await widget.repo.db.functions
           .invoke(
             'pulse-payments',
@@ -50,16 +61,8 @@ class _PulsePaymentTestPageState extends State<PulsePaymentTestPage> {
         setState(() => reference = data['reference'] as String);
         final url = pulsePaymentCheckout(data['checkout_url'] as String, test: true);
         if (url == null) throw const FormatException('Unexpected checkout address');
-        final opened = await launchUrl(
-          url,
-          mode: LaunchMode.externalApplication,
-        );
-        if (mounted)
-          setState(
-            () => result = opened
-                ? 'Complete the sandbox checkout, then return and tap Verify test. Use the provider’s test details only.'
-                : 'Could not open checkout. Retry when your browser is available.',
-          );
+        checkoutUrl = url;
+        await openCheckout();
       }
     } on FunctionException catch (e) {
       final details = e.details;
@@ -69,6 +72,8 @@ class _PulsePaymentTestPageState extends State<PulsePaymentTestPage> {
               ? (details['error'] ?? 'Payment test unavailable.').toString()
               : 'Payment test unavailable. Please retry.',
         );
+    } on TimeoutException {
+      if (mounted) setState(() => result = 'The request timed out. Wait one minute before retrying. If checkout already opened, return here to verify.');
     } catch (_) {
       if (mounted)
         setState(
@@ -78,6 +83,14 @@ class _PulsePaymentTestPageState extends State<PulsePaymentTestPage> {
     } finally {
       if (mounted) setState(() => busy = false);
     }
+  }
+
+  Future<void> openCheckout() async {
+    final opened = await launchUrl(checkoutUrl!, mode: LaunchMode.externalApplication)
+        .timeout(const Duration(seconds: 8));
+    if (mounted) setState(() => result = opened
+        ? 'Complete the sandbox checkout, then return and tap Verify test. Use the provider’s test details only.'
+        : 'Could not open your browser. Tap Reopen sandbox checkout to retry the same link.');
   }
 
   @override
@@ -105,7 +118,7 @@ class _PulsePaymentTestPageState extends State<PulsePaymentTestPage> {
         const SizedBox(height: 24),
         TextField(
           controller: email,
-          enabled: !busy,
+          enabled: !busy && checkoutUrl == null,
           keyboardType: TextInputType.emailAddress,
           decoration: const InputDecoration(
             labelText: 'Test receipt email',
@@ -115,13 +128,13 @@ class _PulsePaymentTestPageState extends State<PulsePaymentTestPage> {
         const SizedBox(height: 16),
         FilledButton(
           onPressed: busy ? null : () => run(),
-          child: const Text('Open sandbox checkout'),
+          child: Text(busy && !verifying ? 'Opening Korapay…' : checkoutUrl != null ? 'Reopen sandbox checkout' : 'Open sandbox checkout'),
         ),
         if (reference != null) ...[
           const SizedBox(height: 12),
           OutlinedButton(
             onPressed: busy ? null : () => run(verify: true),
-            child: const Text('Verify test'),
+            child: Text(busy && verifying ? 'Verifying…' : 'Verify test'),
           ),
         ],
         const SizedBox(height: 24),
