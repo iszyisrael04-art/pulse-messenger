@@ -28,6 +28,9 @@ void main() {
         50000,
         60000,
       ]);
+      expect(pulsePremiumGifts.values.map((g) => g.coins).toList(), [30000, 35000, 40000, 45000]);
+      expect(pulseCinematicGifts.length, 13);
+      expect(pulseLegendaryForEvent({'sku': 'premium_white_tiger', 'coins': 35000})?.title, 'White Tiger');
       for (final g in pulseLegendaryGifts.values) {
         expect(g.durationMs, inInclusiveRange(5042, 5167));
       }

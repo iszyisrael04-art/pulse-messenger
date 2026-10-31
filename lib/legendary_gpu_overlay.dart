@@ -35,7 +35,7 @@ class _PulseLegendaryGpuVideoState extends State<PulseLegendaryGpuVideo>
   Timer? _deadline;
   bool _ready = false, _done = false, _closed = false, _played = false;
   static Future<ui.FragmentProgram>? _program;
-  PulseLegendaryGift get gift => pulseLegendaryGifts[widget.sku]!;
+  PulseLegendaryGift get gift => pulseCinematicGifts[widget.sku]!;
   @override
   void initState() {
     super.initState();

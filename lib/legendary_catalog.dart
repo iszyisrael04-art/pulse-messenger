@@ -67,9 +67,19 @@ const pulseLegendaryGifts = <String, PulseLegendaryGift>{
     1.7391304347826086,
   ),
 };
+const pulsePremiumGifts = <String, PulseLegendaryGift>{
+  'premium_royal_stallion': PulseLegendaryGift('Royal Stallion', 30000, 5042, 480 / 274),
+  'premium_white_tiger': PulseLegendaryGift('White Tiger', 35000, 5042, 480 / 274),
+  'premium_fire_dragon': PulseLegendaryGift('Fire Dragon', 40000, 5042, 480 / 274),
+  'premium_great_shark': PulseLegendaryGift('Great Shark', 45000, 5042, 480 / 274),
+};
+const pulseCinematicGifts = <String, PulseLegendaryGift>{
+  ...pulseLegendaryGifts,
+  ...pulsePremiumGifts,
+};
 PulseLegendaryGift? pulseLegendaryForEvent(Map event) {
   if (event['notification_only'] == true) return null;
-  final gift = pulseLegendaryGifts[event['sku']];
+  final gift = pulseCinematicGifts[event['sku']];
   final price = event['coins'];
   return gift != null && (price is! num || price >= 300) ? gift : null;
 }

@@ -57,11 +57,14 @@ class _PulseGiftGalleryState extends State<PulseGiftGallery> {
   @override
   Widget build(BuildContext context) {
     final items = widget.gifts
+        .where((g) => !const {'lion', 'royal_lions', 'gorilla', 'thunder_falcon'}.contains(g['sku']))
         .where(
           (g) =>
               tab == 'All' ||
               (tab == 'Legendary'
                   ? pulseLegendaryGifts.containsKey(g['sku'])
+                  : tab == 'Premium'
+                  ? pulsePremiumGifts.containsKey(g['sku'])
                   : tab == 'Videos'
                   ? pulseGiftHasVideo(g)
                   : !pulseGiftHasVideo(g)),
@@ -127,6 +130,7 @@ class _PulseGiftGalleryState extends State<PulseGiftGallery> {
               for (final value in [
                 'All',
                 'Legendary',
+                'Premium',
                 'Videos',
                 'Notifications',
               ])

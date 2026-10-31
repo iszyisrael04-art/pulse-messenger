@@ -20,7 +20,7 @@ class PulseLegendaryBytes {
   static int _size = 0;
   static const budget = 8 * 1024 * 1024;
   static Future<Uint8List> load(String sku) async {
-    if (!pulseLegendaryGifts.containsKey(sku))
+    if (!pulseCinematicGifts.containsKey(sku))
       throw const FormatException('Unknown gift');
     final hit = _cache.remove(sku);
     if (hit != null) {
@@ -83,7 +83,7 @@ class __PulseLegendaryPortableOverlayState
   int _frameEnd = 0, _decoded = 0, _anchor = 0, _anchorClock = 0;
   bool _hasAnchor = false;
   String get sku => widget.event['sku'].toString();
-  PulseLegendaryGift get gift => pulseLegendaryGifts[sku]!;
+  PulseLegendaryGift get gift => pulseCinematicGifts[sku]!;
   int get elapsed => _hasAnchor
       ? (_anchor + _clock.elapsedMilliseconds - _anchorClock).clamp(
           0,
@@ -364,7 +364,7 @@ class _PulseLegendaryOverlayState extends State<PulseLegendaryOverlay>
   late final _notice = AnimationController(
     vsync: this,
     duration: Duration(
-      milliseconds: pulseLegendaryGifts[widget.event['sku']]!.durationMs,
+      milliseconds: pulseCinematicGifts[widget.event['sku']]!.durationMs,
     ),
   );
   bool _portable = false, _gpuReady = false;
@@ -415,7 +415,7 @@ class _PulseLegendaryOverlayState extends State<PulseLegendaryOverlay>
       );
     }
     final sku = widget.event['sku'].toString(),
-        gift = pulseLegendaryGifts[widget.event['sku']]!;
+        gift = pulseCinematicGifts[widget.event['sku']]!;
     return IgnorePointer(
       child: Stack(
         fit: StackFit.expand,

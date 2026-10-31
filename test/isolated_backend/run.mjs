@@ -108,7 +108,12 @@ console.log('TEST PASS wildlife_gifts_security.sql');
 await db.exec(fs.readFileSync(root+'/supabase/schema/049_legendary_gifts.sql','utf8'));
 await db.exec(fs.readFileSync(root+'/test/legendary_gifts_security.sql','utf8'));
 console.log('TEST PASS legendary_gifts_security.sql');
+await db.exec(fs.readFileSync(root+'/supabase/schema/050_premium_gifts.sql','utf8'));
+const premium = await db.query("select coins from pulse_private.gift_catalog where sku like 'premium_%' and enabled order by coins");
+if (JSON.stringify(premium.rows.map(r=>r.coins)) !== '[30000,35000,40000,45000]') throw Error('Premium prices mismatch');
+const retired = await db.query("select sku from pulse_private.gift_catalog where sku in ('lion','royal_lions','gorilla','thunder_falcon') and enabled");
+if (retired.rows.length) throw Error('Retired wildlife remains enabled');
+console.log('PASS premium prices and wildlife retirement');
 await db.close();
 await import('../live_edge_offline.mjs');
 }catch(e){console.log('BOOTSTRAP FAIL',e.message);process.exit(1);}
-

@@ -11,7 +11,7 @@ class PulseGiftModel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (pulseGiftMovies.containsKey(sku) ||
-        pulseLegendaryGifts.containsKey(sku)) {
+        pulseCinematicGifts.containsKey(sku)) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(12),
         child: Image.asset(

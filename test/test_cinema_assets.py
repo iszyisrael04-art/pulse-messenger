@@ -8,7 +8,7 @@ class WildlifeAssetTests(unittest.TestCase):
   skus={'lion','royal_lions','gorilla','thunder_falcon'}
   expected={f'assets/gifts/{prefix}{sku}{ext}' for sku in skus for prefix,ext in [('wildlife_','.mp4'),('thumb_','.png')]}
   self.assertEqual({x['path'] for x in data['files']},expected)
-  self.assertEqual({p.relative_to(ROOT).as_posix() for p in (ROOT/'assets/gifts').iterdir() if not p.name.startswith('legend_') and not p.name.startswith('thumb_legend_')},expected)
+  self.assertEqual({p.relative_to(ROOT).as_posix() for p in (ROOT/'assets/gifts').iterdir() if not p.name.startswith(('legend_', 'thumb_legend_', 'premium_', 'thumb_premium_'))},expected)
   for row in data['files']:
    b=(ROOT/row['path']).read_bytes()
    self.assertEqual(len(b),row['bytes']);self.assertEqual(hashlib.sha256(b).hexdigest(),row['sha256'])

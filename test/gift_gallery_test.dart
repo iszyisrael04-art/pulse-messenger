@@ -15,10 +15,10 @@ void main() {
               gifts: const [
                 {'sku': 'rose', 'title': 'Rose', 'coins': 10, 'p_coins': .5},
                 {
-                  'sku': 'lion',
-                  'title': 'Lion',
-                  'coins': 5000,
-                  'p_coins': 2000,
+                  'sku': 'premium_royal_stallion',
+                  'title': 'Royal Stallion',
+                  'coins': 30000,
+                  'p_coins': 1500,
                 },
               ],
               people: const [
@@ -34,16 +34,16 @@ void main() {
           ),
         ),
       );
-      await tester.tap(find.text('Videos'));
+      await tester.tap(find.text('Premium'));
       await tester.pumpAndSettle();
       expect(find.text('Rose'), findsNothing);
-      await tester.tap(find.byTooltip('Preview Lion'));
+      await tester.tap(find.byTooltip('Preview Royal Stallion'));
       await tester.pump();
       expect(previews, 1);
       expect(sent, isNull);
-      await tester.tap(find.text('Lion'));
+      await tester.tap(find.text('Royal Stallion'));
       await tester.pump();
-      expect(sent?['sku'], 'lion');
+      expect(sent?['sku'], 'premium_royal_stallion');
       expect(sent?['recipient'], 'host');
       expect(find.byType(AlertDialog), findsNothing);
       expect(tester.takeException(), isNull);

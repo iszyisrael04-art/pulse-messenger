@@ -1,0 +1,147 @@
+{
+  "gifts": [
+    {
+      "sku": "premium_royal_stallion",
+      "title": "Royal Stallion",
+      "coins": 30000,
+      "source": "1000460743.mp4",
+      "source_sha256": "7d749490769d1e6e132eefe7a99a433b162c0a3efc6cb22aaa83478ff3bc56ef",
+      "duration_ms": 5042,
+      "width": 480,
+      "height": 274,
+      "frames": 121
+    },
+    {
+      "sku": "premium_white_tiger",
+      "title": "White Tiger",
+      "coins": 35000,
+      "source": "1000460744.mp4",
+      "source_sha256": "4a60685c26afdf6bcf0e271f78b6f381b6fcace68511354917ba63bb4907be37",
+      "duration_ms": 5042,
+      "width": 480,
+      "height": 274,
+      "frames": 121
+    },
+    {
+      "sku": "premium_fire_dragon",
+      "title": "Fire Dragon",
+      "coins": 40000,
+      "source": "1000460745.mp4",
+      "source_sha256": "46ba3ca0d31439e409812b8fe2230427aa1bbb35ae540239d22665130343a26f",
+      "duration_ms": 5042,
+      "width": 480,
+      "height": 274,
+      "frames": 121
+    },
+    {
+      "sku": "premium_great_shark",
+      "title": "Great Shark",
+      "coins": 45000,
+      "source": "1000460746.mp4",
+      "source_sha256": "9d1d4ddc65792719ace298a1fb0be1ffa4297727f1de85b29da1d90ec1796176",
+      "duration_ms": 5042,
+      "width": 480,
+      "height": 274,
+      "frames": 121
+    }
+  ],
+  "files": [
+    {
+      "path": "assets/gifts/premium_royal_stallion.webp",
+      "bytes": 2230872,
+      "sha256": "99bf64bcc26e3efe1ba8d908c6ec29afb4baa6fd4b4edf82553df85970535de6",
+      "sku": "premium_royal_stallion"
+    },
+    {
+      "path": "assets/gifts/premium_royal_stallion.m4a",
+      "bytes": 64884,
+      "sha256": "c14b70c5e11df1924124d71faaaf7a1a713e71be4d734d402e847df9e29a9ce4",
+      "sku": "premium_royal_stallion"
+    },
+    {
+      "path": "assets/gifts/thumb_premium_royal_stallion.png",
+      "bytes": 49033,
+      "sha256": "c138b1e6b6f3bf43a979d8126278d79ea08489c3872ebbbf792bb9937550bc7a",
+      "sku": "premium_royal_stallion"
+    },
+    {
+      "path": "assets/gifts/premium_royal_stallion_packed.mp4",
+      "bytes": 1152308,
+      "sha256": "408fe05ff9ca1b6df35ce6a2b77c0d105c2c6ea8f2795889a0ec36920d365500",
+      "sku": "premium_royal_stallion"
+    },
+    {
+      "path": "assets/gifts/premium_white_tiger.webp",
+      "bytes": 1203656,
+      "sha256": "5faa866cf840fd48eeffa071bd6eb09cc7fc391f5dd1c03710a6650c4e8fcb90",
+      "sku": "premium_white_tiger"
+    },
+    {
+      "path": "assets/gifts/premium_white_tiger.m4a",
+      "bytes": 64994,
+      "sha256": "bd57cbdb002b3db5ad62ab815c4ad622b72f6ff6fadacb5ca04f9d61fffe2e0a",
+      "sku": "premium_white_tiger"
+    },
+    {
+      "path": "assets/gifts/thumb_premium_white_tiger.png",
+      "bytes": 38960,
+      "sha256": "9e9894f1f6101ad77d810fecebfd09e187e7e0bc0db54ec5009e4364b0b2b25d",
+      "sku": "premium_white_tiger"
+    },
+    {
+      "path": "assets/gifts/premium_white_tiger_packed.mp4",
+      "bytes": 787468,
+      "sha256": "eddce10c9dfdd867da14fc8c6bdcdc9fedec84813e691b9c598d8c65df20d73e",
+      "sku": "premium_white_tiger"
+    },
+    {
+      "path": "assets/gifts/premium_fire_dragon.webp",
+      "bytes": 2040048,
+      "sha256": "248297a870b2f5ee79d63fa7f35148f491bccd169fde7e7c421b54b9f664a8bb",
+      "sku": "premium_fire_dragon"
+    },
+    {
+      "path": "assets/gifts/premium_fire_dragon.m4a",
+      "bytes": 64607,
+      "sha256": "255f6dbed879e088554468ba3b8d41b3d83defc0ac8f6fa69f1c45969ef496b4",
+      "sku": "premium_fire_dragon"
+    },
+    {
+      "path": "assets/gifts/thumb_premium_fire_dragon.png",
+      "bytes": 44592,
+      "sha256": "82f7e9ff28651680b310e40f4526cf3b7de9d4956dae60ac305a38647f379751",
+      "sku": "premium_fire_dragon"
+    },
+    {
+      "path": "assets/gifts/premium_fire_dragon_packed.mp4",
+      "bytes": 1108978,
+      "sha256": "241f5dfd5925c3625d8b5304ac0db33d58e1d9d7007c9098d77ba98eac44c478",
+      "sku": "premium_fire_dragon"
+    },
+    {
+      "path": "assets/gifts/premium_great_shark.webp",
+      "bytes": 1098484,
+      "sha256": "cbc962619f3adeab267bdf2b5a1686e3c6af5d5356a56b8e22a414227d25a301",
+      "sku": "premium_great_shark"
+    },
+    {
+      "path": "assets/gifts/premium_great_shark.m4a",
+      "bytes": 65185,
+      "sha256": "c19ded9b513f12dde0a15d43b92dae1eed02c4e13824e0eff1dd1125dd91583e",
+      "sku": "premium_great_shark"
+    },
+    {
+      "path": "assets/gifts/thumb_premium_great_shark.png",
+      "bytes": 32018,
+      "sha256": "e33f2d91ccd3f7ddddf7e800544d22a94814f7bb8bf85ffb395f119114989f04",
+      "sku": "premium_great_shark"
+    },
+    {
+      "path": "assets/gifts/premium_great_shark_packed.mp4",
+      "bytes": 696688,
+      "sha256": "f21b016b6c1062ecf5cf606add4a9cd9545269ff83056c240a34921d5f9ad6c7",
+      "sku": "premium_great_shark"
+    }
+  ],
+  "notes": "Original uploaded premium footage and audio. Only the outer 3% is feathered; no foreground segmentation or internal holes."
+}
