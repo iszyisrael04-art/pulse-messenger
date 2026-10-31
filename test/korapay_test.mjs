@@ -18,8 +18,8 @@ assert(!koraUrl('https://checkout.korapay.com.evil.test/ref'));
 assert(!koraUrl('https://user@checkout.korapay.com/ref'));
 assert(!koraUrl('https://test-checkout.korapay.com/ref'));
 assert(koraUrl('https://test-checkout.korapay.com/ref',true));
-let order={id,user_id:user,sku:'coins_100',coins:100,usd_cents:100,charge_minor:150000,currency:'NGN',state:'pending',checkout_url:null};
-let receipt={reference:id,status:'success',currency:'NGN',amount:'1500.00',amount_paid:'1500.00'};
+let order={id,user_id:user,sku:'coins_100',coins:100,usd_cents:100,charge_minor:45000,currency:'NGN',state:'pending',checkout_url:null};
+let receipt={reference:id,status:'success',currency:'NGN',amount:'450.00',amount_paid:'450.00'};
 assert(koraMatches(receipt,order));
 for(const patch of [{reference:'other'},{amount:'15.00'},{amount_paid:'1499.99'},{currency:'USD'},{status:'pending'},{amount_paid:undefined}])assert(!koraMatches({...receipt,...patch},order));
 async function signature(data){
@@ -36,7 +36,7 @@ const service={rpc:async(name,args)=>{
  assert.equal(name,'pulse_kora_order_service');
  if(args.p_action==='quote'){quoteRate=args.p_rate;return{data:{...order},error:null};}
  if(args.p_action==='checkout'){order.checkout_url=args.p_url;return{data:{...order},error:null};}
- if(args.p_action==='fulfill'){assert.equal(args.p_amount,150000);fulfilments++;order.state='paid';}
+ if(args.p_action==='fulfill'){assert.equal(args.p_amount,45000);fulfilments++;order.state='paid';}
  return{data:{...order},error:null};
 }};
 const factory=(_url,k)=>k==='service'?service:client;
@@ -52,8 +52,8 @@ const handler=makeKoraHandler(env,factory,provider);
 const request=(body,headers={Authorization:'Bearer fixture'})=>new Request('https://example.supabase.co/functions/v1/pulse-payments',{method:'POST',headers,body:JSON.stringify(body)});
 let response=await handler(request({action:'checkout',order_id:id,sku:'coins_100',email:'fixture@example.invalid'}));
 assert.equal(response.status,200);let data=await response.json();
-assert.equal(data.amount,150000);assert.equal(data.currency,'NGN');assert.equal(quoteRate,'450');
-assert.equal(posted.amount,1500);assert.equal(posted.merchant_bears_cost,true);assert.equal(fulfilments,0);
+assert.equal(data.amount,45000);assert.equal(data.currency,'NGN');assert.equal(quoteRate,'450');
+assert.equal(posted.amount,450);assert.equal(posted.merchant_bears_cost,true);assert.equal(fulfilments,0);
 const count=providerCalls;
 await handler(request({action:'checkout',order_id:id,sku:'coins_100',email:'fixture@example.invalid'}));
 assert.equal(providerCalls,count,'retry must reuse checkout');
@@ -62,7 +62,7 @@ assert.equal(response.status,401);assert.equal(fulfilments,0);
 receipt={...receipt,amount_paid:'1.00'};
 response=await handler(request({event:'charge.success',data:{...receipt}},{'x-korapay-signature':await signature(receipt)}));
 assert.equal(response.status,409);assert.equal(fulfilments,0,'signed notification alone must not fulfil');
-receipt={...receipt,amount_paid:'1500.00'};
+receipt={...receipt,amount_paid:'450.00'};
 response=await handler(request({event:'charge.success',data:receipt},{'x-korapay-signature':await signature(receipt)}));
 assert.equal(response.status,200);assert.equal(fulfilments,1);
 response=await handler(request({event:'charge.success',data:receipt},{'x-korapay-signature':await signature(receipt)}));
@@ -94,3 +94,19 @@ assert.equal(response.status,200);data=await response.json();assert.equal(data.d
 response=await priceHandler(request({action:'pricing',currency:'USD/evil'}));assert.equal(response.status,400);assert.equal(priceCalls,1);
 response=await priceHandler(request({action:'pricing',currency:'NGN'},{}));assert.equal(response.status,401);
 console.log('PASS regional display authentication, approved price, no settlement side effects and no credential forwarding');
+
+// Exercise the deployed entrypoint's provider decision, including stale settings.
+const {readFileSync}=await import('node:fs');
+const entry=readFileSync(new URL('../supabase/functions/pulse-payments/index.ts',import.meta.url),'utf8');
+const route=entry.split('\n').find(line=>line.includes('return korapay(req);'));
+assert(route,'entrypoint must route to Korapay');
+const condition=route.trim().match(/^if \((.*)\) return korapay\(req\);$/)[1];
+const choosesKora=new Function('req','Deno','return ('+condition+')');
+for(const setting of [undefined,'squad','korapay']) {
+ const runtime={env:{get:()=>setting}};
+ for(const action of ['pricing','health','checkout','verify','start-test','verify-test'])
+  assert.equal(choosesKora(request({action}),runtime),true,action+' must use Korapay');
+ assert.equal(choosesKora(request({}, {'x-korapay-signature':'fixture'}),runtime),true);
+ assert.equal(choosesKora(request({}, {'x-squad-encrypted-body':'fixture'}),runtime),false,'preserve legacy webhook verification');
+}
+console.log('PASS Korapay routing with missing/stale provider setting and legacy webhook compatibility');
