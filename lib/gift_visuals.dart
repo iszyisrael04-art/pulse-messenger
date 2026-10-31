@@ -81,6 +81,7 @@ class PulseGiftNotice extends StatelessWidget {
     required this.gift,
     this.test = false,
     this.coins,
+    this.giftSku = '',
     this.alignment = const Alignment(-1, .1),
   });
   final String name, title;
@@ -92,8 +93,10 @@ class PulseGiftNotice extends StatelessWidget {
   final String giftSku;
   @override
   Widget build(BuildContext context) {
-    final legendary = pulseLegendaryGifts.containsKey(giftSku);
-    final premium = pulsePremiumGifts.containsKey(giftSku);
+    final legendary = pulseLegendaryGifts.containsKey(giftSku) ||
+        pulseLegendaryGifts.values.any((gift) => gift.title == title);
+    final premium = pulsePremiumGifts.containsKey(giftSku) ||
+        pulsePremiumGifts.values.any((gift) => gift.title == title);
     final nameStyle = TextStyle(
       color: legendary
           ? const Color(0xffffd44f)
