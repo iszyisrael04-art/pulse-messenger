@@ -193,6 +193,7 @@ class __PulseClassicGiftPresentationState
                         1)
                     .toInt(),
             test: widget.event['is_test'] == true,
+            giftSku: sku,
             coins: pulseCinematicGifts[widget.event['sku']]?.coins,
             avatar: PulseAvatar(
               repo: widget.repo,
