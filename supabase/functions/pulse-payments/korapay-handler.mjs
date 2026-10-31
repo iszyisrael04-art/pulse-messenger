@@ -24,12 +24,22 @@ export function makeKoraHandler(env,createClient,request=fetch) {
     const account=await client.rpc('pulse_account_status');
     if(account.error||account.data?.active!==true)return json({error:'Active account required'},403);
     if(body.action==='health')return json({provider:'korapay',sandbox:cfg.test,configured:cfg.test||cfg.live,purchases_enabled:cfg.enabled,provider_verified:false,currency:'NGN'});
-    const limited=await client.rpc('pulse_live_probe');if(limited.error)return json({error:'Please wait before retrying'},429);
     if(body.action==='pricing') {
      if(typeof body.currency!=='string'||!/^[A-Z]{3}$/.test(body.currency))return json({error:'Select a currency'},400);
      const display=await regionalPricing(body.currency);
      return json({provider:'korapay',charge_currency:'NGN',ngn_per_catalog_usd:Number(cfg.rate),display,display_unavailable:display===null});
     }
+   }
+   if(!signed&&['start-test','verify-test'].includes(body.action)&&!cfg.test) {
+    const reason=!cfg.key?'KORAPAY_SECRET_KEY is missing in Supabase. Save your Korapay test secret.':
+     cfg.key.startsWith('sk_live_')?'A live Korapay key is configured. Sandbox requires the test secret.':
+     !/^sk_test_[A-Za-z0-9_-]+$/.test(cfg.key)?'KORAPAY_SECRET_KEY must contain the Korapay test secret, not the public key.':
+     'Set KORAPAY_MODE to test in Supabase to open the sandbox.';
+    return json({error:reason,code:'korapay_test_configuration'},503);
+   }
+   if(!signed) {
+    const limited=await client.rpc('pulse_live_probe');
+    if(limited.error)return json({error:'Too many payment attempts. Wait one minute, then tap once.',code:'payment_rate_limited'},429);
    }
    const headers={Authorization:'Bearer '+cfg.key,'Content-Type':'application/json'};
    const provider=async(path,options={})=>{
@@ -38,13 +48,14 @@ export function makeKoraHandler(env,createClient,request=fetch) {
     return {ok:r.ok&&data.status===true,status:r.status,data:data.data};
    };
    if(!signed&&['start-test','verify-test'].includes(body.action)) {
-    if(!cfg.test)return json({error:'Korapay test mode and a test secret are required. Live keys cannot run simulated tests.'},503);
+
     if(body.action==='start-test'){
      if(!emailOk(body.email))return json({error:'Enter a valid receipt email'},400);
      const reference='KTEST'+user.id.replaceAll('-','')+crypto.randomUUID().replaceAll('-','');
      const result=await provider('/charges/initialize',{method:'POST',body:JSON.stringify({reference,amount:100,currency:'NGN',customer:{email:body.email},merchant_bears_cost:true})});
      const url=koraUrl(result.data?.checkout_url,true);
-     if(!result.ok||result.data?.reference!==reference||!url)return json({error:'Korapay could not create a test checkout. Check the test key and merchant settings.'},502);
+     if(!result.ok)return json({error:result.status===401||result.status===403?'Korapay rejected the test key or merchant access. Check the test secret in Supabase.':'Korapay could not create a test checkout. Check the merchant test settings.',code:result.status===401||result.status===403?'korapay_test_access':'korapay_test_checkout'},502);
+     if(result.data?.reference!==reference||!url)return json({error:'Korapay returned an unexpected test checkout link or reference. No checkout was opened.',code:'korapay_test_response'},502);
      return json({sandbox:true,reference,checkout_url:url,currency:'NGN',amount:10000,purchases_enabled:false});
     }
     if(!koraTestRef(body.reference,user.id))return json({error:'Own test references only'},403);
