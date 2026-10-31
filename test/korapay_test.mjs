@@ -110,3 +110,24 @@ for(const setting of [undefined,'squad','korapay']) {
  assert.equal(choosesKora(request({}, {'x-squad-encrypted-body':'fixture'}),runtime),false,'preserve legacy webhook verification');
 }
 console.log('PASS Korapay routing with missing/stale provider setting and legacy webhook compatibility');
+
+const blockedClient={...client,rpc:async(name)=>name==='pulse_live_probe'?{error:{message:'rate limit'}}:{data:{active:true},error:null}};
+const blocked=makeKoraHandler(env,()=>blockedClient,provider);
+response=await blocked(request({action:'pricing',currency:'NGN'}));
+assert.equal(response.status,200,'price loading must not use payment quota');
+response=await blocked(request({action:'checkout',order_id:id,sku:'coins_100',email:'fixture@example.invalid'}));
+assert.equal(response.status,429,'payment requests must retain rate limiting');
+const wrongMode=makeKoraHandler(n=>({...values,KORAPAY_SECRET_KEY:'sk_test_fixture_only',KORAPAY_MODE:'live'})[n],()=>blockedClient,provider);
+response=await wrongMode(request({action:'start-test',email:'fixture@example.invalid'}));
+assert.equal(response.status,503);
+assert.equal((await response.json()).code,'korapay_test_configuration','configuration diagnosis must not consume payment quota');
+const workingTest=makeKoraHandler(n=>({...values,KORAPAY_SECRET_KEY:'sk_test_fixture_only',KORAPAY_MODE:'test'})[n],()=>client,async(url,options)=>{
+ const payload=JSON.parse(options.body);
+ assert.equal(payload.amount,100);assert.equal(payload.currency,'NGN');
+ return new Response(JSON.stringify({status:true,data:{reference:payload.reference,checkout_url:'https://test-checkout.korapay.com/'+payload.reference+'/pay'}}));
+});
+response=await workingTest(request({action:'start-test',email:'fixture@example.invalid'}));
+assert.equal(response.status,200);data=await response.json();
+assert.equal(data.purchases_enabled,false);assert.equal(data.sandbox,true);
+assert(data.checkout_url.startsWith('https://test-checkout.korapay.com/'));
+console.log('PASS isolated price quota, configuration diagnostics and sandbox initialization');
