@@ -10,6 +10,26 @@ class PulseGiftModel extends StatelessWidget {
   final String sku;
   @override
   Widget build(BuildContext context) {
+    const smallGiftArt = <String, String>{
+      'rose': 'assets/gifts/gift_rose.webp',
+      'heart': 'assets/gifts/gift_heart.webp',
+      'coffee': 'assets/gifts/gift_coffee.webp',
+      'pearl': 'assets/gifts/gift_pearl.webp',
+      'star': 'assets/gifts/gift_star.webp',
+      'butterfly': 'assets/gifts/gift_butterfly.webp',
+      'fire': 'assets/gifts/gift_fire.webp',
+      'fireworks': 'assets/gifts/gift_fireworks.webp',
+      'crown': 'assets/gifts/gift_crown.webp',
+      'trophy': 'assets/gifts/gift_trophy.webp',
+    };
+    final smallArt = smallGiftArt[sku];
+    if (smallArt != null) {
+      return Image.asset(
+        smallArt,
+        fit: BoxFit.contain,
+        errorBuilder: (_, __, ___) => const Icon(Icons.card_giftcard),
+      );
+    }
     if (pulseGiftMovies.containsKey(sku) ||
         pulseCinematicGifts.containsKey(sku)) {
       return ClipRRect(
@@ -69,8 +89,29 @@ class PulseGiftNotice extends StatelessWidget {
   final int quantity;
   final Widget avatar, gift;
   final bool test;
+  final String giftSku;
   @override
-  Widget build(BuildContext context) => Align(
+  Widget build(BuildContext context) {
+    final legendary = pulseLegendaryGifts.containsKey(giftSku);
+    final premium = pulsePremiumGifts.containsKey(giftSku);
+    final nameStyle = TextStyle(
+      color: legendary
+          ? const Color(0xffffd44f)
+          : premium
+          ? const Color(0xffd88bff)
+          : Colors.white,
+      fontWeight: FontWeight.w800,
+      fontSize: 13,
+      shadows: legendary
+          ? const [
+              Shadow(color: Color(0xffffc52f), blurRadius: 9),
+              Shadow(color: Color(0xfffff3ad), blurRadius: 16),
+            ]
+          : premium
+          ? const [Shadow(color: Color(0xffb84dff), blurRadius: 12)]
+          : null,
+    );
+    return Align(
     alignment: alignment,
     child: Container(
       constraints: const BoxConstraints(maxWidth: 340),
@@ -94,11 +135,7 @@ class PulseGiftNotice extends StatelessWidget {
                   '${test ? 'TEST · ' : ''}$name',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13,
-                  ),
+                  style: nameStyle,
                 ),
                 Text(
                   'Sent $title',
@@ -132,4 +169,5 @@ class PulseGiftNotice extends StatelessWidget {
       ),
     ),
   );
+  }
 }
