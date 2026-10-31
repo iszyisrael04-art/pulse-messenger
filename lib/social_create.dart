@@ -605,20 +605,29 @@ class _SocialComposerState extends State<SocialComposer> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        FilledButton.icon(
-                          onPressed: busy ? null : pick,
-                          icon: const Icon(Icons.add_rounded),
-                          label: const Text('Choose media'),
-                        ),
-                        const SizedBox(height: 10),
-                        FilledButton.icon(
-                          onPressed: busy ? null : openPersonalLive,
-                          style: FilledButton.styleFrom(
-                            backgroundColor: const Color(0xffed476f),
-                            foregroundColor: Colors.white,
-                          ),
-                          icon: const Icon(Icons.live_tv_rounded),
-                          label: const Text('Go LIVE'),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            FilledButton.icon(
+                              onPressed: busy ? null : pick,
+                              icon: const Icon(Icons.add_rounded),
+                              label: const Text(
+                                'Choose media',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            FilledButton.icon(
+                              onPressed: busy ? null : openPersonalLive,
+                              style: FilledButton.styleFrom(
+                                backgroundColor: const Color(0xffed476f),
+                                foregroundColor: Colors.white,
+                              ),
+                              icon: const Icon(Icons.live_tv_rounded),
+                              label: const Text('Go LIVE'),
+                            ),
+                          ],
                         ),
                       ],
                     ),
